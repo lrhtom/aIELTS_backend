@@ -3,33 +3,23 @@ AI API 调用封装 — 将 prompt 发送到第三方 AI，返回解析后的 JS
 """
 import os
 import json
-import requests
+import re
+from .ai_client import AIClient
 
 
-def call_ai_api(prompt: str) -> dict:
-    """调用 AI API 并返回解析后的 JSON 对象"""
-    base_url = os.environ.get('AI_BASE_URL')
-    api_key = os.environ.get('AI_API_KEY')
-    model = os.environ.get('AI_MODEL')
-
-    response = requests.post(
-        base_url,
-        headers={
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {api_key}',
-        },
-        json={
-            'model': model,
-            'messages': [{'role': 'user', 'content': prompt}],
-            'temperature': 0.7,
-        },
-        timeout=120,
-    )
-    response.raise_for_status()
-
-    data = response.json()
-    ai_content = data['choices'][0]['message']['content']
-
-    # 去掉可能的 markdown 代码块包裹
-    cleaned = ai_content.replace('```json', '').replace('```', '').strip()
-    return json.loads(cleaned)
+def call_ai_api(prompt: str, provider: str = 'deepseek') -> dict:
+    """调用 AI API 并返回解析后的 JSON 对象，内部委托给 AIClient"""
+    client = AIClient(provider=provider)
+    messages = [{'role': 'user', 'content': prompt}]
+    
+    try:
+        # expect_json=True will make generate() return a parsed dict
+        return client.generate(messages, expect_json=True, temperature=0.7)
+    except ValueError as e:
+        print(f"[AI] ❌ JSON 解析失败: {e}", flush=True)
+        # 上层期望返回一个 dict 且可能会带有错误或容错处理机制
+        # 原逻辑是解析报错时抛出异常或打印，并在 view 捕获 Exception
+        # 我们这里直接将异常抛出，与原行为一致
+        raise # 抛出异常，让调用方决定怎么处理，但我们用明确的信息包装它
+        # The original instruction had a duplicate raise statement, keeping the first one.
+        # raise ValueError(f"Failed to parse AI response as JSON: {e}")

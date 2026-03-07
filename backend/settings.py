@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 # 加载 .env
 load_dotenv(Path(__file__).resolve().parent.parent / '.env')
 
+import pymysql
+pymysql.install_as_MySQLdb()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-soqv)xa)9&6+x534k&r=!%3i)8btzj@y-3u5w%q8+do1&!wr_p'
@@ -44,6 +47,19 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
 ]
 
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-ai-provider",
+]
+
 ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
@@ -70,9 +86,10 @@ DATABASES = {
         'PORT': os.environ.get('DB_PORT', '3306'),
         'USER': os.environ.get('DB_USER', ''),
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'NAME': os.environ.get('DB_NAME', 'aielts'),
+        'NAME': os.environ.get('DB_NAME', 'aielts_db'),
         'OPTIONS': {
             'charset': 'utf8mb4',
+            'ssl': {'ca': ''},
         },
     }
 }
