@@ -29,12 +29,14 @@ class UserSerializer(serializers.ModelSerializer):
     """
     用于返回给前端的用户详细信息
     """
+    atBalance = serializers.IntegerField(source='at_balance', read_only=True)
+
     class Meta:
         model = User
         # 除去了密码等敏感字段
         fields = (
-            'id', 'username', 'email', 'nickname', 'avatar_url', 
-            'target_score', 'current_score', 'exam_date', 
-            'membership_tier', 'vip_expires_at', 'daily_ai_quota', 
-            'is_email_verified', 'last_login', 'date_joined'
+            'id', 'username', 'email', 'nickname', 'avatar_url',
+            'target_score', 'current_score', 'exam_date',
+            'membership_tier', 'vip_expires_at', 'daily_ai_quota',
+            'at_balance', 'atBalance', 'is_email_verified', 'last_login', 'date_joined'
         )

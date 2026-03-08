@@ -1,7 +1,7 @@
 import json
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from .ai_client import AIClient
 
 WRITING_CORRECTION_PROMPT = """
@@ -27,15 +27,14 @@ User Essay:
 CRITICAL: Return ONLY valid JSON format. Do NOT wrap the JSON in ```json or any other markdown text!
 """
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def generate_writing(request):
     """
     POST /api/writing/generate — 接收前端传来的文本和提供商，返回雅思写作批改结果 JSON
     """
     try:
-        body = json.loads(request.body)
-        essay_text = body.get('text', '').strip()
+        essay_text = request.data.get('text', '').strip()
         
         if not essay_text:
             return JsonResponse({'error': 'Essay text is required.'}, status=400)
@@ -47,8 +46,9 @@ def generate_writing(request):
         client = AIClient(provider=provider)
         
         # 强制 AIClient 期待 JSON 返回，它内部会用完全贪婪正则抽取 {} 并 json.loads()
-        result_data = client.generate([{"role": "user", "content": prompt}], expect_json=True)
+        result_data, at_cost = client.generate([{"role": "user", "content": prompt}], expect_json=True, user_id=request.user.id)
         
+        result_data['atConsumed'] = at_cost
         return JsonResponse(result_data)
 
     except json.JSONDecodeError as e:

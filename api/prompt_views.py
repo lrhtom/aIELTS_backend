@@ -1,12 +1,12 @@
 import json
 from django.core.paginator import Paginator, EmptyPage
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from .models import AIPrompt
 
-@csrf_exempt
-@require_http_methods(["GET", "POST"])
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def prompt_list(request):
     """
     GET: 获取提示词列表，支持 ?page=1
@@ -45,9 +45,8 @@ def prompt_list(request):
 
     elif request.method == "POST":
         try:
-            body = json.loads(request.body)
-            username = body.get('username', '').strip()
-            prompt_content = body.get('prompt_content', '').strip()
+            username = request.data.get('username', '').strip()
+            prompt_content = request.data.get('prompt_content', '').strip()
             
             if not username or not prompt_content:
                 return JsonResponse({"error": "用户名和提示词内容不能为空"}, status=400)
@@ -61,5 +60,5 @@ def prompt_list(request):
                 "id": new_prompt.id
             }, status=201)
             
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "解析 JSON 失败"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)

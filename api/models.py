@@ -18,6 +18,7 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="手机号", unique=True)
     nickname = models.CharField(max_length=50, blank=True, verbose_name="用户昵称")
     avatar_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="头像URL")
+    avatar_file = models.CharField(max_length=255, blank=True, null=True, verbose_name="头像文件路径")
     
     target_score = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="目标分数(如: 7.5)")
     current_score = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="当前预估分数")
@@ -31,6 +32,7 @@ class User(AbstractUser):
     )
     vip_expires_at = models.DateTimeField(blank=True, null=True, verbose_name="会员过期时间")
     daily_ai_quota = models.IntegerField(default=20, verbose_name="每日剩余生成次数/Token")
+    at_balance = models.IntegerField(default=100, verbose_name="AT币余额")
     
     wechat_openid = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name="微信OpenID")
     github_id = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name="Github ID")

@@ -1,7 +1,7 @@
 import json
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from .utils import call_ai_api
 
 READING_PROMPT_TEMPLATE = """
@@ -33,14 +33,13 @@ You MUST output your response strictly in the following JSON format without any 
 }}
 """
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def generate_reading(request):
     """POST /api/reading/generate — 接收词汇列表，返回 AI 生成的阅读材料"""
     try:
-        body = json.loads(request.body)
-        words = body.get('words', [])
-        difficulty = body.get('difficulty', '7.0')
+        words = request.data.get('words', [])
+        difficulty = request.data.get('difficulty', '7.0')
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         if not words:
@@ -53,10 +52,8 @@ def generate_reading(request):
 
         prompt = READING_PROMPT_TEMPLATE.format(vocab_instruction=vocab_instruction, difficulty=difficulty, marker_rule=marker_rule)
 
-        result = call_ai_api(prompt, provider=provider)
+        result = call_ai_api(prompt, provider=provider, user_id=request.user.id)
         return JsonResponse(result)
 
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

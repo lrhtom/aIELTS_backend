@@ -1,19 +1,18 @@
 import json
 import re
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def speaking_chat(request):
     """
     口语聊天接口 — 接收多轮对话历史，返回 AI 纯文本回复
     Body: { "messages": [{"role": "...", "content": "..."}] }
     """
     try:
-        body = json.loads(request.body)
-        messages = body.get('messages', [])
+        messages = request.data.get('messages', [])
         if not messages:
             return JsonResponse({'error': 'messages required'}, status=400)
 
@@ -47,7 +46,7 @@ def speaking_chat(request):
         
         # 我们使用 expect_json=False 让 AIClient 返回清理过 <think> 的裸字符串
         # 因为 speaking_chat 这里有一套非常定制化的从 parsed() 中找不同 key 的 fallback 逻辑
-        ai_text = client.generate(messages, expect_json=False, temperature=0.75)
+        ai_text, at_cost = client.generate(messages, expect_json=False, temperature=0.75, user_id=request.user.id)
         
         print(f"[AI RAW TEXT]: {repr(ai_text)}", flush=True)
 
@@ -92,15 +91,16 @@ def speaking_chat(request):
             'reply': reply_text,
             'grammar_score': grammar_score,
             'vocab_score': vocab_score,
-            'relevance_score': relevance_score
+            'relevance_score': relevance_score,
+            'atConsumed': at_cost
         })
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def speaking_transcribe(request):
     """
     语音转文字接口 — 接收前端 MediaRecorder 录制的音频，
@@ -112,7 +112,7 @@ def speaking_transcribe(request):
         if not audio_file:
             return JsonResponse({'error': 'No audio file provided'}, status=400)
 
-        reference_text = request.POST.get('reference_text', '').strip()
+        reference_text = request.data.get('reference_text', '').strip()
         
         import io
         import tempfile

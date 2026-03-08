@@ -4,8 +4,8 @@ import re
 import subprocess
 import tempfile
 from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from .utils import call_ai_api
 
 ARTICLE_LISTENING_PROMPT_TEMPLATE = """
@@ -100,17 +100,16 @@ Output ONLY valid JSON, no markdown, no comments:
 """
 
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def generate_listening(request):
     """POST /api/listening/generate — 生成听力填空练习"""
     try:
-        body = json.loads(request.body)
-        words = body.get('words', [])
-        difficulty = body.get('difficulty', '7.0')
-        word_count_min = body.get('wordCountMin', 1)
-        word_count_max = body.get('wordCountMax', 2)
-        practice_type = body.get('practiceType', 'article')
+        words = request.data.get('words', [])
+        difficulty = request.data.get('difficulty', '7.0')
+        word_count_min = request.data.get('wordCountMin', 1)
+        word_count_max = request.data.get('wordCountMax', 2)
+        practice_type = request.data.get('practiceType', 'article')
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         print(f"\n{'='*60}", flush=True)
@@ -174,7 +173,7 @@ def generate_listening(request):
                 marker_rule=marker_rule
             )
 
-        result = call_ai_api(prompt, provider=provider)
+        result = call_ai_api(prompt, provider=provider, user_id=request.user.id)
 
         # ── 打印 AI 返回的关键信息 ──
         print(f"[Listening] 📊 AI 返回数据:", flush=True)
@@ -245,19 +244,16 @@ def generate_listening(request):
         print(f"{'='*60}\n", flush=True)
         return JsonResponse(result)
 
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def generate_listening_audio(request):
     """POST /api/listening/audio — 生成 Edge-TTS 的 mp3 文件"""
     try:
-        body = json.loads(request.body)
-        text = body.get('text', '')
+        text = request.data.get('text', '')
 
         if not text:
             return JsonResponse({'error': 'No text provided'}, status=400)
