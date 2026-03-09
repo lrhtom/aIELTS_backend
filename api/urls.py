@@ -6,6 +6,8 @@ from . import writing_views
 from . import prompt_views
 from . import auth_views
 from . import balance_views
+from . import feedback_views
+from . import background_views
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -19,6 +21,8 @@ urlpatterns = [
     path('auth/profile', auth_views.UserProfileView.as_view(), name='auth_profile'),
     path('auth/avatar', auth_views.AvatarUploadView.as_view(), name='avatar_upload'),
     path('auth/delete-account', auth_views.DeleteAccountView.as_view(), name='delete_account'),
+    path('auth/background', background_views.BackgroundSettingsView.as_view(), name='user_background'),
+    path('auth/background/image', background_views.BackgroundImageUploadView.as_view(), name='user_background_image'),
 
     # ---- AT币管理 API ----
     path('balance', balance_views.get_balance, name='get_balance'),
@@ -34,4 +38,5 @@ urlpatterns = [
     path('speaking/transcribe', speaking_views.speaking_transcribe, name='speaking_transcribe'),
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
+    path('feedback/submit', feedback_views.FeedbackCreateView.as_view(), name='feedback_submit'),
 ]

@@ -32,7 +32,7 @@ class User(AbstractUser):
     )
     vip_expires_at = models.DateTimeField(blank=True, null=True, verbose_name="会员过期时间")
     daily_ai_quota = models.IntegerField(default=20, verbose_name="每日剩余生成次数/Token")
-    at_balance = models.IntegerField(default=100, verbose_name="AT币余额")
+    at_balance = models.IntegerField(default=10000, verbose_name="AT币余额")
     
     wechat_openid = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name="微信OpenID")
     github_id = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name="Github ID")
@@ -40,6 +40,11 @@ class User(AbstractUser):
     is_email_verified = models.BooleanField(default=False, verbose_name="邮箱是否验证")
     last_ip = models.GenericIPAddressField(blank=True, null=True, verbose_name="最后登录IP")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="信息最后更新时间")
+
+    # 外观偏好
+    bg_color = models.CharField(max_length=200, blank=True, null=True, verbose_name="背景颜色/渐变值")
+    bg_image_url = models.URLField(max_length=1000, blank=True, null=True, verbose_name="背景图片URL")
+    bg_blur = models.FloatField(default=2.0, verbose_name="背景模糊度(px)")
 
     class Meta:
         verbose_name = "用户信息"
@@ -61,3 +66,17 @@ class AIPrompt(models.Model):
 
     def __str__(self):
         return f"{self.username} - {self.prompt_content[:30]}"
+
+class Feedback(models.Model):
+    username = models.CharField(max_length=150, verbose_name="用户名")
+    title = models.CharField(max_length=255, verbose_name="反馈标题")
+    content = models.TextField(blank=True, null=True, verbose_name="反馈内容")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Bug 反馈"
+        verbose_name_plural = "Bug 反馈列表"
+
+    def __str__(self):
+        return f"{self.username} - {self.title}"
