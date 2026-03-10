@@ -4,6 +4,7 @@ from . import listening_views
 from . import speaking_views
 from . import writing_views
 from . import writing_chart_views
+from . import writing_task2_views
 from . import prompt_views
 from . import auth_views
 from . import balance_views
@@ -43,6 +44,8 @@ urlpatterns = [
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
     path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
     path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
+    path('writing/task2/generate', writing_task2_views.generate_task2, name='generate_task2'),
+    path('writing/task2/evaluate', writing_task2_views.evaluate_task2, name='evaluate_task2'),
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
     path('feedback/submit', feedback_views.FeedbackCreateView.as_view(), name='feedback_submit'),
 

@@ -14,21 +14,40 @@ def generate_chart(request):
     try:
         user = request.user
         chart_type = request.data.get('type', 'line')
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
 
-        client = AIClient()
+        client = AIClient(provider=provider)
+
+        if chart_type == 'flowchart':
+            chart_instructions = """
+   - The user requested a FLOWCHART (Process Diagram).
+   - You MUST use `matplotlib.patches` (e.g., FancyBboxPatch, Circle, Arrow, FancyArrowPatch) and `plt.text` to draw the diagram.
+   - The flowchart should illustrate a process (e.g., manufacturing process, natural cycle).
+   - IMPORTANT: Turn off axes using `plt.axis('off')`.
+   - Arrange the nodes logically (top-to-bottom or left-to-right).
+   - Draw connectings arrows between the nodes.
+   - Example snippet:
+     import matplotlib.patches as patches
+     fig, ax = plt.subplots(figsize=(10, 6))
+     ax.axis('off')
+     # Add patches and text
+     ..."""
+        else:
+            chart_instructions = """
+   - The code must generate its own random but plausible data arrays inline for the chart.
+   - Use ONLY standard chart functions (plot, bar, pie, etc.) for data visualization."""
 
         system_prompt = f'''You are an IELTS Task 1 examiner.
 You need to provide a new chart practice question.
 The requested chart type is: {chart_type}.
 
 You MUST return a JSON with EXACTLY these two fields:
-1. "prompt": The IELTS Task 1 question description (e.g., "The graph below shows the population of three cities...").
-2. "code": Python code using Matplotlib that generates the chart.
-   - The code must generate its own random but plausible data arrays inline for the chart.
+1. "prompt": The IELTS Task 1 question description (e.g., "The graph below shows the population of three cities...", or "The diagram below shows the process of...").
+2. "code": Python code using Matplotlib that generates the chart. {chart_instructions}
    - The code MUST save the chart to the image path passed as `sys.argv[1]`.
    - Do NOT use `plt.show()`.
    - Use ONLY `matplotlib`, `numpy`, or standard libraries. NO dangerous OS imports.
-   - It is crutial that the image is sized correctly (e.g., `plt.figure(figsize=(8, 5))`) and looks professional.
+   - It is crutial that the image is sized correctly and looks professional.
    - Example file structure:
      import sys
      import matplotlib.pyplot as plt
@@ -108,8 +127,9 @@ def evaluate_chart(request):
         prompt_text = request.data.get('prompt', '')
         python_code = request.data.get('pythonCode', '')
         user_answer = request.data.get('userAnswer', '')
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
 
-        client = AIClient()
+        client = AIClient(provider=provider)
         system_prompt = '''You are an expert IELTS examiner evaluator.
 Evaluate the user's Task 1 Writing based on the provided Prompt and the Python data code which represents the exact figures.
 Return a JSON with EXACTLY this structure:
