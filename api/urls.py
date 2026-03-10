@@ -3,11 +3,14 @@ from . import reading_views
 from . import listening_views
 from . import speaking_views
 from . import writing_views
+from . import writing_chart_views
 from . import prompt_views
 from . import auth_views
 from . import balance_views
 from . import feedback_views
 from . import background_views
+from . import admin_views
+from .auth_views import SendVerificationCodeView, CustomLoginView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -16,7 +19,8 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     # ---- 鉴权与用户 API ----
     path('auth/register', auth_views.UserRegistrationView.as_view(), name='auth_register'),
-    path('auth/login', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/send-code', SendVerificationCodeView.as_view(), name='auth_send_code'),
+    path('auth/login', CustomLoginView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/profile', auth_views.UserProfileView.as_view(), name='auth_profile'),
     path('auth/avatar', auth_views.AvatarUploadView.as_view(), name='avatar_upload'),
@@ -37,6 +41,13 @@ urlpatterns = [
     path('speaking/chat', speaking_views.speaking_chat, name='speaking_chat'),
     path('speaking/transcribe', speaking_views.speaking_transcribe, name='speaking_transcribe'),
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
+    path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
+    path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
     path('feedback/submit', feedback_views.FeedbackCreateView.as_view(), name='feedback_submit'),
+
+    # ---- 管理后台 API ----
+    path('admin/feedback', admin_views.AdminFeedbackListView.as_view(), name='admin_feedback_list'),
+    path('admin/feedback/<int:pk>', admin_views.AdminFeedbackUpdateView.as_view(), name='admin_feedback_update'),
+    path('admin/feedback/<int:pk>/delete', admin_views.AdminFeedbackDeleteView.as_view(), name='admin_feedback_delete'),
 ]

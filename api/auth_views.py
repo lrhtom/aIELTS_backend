@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import UserRegistrationSerializer, UserSerializer
+from .email_service import send_verification_code, verify_code
 import os
 import mimetypes
 from PIL import Image
@@ -16,17 +17,75 @@ from django.conf import settings
 
 User = get_user_model()
 
-class UserRegistrationView(APIView):
+class CustomLoginView(APIView):
     """
-    处理用户注册请求的视图
+    自定义登录视图：先验证凭据，再检查封号状态，最后签发 JWT
     """
-    permission_classes = [AllowAny] # 允许任何人访问
+    permission_classes = [AllowAny]
 
     def post(self, request):
+        from django.contrib.auth import authenticate
+        username = request.data.get('username', '')
+        password = request.data.get('password', '')
+
+        user = authenticate(request, username=username, password=password)
+        if user is None:
+            return Response({'error': 'INVALID_CREDENTIALS'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if user.is_banned:
+            return Response({'error': 'ACCOUNT_BANNED'}, status=status.HTTP_403_FORBIDDEN)
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        })
+
+class SendVerificationCodeView(APIView):
+    """
+    发送邮箱验证码
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        username = request.data.get('username', '').strip()
+
+        if not email or not username:
+            return Response({'error': 'EMAIL_AND_USERNAME_REQUIRED'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 检查邮箱或用户名是否已被注册
+        if User.objects.filter(username=username).exists() or User.objects.filter(email=email).exists():
+            return Response({'error': 'REGISTER_TAKEN'}, status=status.HTTP_400_BAD_REQUEST)
+
+        success, message = send_verification_code(email, username)
+        if success:
+            return Response({'message': 'CODE_SENT'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserRegistrationView(APIView):
+    """
+    处理用户注册请求的视图，注册前必须通过邮箱验证
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        code = request.data.get('verification_code', '').strip()
+
+        # 校验验证码
+        if not code:
+            return Response({'error': 'VERIFICATION_CODE_REQUIRED'}, status=status.HTTP_400_BAD_REQUEST)
+        if not verify_code(email, code):
+            return Response({'error': 'INVALID_CODE'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 验证码通过后执行注册
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            # 注册成功后，直接为用户发放 Token，让其自动登录
+            # 注册成功直接签发 Token，自动登录
             refresh = RefreshToken.for_user(user)
             return Response({
                 'message': '注册成功',
@@ -36,7 +95,7 @@ class UserRegistrationView(APIView):
                     'access': str(refresh.access_token),
                 }
             }, status=status.HTTP_201_CREATED)
-            
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserProfileView(APIView):

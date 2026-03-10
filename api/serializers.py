@@ -49,7 +49,7 @@ class UserSerializer(serializers.ModelSerializer):
             'membership_tier', 'vip_expires_at', 'daily_ai_quota',
             'at_balance', 'atBalance', 'is_email_verified', 'last_login', 'date_joined',
             'createdAt', 'updatedAt',
-            'bg_color', 'bg_image_url', 'bg_blur',
+            'bg_color', 'bg_image_url', 'bg_blur', 'is_staff', 'is_superuser',
         )
 
 from .models import Feedback
@@ -57,5 +57,5 @@ from .models import Feedback
 class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
-        fields = ('id', 'username', 'title', 'content', 'created_at')
+        fields = ('id', 'username', 'title', 'content', 'is_resolved', 'created_at')
         read_only_fields = ('id', 'username', 'created_at')

@@ -38,6 +38,7 @@ class User(AbstractUser):
     github_id = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name="Github ID")
 
     is_email_verified = models.BooleanField(default=False, verbose_name="邮箱是否验证")
+    is_banned = models.BooleanField(default=False, verbose_name="是否封号")
     last_ip = models.GenericIPAddressField(blank=True, null=True, verbose_name="最后登录IP")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="信息最后更新时间")
 
@@ -71,6 +72,7 @@ class Feedback(models.Model):
     username = models.CharField(max_length=150, verbose_name="用户名")
     title = models.CharField(max_length=255, verbose_name="反馈标题")
     content = models.TextField(blank=True, null=True, verbose_name="反馈内容")
+    is_resolved = models.BooleanField(default=False, verbose_name="是否解决")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
