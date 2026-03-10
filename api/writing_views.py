@@ -16,11 +16,6 @@ Your evaluation MUST be returned as a raw JSON object containing EXACTLY these k
   "Lexical_Resource": (float) Score for Lexical Resource,
   "Grammatical_Range": (float) Score for Grammatical Range and Accuracy,
   "Overall_Band": (float) The overall band score (average of the 4 criteria, rounded to nearest 0.5),
-  "Feedback": "(string) A detailed, structured feedback paragraph highlighting strengths, key errors, and specific advice for improvement. You can use line breaks (\\n) for formatting. Please write feedback in Chinese to help the student better understand."
-}
-
-User Essay:
-\"\"\"
 %s
 \"\"\"
 
@@ -41,7 +36,19 @@ def generate_writing(request):
 
         provider = request.headers.get('X-AI-Provider', 'deepseek')
         
-        prompt = WRITING_CORRECTION_PROMPT % essay_text
+        user_prompt_context = request.data.get('prompt', '').strip()
+        
+        if user_prompt_context:
+            context_injection = f'''
+The user was responding to the following specific IELTS task prompt:
+"""
+{user_prompt_context}
+"""
+Please evaluate the Task Response score with strict attention to whether the essay directly answers ALL parts of this specific prompt.
+'''
+            prompt = WRITING_CORRECTION_PROMPT % (context_injection + "\nUser Essay:\n\"\"\"\n" + essay_text)
+        else:
+            prompt = WRITING_CORRECTION_PROMPT % ("User Essay:\n\"\"\"\n" + essay_text)
         
         client = AIClient(provider=provider)
         
