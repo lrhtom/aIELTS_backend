@@ -157,6 +157,52 @@ class AIClient:
             return parsed, at_cost
         except json.JSONDecodeError as e:
             print(f"[AIClient] ❌ JSON 解析崩溃: {e}")
+            # 尝试修复常见 AI 格式错误：未关闭的数组（用 } 代替了 ]）
+            repaired = _repair_json(json_str)
+            if repaired != json_str:
+                try:
+                    parsed = json.loads(repaired)
+                    print(f"[AIClient] ✅ JSON 修复后解析成功")
+                    return parsed, at_cost
+                except json.JSONDecodeError:
+                    pass
             print(f"[AIClient] ⚠️ 失效的原始字符串: {repr(ai_content[:200])}")
             # 如果强制要求 JSON 却解析失败，则抛出异常让上层函数进行异常处理
             raise ValueError("AI Client Failed to parse response as JSON. Raw: " + ai_content)
+
+
+def _repair_json(json_str: str) -> str:
+    """
+    修复 AI 返回的常见 JSON 格式错误。
+    典型情形：数组末尾写了 } 而不是 ]，导致 [ 未关闭。
+    修复方式：在最后一个 } 之前插入缺失的 ]。
+    """
+    open_brackets = 0
+    in_string = False
+    i = 0
+    while i < len(json_str):
+        ch = json_str[i]
+        if in_string:
+            if ch == '\\':
+                i += 2  # skip escaped character
+                continue
+            if ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == '[':
+                open_brackets += 1
+            elif ch == ']':
+                open_brackets -= 1
+
+        i += 1
+
+    if open_brackets <= 0:
+        return json_str  # nothing to fix
+
+    # Insert missing ] before the last }
+    rstripped = json_str.rstrip()
+    if rstripped.endswith('}'):
+        return rstripped[:-1] + (']' * open_brackets) + '}'
+    return json_str + ']' * open_brackets

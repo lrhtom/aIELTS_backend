@@ -59,3 +59,16 @@ class FeedbackSerializer(serializers.ModelSerializer):
         model = Feedback
         fields = ('id', 'username', 'title', 'content', 'is_resolved', 'created_at')
         read_only_fields = ('id', 'username', 'created_at')
+
+
+class AdminUserManageSerializer(serializers.ModelSerializer):
+    atBalance = serializers.IntegerField(source='at_balance', read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'email', 'is_staff', 'is_superuser',
+            'is_active', 'is_banned', 'is_email_verified',
+            'date_joined', 'last_login', 'at_balance', 'atBalance',
+        )
+        read_only_fields = fields

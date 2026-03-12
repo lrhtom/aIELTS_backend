@@ -11,6 +11,7 @@ import mimetypes
 from PIL import Image
 import io
 import uuid
+from django.utils import timezone
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
@@ -28,14 +29,28 @@ class CustomLoginView(APIView):
         username = request.data.get('username', '')
         password = request.data.get('password', '')
 
+        print(f"[Login] Attempt for user: {username}")
         user = authenticate(request, username=username, password=password)
+        
         if user is None:
+            print(f"[Login] Failed: Invalid credentials for {username}")
             return Response({'error': 'INVALID_CREDENTIALS'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        print(f"[Login] Success: User {username} authenticated")
 
         if user.is_banned:
             return Response({'error': 'ACCOUNT_BANNED'}, status=status.HTTP_403_FORBIDDEN)
 
+        # 刷新 Token ID 以实现单设备登录限制
+        user.jwt_token_id = str(uuid.uuid4())
+        # 自定义登录流程需手动维护最近登录时间
+        user.last_login = timezone.now()
+        user.save(update_fields=['jwt_token_id', 'last_login'])
+
         refresh = RefreshToken.for_user(user)
+        # 将 Token ID 注入到 JWT 负载中
+        refresh['jwt_token_id'] = user.jwt_token_id
+        
         return Response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
@@ -85,8 +100,15 @@ class UserRegistrationView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            
+            # 注册时也初始化 Token ID
+            user.jwt_token_id = str(uuid.uuid4())
+            user.save()
+
             # 注册成功直接签发 Token，自动登录
             refresh = RefreshToken.for_user(user)
+            refresh['jwt_token_id'] = user.jwt_token_id
+            
             return Response({
                 'message': '注册成功',
                 'user': UserSerializer(user).data,

@@ -11,6 +11,9 @@ from .utils import call_ai_api
 ARTICLE_LISTENING_PROMPT_TEMPLATE = """
 You are an IELTS examiner. Create an IELTS listening passage (Band {difficulty} difficulty) {vocab_instruction}
 
+Tone requirement:
+{tone_instruction}
+
 RULES:
 1. CRITICAL WORD LIMIT: Each blank answer MUST be {word_count_desc}. Answers exceeding this word limit are WRONG.
 2. "passage": the COMPLETE audio transcript. {marker_rule}
@@ -43,6 +46,9 @@ ARTICLE_LISTENING_MULTIPLE_CHOICE_PROMPT_TEMPLATE = """
 You are an IELTS examiner.
 Create an IELTS listening practice passage (Band {difficulty} difficulty) {vocab_instruction}
 
+Tone requirement:
+{tone_instruction}
+
 {mc_marker_rule}
 
 Then, create exactly 5 multiple-choice questions (A, B, C, D) based on the passage. Assign the correct answer for each question completely at random. Please ensure true randomness, which means it is entirely acceptable and expected if the distribution is uneven, and one option (A, B, C, or D) might not appear as the correct answer at all.
@@ -71,6 +77,9 @@ You MUST output your response strictly in the following JSON format without any 
 
 SENTENCE_LISTENING_PROMPT_TEMPLATE = """
 You are an IELTS examiner. Create an IELTS listening passage (Band {difficulty} difficulty) {vocab_instruction}
+
+Tone requirement:
+{tone_instruction}
 
 RULES:
 1. CRITICAL WORD LIMIT: Each blank answer MUST be {word_count_desc}. Answers exceeding this word limit are WRONG.
@@ -110,7 +119,14 @@ def generate_listening(request):
         word_count_min = request.data.get('wordCountMin', 1)
         word_count_max = request.data.get('wordCountMax', 2)
         practice_type = request.data.get('practiceType', 'article')
+        absurd_mode = str(request.data.get('absurdMode', 'false')).lower() == 'true'
         provider = request.headers.get('X-AI-Provider', 'deepseek')
+
+        tone_instruction = (
+            "Use an absurd, playful, joke-rich tone that helps memorization. Keep content classroom-safe: no profanity, no sexual content, no harassment."
+            if absurd_mode else
+            "Use a standard academic IELTS tone."
+        )
 
         print(f"\n{'='*60}", flush=True)
         print(f"[Listening] 📥 收到请求", flush=True)
@@ -154,7 +170,8 @@ def generate_listening(request):
             prompt = ARTICLE_LISTENING_MULTIPLE_CHOICE_PROMPT_TEMPLATE.format(
                 vocab_instruction=vocab_instruction,
                 difficulty=difficulty,
-                mc_marker_rule=mc_marker_rule
+                mc_marker_rule=mc_marker_rule,
+                tone_instruction=tone_instruction,
             )
         elif practice_type == 'sentence':
             prompt = SENTENCE_LISTENING_PROMPT_TEMPLATE.format(
@@ -162,7 +179,8 @@ def generate_listening(request):
                 difficulty=difficulty,
                 word_count_desc=word_count_desc,
                 example_answer=example_answer,
-                marker_rule=marker_rule
+                marker_rule=marker_rule,
+                tone_instruction=tone_instruction,
             )
         else:
             prompt = ARTICLE_LISTENING_PROMPT_TEMPLATE.format(
@@ -170,7 +188,8 @@ def generate_listening(request):
                 difficulty=difficulty,
                 word_count_desc=word_count_desc,
                 example_answer=example_answer,
-                marker_rule=marker_rule
+                marker_rule=marker_rule,
+                tone_instruction=tone_instruction,
             )
 
         result = call_ai_api(prompt, provider=provider, user_id=request.user.id)

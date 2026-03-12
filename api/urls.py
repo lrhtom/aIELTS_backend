@@ -47,10 +47,15 @@ urlpatterns = [
     path('writing/task2/generate', writing_task2_views.generate_task2, name='generate_task2'),
     path('writing/task2/evaluate', writing_task2_views.evaluate_task2, name='evaluate_task2'),
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
+    path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),
+    path('prompts/<int:pk>/favorite/', prompt_views.prompt_favorite, name='prompt_favorite'),
     path('feedback/submit', feedback_views.FeedbackCreateView.as_view(), name='feedback_submit'),
 
     # ---- 管理后台 API ----
     path('admin/feedback', admin_views.AdminFeedbackListView.as_view(), name='admin_feedback_list'),
     path('admin/feedback/<int:pk>', admin_views.AdminFeedbackUpdateView.as_view(), name='admin_feedback_update'),
     path('admin/feedback/<int:pk>/delete', admin_views.AdminFeedbackDeleteView.as_view(), name='admin_feedback_delete'),
+    path('admin/users', admin_views.AdminUserListView.as_view(), name='admin_user_list'),
+    path('admin/users/<int:pk>/ban', admin_views.AdminUserBanToggleView.as_view(), name='admin_user_ban_toggle'),
+    path('admin/users/<int:pk>/delete', admin_views.AdminUserDeleteView.as_view(), name='admin_user_delete'),
 ]

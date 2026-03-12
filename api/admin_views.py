@@ -1,10 +1,20 @@
+from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from .models import Feedback
-from .serializers import FeedbackSerializer
+from .serializers import FeedbackSerializer, AdminUserManageSerializer
 
-class AdminPagination(PageNumberPagination):
+User = get_user_model()
+
+class AdminFeedbackPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class AdminUserPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
     max_page_size = 100
@@ -23,7 +33,7 @@ class AdminFeedbackListView(generics.ListAPIView):
     queryset = Feedback.objects.all().order_by('-created_at')
     serializer_class = FeedbackSerializer
     permission_classes = [IsAdminUser]
-    pagination_class = AdminPagination
+    pagination_class = AdminFeedbackPagination
 
 class AdminFeedbackUpdateView(generics.UpdateAPIView):
     """
@@ -50,3 +60,56 @@ class AdminFeedbackDeleteView(generics.DestroyAPIView):
     queryset = Feedback.objects.all()
     serializer_class = FeedbackSerializer
     permission_classes = [IsAdminUser]
+
+
+class AdminUserListView(generics.ListAPIView):
+    """
+    管理员查看用户列表（分页）
+    """
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = AdminUserManageSerializer
+    permission_classes = [IsAdminUser]
+    pagination_class = AdminUserPagination
+
+
+class AdminUserBanToggleView(APIView):
+    """
+    管理员封禁/解封用户
+    """
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, pk: int):
+        try:
+            target_user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'USER_NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.is_staff or target_user.is_superuser:
+            return Response({'error': 'CANNOT_MODIFY_ADMIN'}, status=status.HTTP_403_FORBIDDEN)
+
+        is_banned = request.data.get('is_banned')
+        if is_banned is None:
+            return Response({'error': 'MISSING_IS_BANNED'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user.is_banned = bool(is_banned)
+        target_user.save(update_fields=['is_banned', 'updated_at'])
+        return Response(AdminUserManageSerializer(target_user).data, status=status.HTTP_200_OK)
+
+
+class AdminUserDeleteView(APIView):
+    """
+    管理员删除用户
+    """
+    permission_classes = [IsAdminUser]
+
+    def delete(self, request, pk: int):
+        try:
+            target_user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'USER_NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.is_staff or target_user.is_superuser:
+            return Response({'error': 'CANNOT_MODIFY_ADMIN'}, status=status.HTTP_403_FORBIDDEN)
+
+        target_user.delete()
+        return Response({'message': 'USER_DELETED'}, status=status.HTTP_200_OK)

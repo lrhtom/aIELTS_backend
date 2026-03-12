@@ -8,6 +8,9 @@ READING_PROMPT_TEMPLATE = """
 You are an IELTS examiner.
 Create an IELTS Academic reading passage (Band {difficulty} difficulty) {vocab_instruction}
 
+Tone requirement:
+{tone_instruction}
+
 {marker_rule}
 
 Then, create exactly 5 multiple-choice questions (A, B, C, D) based on the passage. Assign the correct answer for each question completely at random. Please ensure true randomness, which means it is entirely acceptable and expected if the distribution is uneven, and one option (A, B, C, or D) might not appear as the correct answer at all
@@ -40,7 +43,14 @@ def generate_reading(request):
     try:
         words = request.data.get('words', [])
         difficulty = request.data.get('difficulty', '7.0')
+        absurd_mode = str(request.data.get('absurdMode', 'false')).lower() == 'true'
         provider = request.headers.get('X-AI-Provider', 'deepseek')
+
+        tone_instruction = (
+            "Use an absurd, playful, joke-rich tone that helps memorization. Keep content classroom-safe: no profanity, no sexual content, no harassment."
+            if absurd_mode else
+            "Use a standard academic IELTS tone."
+        )
 
         if not words:
             vocab_instruction = ""
@@ -50,7 +60,12 @@ def generate_reading(request):
             vocab_instruction = f"using the following vocabulary words: {word_str}. You MUST use ALL of them!"
             marker_rule = "IMPORTANT RULES:\\nWhenever you use one of the target vocabulary words (or its tense/plural variations) in either the passage OR the questions/options, you MUST wrap it in double asterisks, like **word**. Do NOT use asterisks for anything else."
 
-        prompt = READING_PROMPT_TEMPLATE.format(vocab_instruction=vocab_instruction, difficulty=difficulty, marker_rule=marker_rule)
+        prompt = READING_PROMPT_TEMPLATE.format(
+            vocab_instruction=vocab_instruction,
+            difficulty=difficulty,
+            marker_rule=marker_rule,
+            tone_instruction=tone_instruction,
+        )
 
         result = call_ai_api(prompt, provider=provider, user_id=request.user.id)
         return JsonResponse(result)
