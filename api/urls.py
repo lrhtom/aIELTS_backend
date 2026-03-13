@@ -11,6 +11,9 @@ from . import balance_views
 from . import feedback_views
 from . import background_views
 from . import admin_views
+from . import vocab_views
+from . import notebook_views
+from . import learning_plan_views
 from .auth_views import SendVerificationCodeView, CustomLoginView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -50,6 +53,26 @@ urlpatterns = [
     path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),
     path('prompts/<int:pk>/favorite/', prompt_views.prompt_favorite, name='prompt_favorite'),
     path('feedback/submit', feedback_views.FeedbackCreateView.as_view(), name='feedback_submit'),
+
+    # ---- 词汇 FSRS API ----
+    path('vocab/sync',   vocab_views.VocabSyncView.as_view(),   name='vocab_sync'),
+    path('vocab/cards',  vocab_views.VocabCardsView.as_view(),  name='vocab_cards'),
+    path('vocab/review', vocab_views.VocabReviewView.as_view(), name='vocab_review'),
+
+    # ---- 笔记本 API ----
+    path('notebooks/',                              notebook_views.NotebookListView.as_view(),      name='notebook_list'),
+    path('notebooks/<int:pk>/',                     notebook_views.NotebookDetailView.as_view(),    name='notebook_detail'),
+    path('notebooks/<int:pk>/words/',               notebook_views.NotebookWordListView.as_view(),  name='notebook_words'),
+    path('notebooks/<int:pk>/words/<int:eid>/',     notebook_views.NotebookWordDetailView.as_view(),name='notebook_word_detail'),
+
+    # ---- 学习计划 API ----
+    path('plans/',                                  learning_plan_views.PlanListView.as_view(),         name='plan_list'),
+    path('plans/<int:pk>/',                         learning_plan_views.PlanDetailView.as_view(),        name='plan_detail'),
+    path('plans/<int:pk>/words/',                   learning_plan_views.PlanWordListView.as_view(),      name='plan_words'),
+    path('plans/<int:pk>/words/<int:eid>/',         learning_plan_views.PlanWordDetailView.as_view(),    name='plan_word_detail'),
+    path('plans/<int:pk>/start/',                   learning_plan_views.PlanStartView.as_view(),         name='plan_start'),
+    path('vocab/books/',                            learning_plan_views.VocabBookListView.as_view(),     name='vocab_book_list'),
+    path('vocab/books/<int:pk>/words/',             learning_plan_views.VocabBookWordsView.as_view(),    name='vocab_book_words'),
 
     # ---- 管理后台 API ----
     path('admin/feedback', admin_views.AdminFeedbackListView.as_view(), name='admin_feedback_list'),

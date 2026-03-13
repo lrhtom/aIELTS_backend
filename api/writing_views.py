@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .ai_client import AIClient
 
 WRITING_CORRECTION_PROMPT = """
-You are an expert IELTS Writing Examiner. 
+You are an expert IELTS Writing Examiner.
 Please evaluate the following IELTS essay (either Task 1 or Task 2) submitted by a user.
 You MUST assess the essay exactly according to the official IELTS writing band descriptors (0-9).
 
@@ -16,10 +16,22 @@ Your evaluation MUST be returned as a raw JSON object containing EXACTLY these k
   "Lexical_Resource": (float) Score for Lexical Resource,
   "Grammatical_Range": (float) Score for Grammatical Range and Accuracy,
   "Overall_Band": (float) The overall band score (average of the 4 criteria, rounded to nearest 0.5),
-%s
-\"\"\"
+  "Feedback": (string) Detailed examiner-style commentary covering all 4 criteria with specific examples from the essay,
+  "Model_Essay": (string) A complete rewritten version of the user's essay targeting Band 8+. Keep the same topic, position and main arguments as the original. Fix ALL grammatical errors, significantly upgrade vocabulary range and accuracy, improve coherence, cohesion and task achievement. Write naturally and fluently as an expert writer would. Use \\n\\n to separate paragraphs.
+}
 
-CRITICAL: Return ONLY valid JSON format. Do NOT wrap the JSON in ```json or any other markdown text!
+%s
+
+CRITICAL: Return ONLY valid JSON. Do NOT wrap in ```json or any markdown. The Model_Essay value must be a single JSON string with \\n\\n for paragraph breaks.
+"""
+
+TASK1_EXTRA = """This is an IELTS Task 1 (Academic) response. The minimum requirement is 150 words.
+Evaluate "Task_Response" as Task Achievement: does the essay accurately describe and compare the KEY features and trends from the data/diagram, with no irrelevant information and no missing overview?
+The essay should NOT include personal opinions. Focus on accurate data description, clear overview, and appropriate data selection.
+"""
+
+TASK2_EXTRA = """This is an IELTS Task 2 essay. The minimum requirement is 250 words.
+Evaluate "Task_Response" as Task Response: does the essay fully address ALL parts of the question, present a clear position, and develop ideas with relevant, extended support?
 """
 
 @api_view(['POST'])
@@ -30,25 +42,28 @@ def generate_writing(request):
     """
     try:
         essay_text = request.data.get('text', '').strip()
-        
+
         if not essay_text:
             return JsonResponse({'error': 'Essay text is required.'}, status=400)
 
         provider = request.headers.get('X-AI-Provider', 'deepseek')
-        
         user_prompt_context = request.data.get('prompt', '').strip()
-        
+        task_type = request.data.get('task_type', 'task2')
+        task_extra = TASK1_EXTRA if task_type == 'task1' else TASK2_EXTRA
+
         if user_prompt_context:
-            context_injection = f'''
-The user was responding to the following specific IELTS task prompt:
+            context_injection = f'''The user was responding to the following specific IELTS task prompt:
 """
 {user_prompt_context}
 """
 Please evaluate the Task Response score with strict attention to whether the essay directly answers ALL parts of this specific prompt.
+
 '''
-            prompt = WRITING_CORRECTION_PROMPT % (context_injection + "\nUser Essay:\n\"\"\"\n" + essay_text)
+            essay_block = f'{task_extra}\n{context_injection}User Essay:\n"""\n{essay_text}\n"""'
         else:
-            prompt = WRITING_CORRECTION_PROMPT % ("User Essay:\n\"\"\"\n" + essay_text)
+            essay_block = f'{task_extra}\nUser Essay:\n"""\n{essay_text}\n"""'
+
+        prompt = WRITING_CORRECTION_PROMPT % essay_block
         
         client = AIClient(provider=provider)
         

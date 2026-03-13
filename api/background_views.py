@@ -12,6 +12,22 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 
 
+def _delete_media_file(url_or_path: str):
+    """删除 media 目录下的文件，接受完整 URL 或相对路径，失败时仅打印日志"""
+    if not url_or_path:
+        return
+    path = url_or_path
+    for prefix in [f'http://127.0.0.1:8000{settings.MEDIA_URL}', settings.MEDIA_URL]:
+        if path.startswith(prefix):
+            path = path[len(prefix):]
+            break
+    if path and default_storage.exists(path):
+        try:
+            default_storage.delete(path)
+        except Exception as e:
+            print(f'[media] 删除文件失败 {path}: {e}')
+
+
 class BackgroundSettingsView(APIView):
     """
     获取 / 更新用户背景偏好设置
@@ -35,8 +51,13 @@ class BackgroundSettingsView(APIView):
             user.bg_color = val if val != '' else None
 
         if 'bg_image_url' in data:
+            old_url = user.bg_image_url
             val = data['bg_image_url'] or None
-            user.bg_image_url = val if val != '' else None
+            new_val = val if val != '' else None
+            user.bg_image_url = new_val
+            # 仅删除自己上传的文件（URL 含 bg_images/ 标志），外链不处理
+            if old_url and 'bg_images/' in old_url and new_val != old_url:
+                _delete_media_file(old_url)
 
         if 'bg_blur' in data:
             try:
@@ -121,9 +142,14 @@ class BackgroundImageUploadView(APIView):
                 image_url = f'{settings.MEDIA_URL}{saved_path}'
 
             # 直接写入用户记录
+            old_url = user.bg_image_url
             user.bg_image_url = image_url
             user.bg_color = None  # 图片优先，清除颜色设置
             user.save(update_fields=['bg_image_url', 'bg_color'])
+
+            # 删除旧背景图文件
+            if old_url and 'bg_images/' in old_url:
+                _delete_media_file(old_url)
 
             return Response({
                 'message': '背景图片上传成功',

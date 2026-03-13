@@ -129,21 +129,23 @@ class AIClient:
         # 剔除推理过程
         ai_content = re.sub(r'<think>[\s\S]*?</think>', '', ai_content).strip()
 
-        # 2. 扣费（允许穿透到负数）
-        if user_id:
-            User = get_user_model()
-            user = User.objects.get(id=user_id)
-            user.at_balance -= at_cost
-            user.save()
-            print(f"[AIClient] ✅ Token 计费成功: 消耗{total_tokens}T -> {at_cost}AT, 最终余额{user.at_balance}")
+        # 2. 扣费（非 JSON 模式：立即扣费；JSON 模式：解析成功后再扣，失败不扣）
+        def _deduct():
+            if user_id:
+                User = get_user_model()
+                u = User.objects.get(id=user_id)
+                u.at_balance -= at_cost
+                u.save()
+                print(f"[AIClient] ✅ Token 计费成功: 消耗{total_tokens}T -> {at_cost}AT, 最终余额{u.at_balance}")
 
         if not expect_json:
+            _deduct()
             return ai_content, at_cost
 
         print(f"[AIClient]   尝试提取与解析 JSON...")
         # 去掉可能的 markdown 代码块包裹
         ai_content = ai_content.replace('```json', '').replace('```', '').strip()
-        
+
         # 强制抽取首尾大括号的内容（贪婪匹配），避免前后多余文字导致解析失败
         json_match = re.search(r'\{.*\}', ai_content, re.DOTALL)
         if json_match:
@@ -153,6 +155,7 @@ class AIClient:
 
         try:
             parsed = json.loads(json_str)
+            _deduct()
             print(f"[AIClient] ✅ JSON 解析成功")
             return parsed, at_cost
         except json.JSONDecodeError as e:
@@ -162,12 +165,13 @@ class AIClient:
             if repaired != json_str:
                 try:
                     parsed = json.loads(repaired)
+                    _deduct()
                     print(f"[AIClient] ✅ JSON 修复后解析成功")
                     return parsed, at_cost
                 except json.JSONDecodeError:
                     pass
             print(f"[AIClient] ⚠️ 失效的原始字符串: {repr(ai_content[:200])}")
-            # 如果强制要求 JSON 却解析失败，则抛出异常让上层函数进行异常处理
+            # JSON 解析彻底失败 → 不扣费，抛出异常让上层处理
             raise ValueError("AI Client Failed to parse response as JSON. Raw: " + ai_content)
 
 
@@ -206,3 +210,18 @@ def _repair_json(json_str: str) -> str:
     if rstripped.endswith('}'):
         return rstripped[:-1] + (']' * open_brackets) + '}'
     return json_str + ']' * open_brackets
+
+
+def refund_at(user_id: int, at_cost: int) -> None:
+    """将 at_cost 退还给 user_id 对应的用户。AI 操作失败后调用。"""
+    if not user_id or at_cost <= 0:
+        return
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.get(id=user_id)
+        user.at_balance += at_cost
+        user.save()
+        print(f"[AIClient] ↩️ 退款成功: +{at_cost}AT → 用户 {user_id}，余额 {user.at_balance}")
+    except Exception as e:
+        print(f"[AIClient] ⚠️ 退款失败: {e}")

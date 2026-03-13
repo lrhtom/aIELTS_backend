@@ -275,6 +275,13 @@ class AvatarUploadView(APIView):
                     'error': error_message
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+            # 删除旧头像文件
+            if user.avatar_file and default_storage.exists(user.avatar_file):
+                try:
+                    default_storage.delete(user.avatar_file)
+                except Exception as e:
+                    print(f"删除旧头像文件失败: {str(e)}")
+
             # 更新用户头像信息
             user.avatar_url = avatar_url
             user.avatar_file = avatar_file_path
