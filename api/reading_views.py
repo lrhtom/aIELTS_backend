@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .utils import call_ai_api
+from api.rate_limit import check_rate_limit
 
 READING_PROMPT_TEMPLATE = """
 You are an IELTS examiner.
@@ -41,6 +42,8 @@ You MUST output your response strictly in the following JSON format without any 
 def generate_reading(request):
     """POST /api/reading/generate — 接收词汇列表，返回 AI 生成的阅读材料"""
     try:
+        limit_resp = check_rate_limit(request.user.id, 'reading_generate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
         words = request.data.get('words', [])
         difficulty = request.data.get('difficulty', '7.0')
         absurd_mode = str(request.data.get('absurdMode', 'false')).lower() == 'true'

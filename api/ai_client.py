@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import hashlib
 import requests
 from django.contrib.auth import get_user_model
 
@@ -25,28 +26,61 @@ class AIClient:
             self.api_key = os.environ.get('AI_API_KEY', '')
             self.model = os.environ.get('AI_MODEL', '')
 
-    def generate(self, messages: list, expect_json: bool = False, temperature: float = 0.7, user_id: int = None) -> str | dict:
+    def generate(self, messages: list, expect_json: bool = False, temperature: float = 0.7, user_id: int = None, cache: bool = False) -> str | dict:
         """
         向 AI发起请求的通用函数。
         :param messages: OpenAI 格式的 messages 数组 [{'role': 'user', 'content': '...'}, ...]
         :param expect_json: 若为 True，则尝试使用正则提取大括号内容，并自动 json.loads() 转换为字典
         :param temperature: 温度参数
+        :param cache: 若为 True 且 expect_json=True，则启用 Redis 缓存（命中时 AT 消耗为 0）
         :return: 字符串，或解析好的 dict (若 expect_json=True)
         """
+        # 0. Redis 缓存检查（仅限 JSON 模式）
+        cache_key = None
+        if cache and expect_json:
+            try:
+                from api.redis_client import get_redis
+                raw = json.dumps(messages, sort_keys=True, ensure_ascii=False)
+                cache_key = f"ai_cache:{self.model}:{hashlib.md5(raw.encode()).hexdigest()}"
+                cached = get_redis().get(cache_key)
+                if cached:
+                    print(f"[AIClient] ⚡ 缓存命中: {cache_key}")
+                    return json.loads(cached), 0
+            except Exception as ce:
+                print(f"[AIClient] ⚠️ 缓存读取失败（跳过）: {ce}")
+
         print(f"[AIClient] 🚀 准备发送请求")
         print(f"[AIClient]   提供商: {self.provider}")
         print(f"[AIClient]   模  型: {self.model}")
         print(f"[AIClient]   地  址: {self.base_url}")
         print(f"[AIClient]   用户ID: {user_id}")
 
-        # 1. 预检：检查余额是否已为负
+        # 1. 预检：检查余额是否已为负（5秒短路缓存减少 DB 压力）
         if user_id:
             User = get_user_model()
             try:
-                user = User.objects.get(id=user_id)
-                if user.at_balance < 0:
-                    print(f"[AIClient] 🚨 拦截负余额用户: {user.username}, 余额: {user.at_balance}")
-                    raise ValueError(f"您的AT币余额不足({user.at_balance})，请充值后重试。")
+                balance = None
+                try:
+                    from api.redis_client import get_redis
+                    _balance_key = f"balance:{user_id}"
+                    _cached = get_redis().get(_balance_key)
+                    if _cached is not None:
+                        balance = float(_cached)
+                except Exception:
+                    pass
+                if balance is None:
+                    _user_obj = User.objects.get(id=user_id)
+                    balance = _user_obj.at_balance
+                    try:
+                        from api.redis_client import get_redis
+                        get_redis().setex(f"balance:{user_id}", 5, str(balance))
+                    except Exception:
+                        pass
+                if balance < 0:
+                    print(f"[AIClient] 🚨 拦截负余额用户 id={user_id}, 余额: {balance}")
+                    raise ValueError(f"您的AT币余额不足({balance})，请充值后重试。")
+            except ValueError:
+                raise
             except Exception as e:
                 print(f"[AIClient] ⚠️ 预检失败: {e}")
                 raise e
@@ -136,6 +170,12 @@ class AIClient:
                 u = User.objects.get(id=user_id)
                 u.at_balance -= at_cost
                 u.save()
+                # 余额变化后失效余额缓存
+                try:
+                    from api.redis_client import get_redis
+                    get_redis().delete(f"balance:{user_id}")
+                except Exception:
+                    pass
                 print(f"[AIClient] ✅ Token 计费成功: 消耗{total_tokens}T -> {at_cost}AT, 最终余额{u.at_balance}")
 
         if not expect_json:
@@ -157,6 +197,13 @@ class AIClient:
             parsed = json.loads(json_str)
             _deduct()
             print(f"[AIClient] ✅ JSON 解析成功")
+            if cache_key:
+                try:
+                    from api.redis_client import get_redis
+                    get_redis().setex(cache_key, 86400, json.dumps(parsed, ensure_ascii=False))
+                    print(f"[AIClient] 💾 已写入缓存: {cache_key}")
+                except Exception as se:
+                    print(f"[AIClient] ⚠️ 缓存写入失败（跳过）: {se}")
             return parsed, at_cost
         except json.JSONDecodeError as e:
             print(f"[AIClient] ❌ JSON 解析崩溃: {e}")
@@ -167,6 +214,12 @@ class AIClient:
                     parsed = json.loads(repaired)
                     _deduct()
                     print(f"[AIClient] ✅ JSON 修复后解析成功")
+                    if cache_key:
+                        try:
+                            from api.redis_client import get_redis
+                            get_redis().setex(cache_key, 86400, json.dumps(parsed, ensure_ascii=False))
+                        except Exception:
+                            pass
                     return parsed, at_cost
                 except json.JSONDecodeError:
                     pass

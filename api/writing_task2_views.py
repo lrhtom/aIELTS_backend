@@ -1,14 +1,41 @@
 import json
+import random
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from api.ai_client import AIClient
+from api.rate_limit import check_rate_limit
+
+TASK2_TOPIC_AREAS = [
+    "education and learning",
+    "technology and the internet",
+    "environment and climate change",
+    "health and medicine",
+    "crime and punishment",
+    "work and employment",
+    "government and politics",
+    "media and advertising",
+    "culture and tradition",
+    "globalisation and international relations",
+    "transport and urban planning",
+    "family and social values",
+    "sport and leisure",
+    "arts and music",
+    "science and space exploration",
+    "animal rights and wildlife",
+    "tourism and travel",
+    "food and diet",
+    "poverty and economic inequality",
+    "language and communication",
+]
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_task2(request):
     try:
         user = request.user
+        limit_resp = check_rate_limit(user.id, 'task2_generate', max_calls=10, window=60)
+        if limit_resp: return limit_resp
         task_type = request.data.get('type', 'opinion')
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
@@ -25,10 +52,12 @@ def generate_task2(request):
         }
         
         selected_desc = type_map.get(task_type, type_map['opinion'])
+        topic_area = random.choice(TASK2_TOPIC_AREAS)
 
         system_prompt = f'''You are a senior IELTS examiner.
-You need to generate a creative, authentic IELTS Task 2 writing prompt. 
+You need to generate a creative, authentic IELTS Task 2 writing prompt.
 The requested type is: {selected_desc}.
+The topic area must be: {topic_area}.
 
 Return a JSON with EXACTLY this structure:
 {{
@@ -56,25 +85,35 @@ Return a JSON with EXACTLY this structure:
 def evaluate_task2(request):
     try:
         user = request.user
+        limit_resp = check_rate_limit(user.id, 'task2_evaluate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
         prompt_text = request.data.get('prompt', '')
         user_answer = request.data.get('userAnswer', '')
+        ui_lang = request.data.get('lang', 'en')
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         client = AIClient(provider=provider)
-        
-        system_prompt = '''You are an expert IELTS examiner evaluator.
+
+        lang_instruction = (
+            'Write the "feedback" field in Simplified Chinese (中文).'
+            if ui_lang == 'zh'
+            else 'Write the "feedback" field in English.'
+        )
+
+        system_prompt = f'''You are an expert IELTS examiner evaluator.
 Evaluate the user's Task 2 Writing based on the provided Prompt.
 Return a JSON with EXACTLY this structure:
-{
-  "scores": {
+{{
+  "scores": {{
     "ta": <0-9 float for Task Response>,
     "cc": <0-9 float for Coherence & Cohesion>,
     "lr": <0-9 float for Lexical Resource>,
     "gra": <0-9 float for Grammatical Range & Accuracy>
-  },
+  }},
   "overall": <0-9 float for overall band score>,
   "feedback": "Detailed feedback..."
-}'''
+}}
+LANGUAGE INSTRUCTION: {lang_instruction}'''
         user_msg = f"Prompt:\n{prompt_text}\n\nUser Answer:\n{user_answer}"
         messages = [
             {"role": "system", "content": system_prompt},

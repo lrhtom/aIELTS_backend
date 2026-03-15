@@ -7,6 +7,7 @@ from django.http import JsonResponse, HttpResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .utils import call_ai_api
+from api.rate_limit import check_rate_limit
 
 ARTICLE_LISTENING_PROMPT_TEMPLATE = """
 You are an IELTS examiner. Create an IELTS listening passage (Band {difficulty} difficulty) {vocab_instruction}
@@ -114,6 +115,8 @@ Output ONLY valid JSON, no markdown, no comments:
 def generate_listening(request):
     """POST /api/listening/generate — 生成听力填空练习"""
     try:
+        limit_resp = check_rate_limit(request.user.id, 'listening_generate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
         words = request.data.get('words', [])
         difficulty = request.data.get('difficulty', '7.0')
         word_count_min = request.data.get('wordCountMin', 1)

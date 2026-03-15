@@ -6,3 +6,6 @@ mysqlclient
 djangorestframework
 djangorestframework-simplejwt
 matplotlib
+upstash-redis
+pymysql
+gunicorn

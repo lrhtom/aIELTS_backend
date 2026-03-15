@@ -199,8 +199,8 @@ class Notebook(models.Model):
 
     def clean(self):
         from django.core.exceptions import ValidationError
-        # 新建时才检查上限（排除当前对象本身）
-        if not self.pk:
+        # 新建时才检查上限（排除当前对象本身）；管理员不受限制
+        if not self.pk and not self.user.is_staff:
             count = Notebook.objects.filter(user=self.user).count()
             if count >= self.MAX_PER_USER:
                 raise ValidationError(f'每位用户最多创建 {self.MAX_PER_USER} 本笔记本')
@@ -322,7 +322,8 @@ class LearningPlan(models.Model):
 
     def clean(self):
         from django.core.exceptions import ValidationError
-        if not self.pk:
+        # 管理员不受计划数量限制
+        if not self.pk and not self.user.is_staff:
             count = LearningPlan.objects.filter(user=self.user).count()
             if count >= self.MAX_PER_USER:
                 raise ValidationError(f'每位用户最多创建 {self.MAX_PER_USER} 个学习计划。')

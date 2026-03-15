@@ -3,6 +3,7 @@ import re
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from api.rate_limit import check_rate_limit
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -12,6 +13,8 @@ def speaking_chat(request):
     Body: { "messages": [{"role": "...", "content": "..."}] }
     """
     try:
+        limit_resp = check_rate_limit(request.user.id, 'speaking_chat', max_calls=15, window=60)
+        if limit_resp: return limit_resp
         messages = request.data.get('messages', [])
         if not messages:
             return JsonResponse({'error': 'messages required'}, status=400)

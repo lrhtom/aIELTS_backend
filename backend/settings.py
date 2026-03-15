@@ -13,7 +13,7 @@ pymysql.install_as_MySQLdb()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-soqv)xa)9&6+x534k&r=!%3i)8btzj@y-3u5w%q8+do1&!wr_p'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-soqv)xa)9&6+x534k&r=!%3i)8btzj@y-3u5w%q8+do1&!wr_p')
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
@@ -48,6 +48,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
 ]
+# 生产环境前端地址（ClawCloud / 自定义域名）
+if os.environ.get('CORS_ORIGIN'):
+    CORS_ALLOWED_ORIGINS.append(os.environ['CORS_ORIGIN'])
 
 CORS_ALLOW_HEADERS = [
     "accept",
@@ -91,7 +94,7 @@ DATABASES = {
         'NAME': os.environ.get('DB_NAME', 'aielts_db'),
         'OPTIONS': {
             'charset': 'utf8mb4',
-            'ssl': {'ca': ''},
+            **({'ssl': {'ca': os.environ['DB_SSL_CA']}} if os.environ.get('DB_SSL_CA') else {'ssl': {}}),
         },
     }
 }
@@ -109,6 +112,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # 媒体文件配置
 MEDIA_URL = '/media/'

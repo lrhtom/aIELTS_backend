@@ -3,11 +3,36 @@ import uuid
 import subprocess
 import json
 import re
+import random
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from api.ai_client import AIClient, refund_at
+from api.rate_limit import check_rate_limit
+
+CHART_SUBJECT_AREAS = [
+    "internet usage and social media trends",
+    "employment rates across industries",
+    "energy consumption and renewable sources",
+    "education enrolment and graduation rates",
+    "transport usage in urban areas",
+    "household spending and consumer prices",
+    "tourism arrivals and revenue",
+    "population growth and demographic change",
+    "healthcare expenditure and life expectancy",
+    "crime rates and types of offences",
+    "water usage and access to clean water",
+    "carbon emissions by country or sector",
+    "trade exports and imports between countries",
+    "average wages across professions or genders",
+    "smartphone and technology adoption",
+    "agricultural land use and food production",
+    "university subject enrolment trends",
+    "housing prices in different cities",
+    "obesity and dietary habits",
+    "waste production and recycling rates",
+]
 
 
 def _strip_code_fences(text: str) -> str:
@@ -59,6 +84,8 @@ def _build_fallback_flowchart(prompt_text: str) -> str:
 def generate_chart(request):
     try:
         user = request.user
+        limit_resp = check_rate_limit(user.id, 'chart_generate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
         chart_type = request.data.get('type', 'line')
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
@@ -203,9 +230,11 @@ def generate_chart(request):
             })
 
         # ── OTHER CHART TYPES: JSON mode + Matplotlib sandbox ──────────────────────
+        subject_area = random.choice(CHART_SUBJECT_AREAS)
         system_prompt = f'''You are an IELTS Task 1 examiner.
 You need to provide a new chart practice question.
 The requested chart type is: {chart_type}.
+The subject area for the data must relate to: {subject_area}.
 
 You MUST return a JSON with EXACTLY these two fields:
 1. "prompt": The IELTS Task 1 question description (e.g., "The graph below shows the population of three cities...").
@@ -284,25 +313,36 @@ Additional chart constraints:
 def evaluate_chart(request):
     try:
         user = request.user
+        limit_resp = check_rate_limit(user.id, 'chart_evaluate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
         prompt_text = request.data.get('prompt', '')
         python_code = request.data.get('pythonCode', '')
         user_answer = request.data.get('userAnswer', '')
+        ui_lang = request.data.get('lang', 'en')
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         client = AIClient(provider=provider)
-        system_prompt = '''You are an expert IELTS examiner evaluator.
+
+        lang_instruction = (
+            'Write the "feedback" field in Simplified Chinese (中文).'
+            if ui_lang == 'zh'
+            else 'Write the "feedback" field in English.'
+        )
+
+        system_prompt = f'''You are an expert IELTS examiner evaluator.
 Evaluate the user's Task 1 Writing based on the provided Prompt and the Reference Data Code which represents the exact figures or process steps to describe.
 Return a JSON with EXACTLY this structure:
-{
-  "scores": {
+{{
+  "scores": {{
     "ta": <0-9 float for Task Achievement>,
     "cc": <0-9 float for Coherence & Cohesion>,
     "lr": <0-9 float for Lexical Resource>,
     "gra": <0-9 float for Grammatical Range & Accuracy>
-  },
+  }},
   "overall": <0-9 float for overall band score>,
   "feedback": "Detailed feedback..."
-}'''
+}}
+LANGUAGE INSTRUCTION: {lang_instruction}'''
         user_msg = f"Prompt:\n{prompt_text}\n\nReference Data (Python/Mermaid):\n{python_code}\n\nUser Answer:\n{user_answer}"
         messages = [
             {"role": "system", "content": system_prompt},

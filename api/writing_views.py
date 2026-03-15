@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .ai_client import AIClient
+from api.rate_limit import check_rate_limit
 
 WRITING_CORRECTION_PROMPT = """
 You are an expert IELTS Writing Examiner.
@@ -21,6 +22,9 @@ Your evaluation MUST be returned as a raw JSON object containing EXACTLY these k
 }
 
 %s
+
+LANGUAGE INSTRUCTION: %s
+The "Model_Essay" must always be written in English (it is a model English essay).
 
 CRITICAL: Return ONLY valid JSON. Do NOT wrap in ```json or any markdown. The Model_Essay value must be a single JSON string with \\n\\n for paragraph breaks.
 """
@@ -41,6 +45,8 @@ def generate_writing(request):
     POST /api/writing/generate — 接收前端传来的文本和提供商，返回雅思写作批改结果 JSON
     """
     try:
+        limit_resp = check_rate_limit(request.user.id, 'writing_evaluate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
         essay_text = request.data.get('text', '').strip()
 
         if not essay_text:
@@ -49,7 +55,13 @@ def generate_writing(request):
         provider = request.headers.get('X-AI-Provider', 'deepseek')
         user_prompt_context = request.data.get('prompt', '').strip()
         task_type = request.data.get('task_type', 'task2')
+        ui_lang = request.data.get('lang', 'en')
         task_extra = TASK1_EXTRA if task_type == 'task1' else TASK2_EXTRA
+        lang_instruction = (
+            'Write the "Feedback" field in Simplified Chinese (中文).'
+            if ui_lang == 'zh'
+            else 'Write the "Feedback" field in English.'
+        )
 
         if user_prompt_context:
             context_injection = f'''The user was responding to the following specific IELTS task prompt:
@@ -63,7 +75,7 @@ Please evaluate the Task Response score with strict attention to whether the ess
         else:
             essay_block = f'{task_extra}\nUser Essay:\n"""\n{essay_text}\n"""'
 
-        prompt = WRITING_CORRECTION_PROMPT % essay_block
+        prompt = WRITING_CORRECTION_PROMPT % (essay_block, lang_instruction)
         
         client = AIClient(provider=provider)
         
