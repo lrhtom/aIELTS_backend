@@ -156,6 +156,7 @@ class VocabReviewView(APIView):
         word              = str(request.data.get('word', '')).strip().lower()
         rating_raw        = request.data.get('rating')
         client_last_review = request.data.get('client_last_review')  # None 表示新卡
+        plan_id           = int(request.data.get('plan_id', 0) or 0)
 
         if not word:
             return Response({'error': '缺少 word 字段'}, status=status.HTTP_400_BAD_REQUEST)
@@ -170,7 +171,9 @@ class VocabReviewView(APIView):
 
         with transaction.atomic():
             try:
-                card = VocabFSRS.objects.select_for_update().get(user=request.user, word=word)
+                card = VocabFSRS.objects.select_for_update().get(
+                    user=request.user, word=word, plan_id=plan_id,
+                )
             except VocabFSRS.DoesNotExist:
                 return Response({'error': '卡片不存在，请先同步词汇'}, status=status.HTTP_404_NOT_FOUND)
 

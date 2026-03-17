@@ -5,7 +5,7 @@ from rest_framework import status
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 
-from .models import Notebook, NotebookWord, NotebookWordTag, Word
+from .models import Notebook, NotebookWord, NotebookWordTag, Word, VocabBook, WordBookMembership
 
 VALID_COLORS = {'indigo', 'teal', 'violet', 'rose', 'amber', 'emerald', 'sky', 'orange'}
 
@@ -49,6 +49,14 @@ def _save_tags(entry: NotebookWord, raw_tags: list):
             [NotebookWordTag(notebook_word=entry, name=n) for n in names],
             ignore_conflicts=True,
         )
+
+
+def _extract_zh(word_obj: Word) -> str:
+    """Extract the first zh meaning from definitions JSON."""
+    defs = word_obj.definitions
+    if isinstance(defs, list) and defs:
+        return defs[0].get('meaning', '')
+    return ''
 
 
 class NotebookListView(APIView):
@@ -150,28 +158,41 @@ class NotebookWordListView(APIView):
 
     def post(self, request, pk):
         nb = get_object_or_404(Notebook, pk=pk, user=request.user)
+        mode = request.data.get('mode', 'manual')
 
-        word_str = request.data.get('word', '').strip().lower()
+        if mode == 'manual':
+            return self._add_manual(nb, request.data)
+        elif mode == 'book_all':
+            return self._add_from_book(nb, request.data, 'all')
+        elif mode == 'book_range':
+            return self._add_from_book(nb, request.data, 'range')
+        elif mode == 'book_select':
+            return self._add_from_book(nb, request.data, 'select')
+        else:
+            return Response({'error': f'未知 mode: {mode}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # ── manual (original single-word logic) ──────────────────────────────
+    def _add_manual(self, nb, data):
+        word_str = data.get('word', '').strip().lower()
         if not word_str:
             return Response({'error': '英文单词不能为空'}, status=status.HTTP_400_BAD_REQUEST)
 
-        custom_zh = request.data.get('custom_zh', '').strip()
-        notes     = request.data.get('notes', '').strip()
-        tags      = request.data.get('tags', [])
+        custom_zh = data.get('custom_zh', '').strip()
+        notes     = data.get('notes', '').strip()
+        tags      = data.get('tags', [])
         if not isinstance(tags, list):
             tags = [str(tags)]
 
         word_obj, _ = Word.objects.get_or_create(word=word_str)
 
-        # Update optional Word enrichment data if provided
         word_fields = []
-        if request.data.get('phonetic', '').strip():
-            word_obj.phonetic = request.data['phonetic'].strip()
+        if data.get('phonetic', '').strip():
+            word_obj.phonetic = data['phonetic'].strip()
             word_fields.append('phonetic')
-        if request.data.get('grammar', '').strip():
-            word_obj.grammar = request.data['grammar'].strip()
+        if data.get('grammar', '').strip():
+            word_obj.grammar = data['grammar'].strip()
             word_fields.append('grammar')
-        raw_examples = request.data.get('examples')
+        raw_examples = data.get('examples')
         if isinstance(raw_examples, list) and raw_examples:
             word_obj.examples = raw_examples
             word_fields.append('examples')
@@ -186,12 +207,45 @@ class NotebookWordListView(APIView):
         entry.notes = notes
         entry.save(update_fields=['custom_zh', 'notes'])
         _save_tags(entry, tags)
-        entry.refresh_from_db()
-        entry.tags  # prefetch not needed after refresh, load in_dict call
 
-        # Re-fetch with tags
         entry = nb.entries.select_related('word').prefetch_related('tags').get(pk=entry.pk)
         return Response({'entry': _entry_dict(entry)}, status=status.HTTP_201_CREATED)
+
+    # ── bulk import from vocab book ──────────────────────────────────────
+    def _add_from_book(self, nb, data, sub_mode):
+        book_id = data.get('book_id')
+        book = get_object_or_404(VocabBook, pk=book_id)
+
+        qs = WordBookMembership.objects.filter(book=book).select_related('word')
+
+        if sub_mode == 'range':
+            try:
+                start = int(data.get('start', 1))
+                end   = int(data.get('end', 50))
+            except (TypeError, ValueError):
+                return Response({'error': 'start/end 必须为整数'}, status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(order__range=(start, end))
+        elif sub_mode == 'select':
+            word_ids = data.get('word_ids', [])
+            if not isinstance(word_ids, list) or not word_ids:
+                return Response({'error': 'word_ids 不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(word_id__in=word_ids)
+
+        existing = set(nb.entries.values_list('word_id', flat=True))
+        to_create = []
+        for m in qs.order_by('order'):
+            if m.word_id not in existing:
+                to_create.append(NotebookWord(
+                    notebook=nb,
+                    word=m.word,
+                    custom_zh=_extract_zh(m.word),
+                ))
+                existing.add(m.word_id)
+
+        if to_create:
+            NotebookWord.objects.bulk_create(to_create, ignore_conflicts=True)
+
+        return Response({'entries_added': len(to_create)})
 
 
 class NotebookWordDetailView(APIView):

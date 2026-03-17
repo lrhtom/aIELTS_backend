@@ -55,9 +55,9 @@ def _entry_dict(
     }
 
 
-def _build_fsrs_map(user, words: list[str]) -> dict:
-    """Return {word: VocabFSRS} for the given word list."""
-    return {c.word: c for c in VocabFSRS.objects.filter(user=user, word__in=words)}
+def _build_fsrs_map(user, words: list[str], plan_id: int = 0) -> dict:
+    """Return {word: VocabFSRS} for the given word list, scoped to plan_id."""
+    return {c.word: c for c in VocabFSRS.objects.filter(user=user, word__in=words, plan_id=plan_id)}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -136,7 +136,10 @@ class PlanDetailView(APIView):
 
     def delete(self, request, pk):
         plan = self._get_plan(pk, request.user)
+        plan_pk = plan.pk
         plan.delete()
+        # Cards are plan-scoped; delete them all when plan is deleted
+        VocabFSRS.objects.filter(user=request.user, plan_id=plan_pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -157,7 +160,7 @@ class PlanWordListView(APIView):
             entries = [e for e in entries if q in e.word or q in e.zh.lower()]
 
         words    = [e.word for e in entries]
-        fsrs_map = _build_fsrs_map(request.user, words)
+        fsrs_map = _build_fsrs_map(request.user, words, plan_id=plan.pk)
         word_map = _build_word_map(words)
         return Response({'entries': [_entry_dict(e, fsrs_map, word_map) for e in entries]})
 
@@ -185,17 +188,18 @@ class PlanWordListView(APIView):
             return Response({'error': '单词不能为空'}, status=status.HTTP_400_BAD_REQUEST)
         zh = data.get('zh', '').strip()
 
-        # Update optional Word enrichment data
+        # Update optional Word enrichment data — only fill in fields that are currently empty
+        # to avoid overwriting official imported data with user-provided values
         word_obj, _ = Word.objects.get_or_create(word=word_str)
         word_fields = []
-        if data.get('phonetic', '').strip():
+        if data.get('phonetic', '').strip() and not word_obj.phonetic:
             word_obj.phonetic = data['phonetic'].strip()
             word_fields.append('phonetic')
-        if data.get('grammar', '').strip():
+        if data.get('grammar', '').strip() and not word_obj.grammar:
             word_obj.grammar = data['grammar'].strip()
             word_fields.append('grammar')
         raw_examples = data.get('examples')
-        if isinstance(raw_examples, list) and raw_examples:
+        if isinstance(raw_examples, list) and raw_examples and not word_obj.examples:
             word_obj.examples = raw_examples
             word_fields.append('examples')
         if word_fields:
@@ -310,6 +314,7 @@ class PlanWordDetailView(APIView):
             fsrs, _ = VocabFSRS.objects.get_or_create(
                 user=request.user,
                 word=entry.word,
+                plan_id=entry.plan_id,
                 defaults={'zh': entry.zh, 'due': now},
             )
             fsrs.due            = now + timedelta(days=days)
@@ -318,13 +323,16 @@ class PlanWordDetailView(APIView):
                 fsrs.state = 2  # Review
             fsrs.save(update_fields=['due', 'scheduled_days', 'state'])
 
-        fsrs_map = _build_fsrs_map(request.user, [entry.word])
+        fsrs_map = _build_fsrs_map(request.user, [entry.word], plan_id=entry.plan_id)
         word_map = _build_word_map([entry.word])
         return Response({'entry': _entry_dict(entry, fsrs_map, word_map)})
 
     def delete(self, request, pk, eid):
         entry = self._get_entry(pk, eid, request.user)
+        word, plan_id = entry.word, entry.plan_id
         entry.delete()
+        # Cards are plan-scoped; delete this plan's card for the word directly
+        VocabFSRS.objects.filter(user=request.user, word=word, plan_id=plan_id).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -346,31 +354,23 @@ class PlanStartView(APIView):
 
         now = timezone.now()
 
-        # 1. Sync plan entries → VocabFSRS (same logic as VocabSyncView)
+        # 1. Sync plan entries → VocabFSRS, scoped to this plan
         word_zh_map = {e.word: e.zh for e in entries}
         existing = {
             c.word: c
-            for c in VocabFSRS.objects.filter(user=user, word__in=word_zh_map.keys())
+            for c in VocabFSRS.objects.filter(user=user, word__in=word_zh_map.keys(), plan_id=plan.pk)
         }
-        to_create = []
-        to_update = []
-        for word, zh in word_zh_map.items():
-            if word in existing:
-                card = existing[word]
-                if zh and card.zh != zh:
-                    card.zh = zh
-                    to_update.append(card)
-            else:
-                to_create.append(VocabFSRS(user=user, word=word, zh=zh, due=now))
-
+        to_create = [
+            VocabFSRS(user=user, word=word, zh=zh, due=now, plan_id=plan.pk)
+            for word, zh in word_zh_map.items()
+            if word not in existing
+        ]
         if to_create:
             VocabFSRS.objects.bulk_create(to_create, ignore_conflicts=True)
-        if to_update:
-            VocabFSRS.objects.bulk_update(to_update, ['zh'])
 
-        # 2. Fetch all FSRS cards for plan words
+        # 2. Fetch all FSRS cards for this plan's words
         all_cards = list(
-            VocabFSRS.objects.filter(user=user, word__in=word_zh_map.keys()).order_by('due')
+            VocabFSRS.objects.filter(user=user, word__in=word_zh_map.keys(), plan_id=plan.pk).order_by('due')
         )
 
         # 3. Build session: due cards first, then new cards, capped at remaining daily quota
@@ -419,10 +419,16 @@ class PlanStartView(APIView):
         new     = len(new_cards)
         pending = len(pending_cards)
 
-        # 4. Enrich cards with Word data
+        # 4. Enrich cards with Word data; use this plan's zh, not the shared FSRS card's zh
         wmap = _build_word_map([c.word for c in session_cards])
+        cards = []
+        for c in session_cards:
+            d = _card_to_dict(c, wmap.get(c.word))
+            d['zh']      = word_zh_map.get(c.word) or c.zh
+            d['plan_id'] = c.plan_id
+            cards.append(d)
         return Response({
-            'cards': [_card_to_dict(c, wmap.get(c.word)) for c in session_cards],
+            'cards': cards,
             'stats': {
                 'total':           total,
                 'due':             due,

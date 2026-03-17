@@ -270,11 +270,13 @@ class NotebookWordTag(models.Model):
 
 class VocabFSRS(models.Model):
     """
-    每个用户每个单词的 FSRS 间隔重复状态
+    每个用户在特定计划下的单词 FSRS 状态
+    plan_id=0 → 全局卡片（VocabSync 流程）；>0 → 计划专属，彼此完全隔离
     state: 0=新卡  1=学习中  2=复习  3=重学
     """
     user           = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fsrs_cards', verbose_name='用户')
     word           = models.CharField(max_length=200, verbose_name='英文单词')
+    plan_id        = models.IntegerField(default=0, verbose_name='所属计划ID（0=全局）')
     zh             = models.CharField(max_length=500, blank=True, verbose_name='中文释义')
 
     # FSRS Card 状态字段（完整映射 FSRS-4.5 Card 类型）
@@ -294,9 +296,9 @@ class VocabFSRS(models.Model):
         verbose_name = 'FSRS 单词卡'
         verbose_name_plural = 'FSRS 单词卡'
         db_table = 'vocab_fsrs_cards'
-        unique_together = ('user', 'word')
+        unique_together = ('user', 'word', 'plan_id')
         indexes = [
-            models.Index(fields=['user', 'due'], name='idx_vocab_fsrs_user_due'),
+            models.Index(fields=['user', 'plan_id', 'due'], name='idx_vocab_fsrs_user_plan_due'),
         ]
 
     def save(self, *args, **kwargs):
@@ -304,7 +306,7 @@ class VocabFSRS(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.word} ({self.user.username})'
+        return f'{self.word} ({self.user.username}) plan={self.plan_id}'
 
 
 class LearningPlan(models.Model):
