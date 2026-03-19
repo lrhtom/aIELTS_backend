@@ -4,13 +4,13 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.db import transaction
-from datetime import timedelta
 
 from .models import VocabFSRS, Word
 from .fsrs_utils import fsrs_schedule
 
 # 新卡状态常量
 _NEW = 0
+_GLOBAL_PLAN_ID = 0
 
 
 # ── 序列化 ────────────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ def _card_to_dict(c: VocabFSRS, word_obj: Word | None = None) -> dict:
         'lapses':         c.lapses,
         'state':          c.state,
         'last_review':    c.last_review.isoformat() if c.last_review else None,
+        'plan_id':        c.plan_id,
         # Word enrichment (empty/empty-list when Word row doesn't exist)
         'phonetic':       (word_obj.phonetic or '') if word_obj else '',
         'grammar':        (word_obj.grammar or '') if word_obj else '',
@@ -83,7 +84,7 @@ class VocabSyncView(APIView):
             existing = {
                 c.word: c
                 for c in VocabFSRS.objects.select_for_update().filter(
-                    user=user, word__in=normalized.keys()
+                    user=user, word__in=normalized.keys(), plan_id=_GLOBAL_PLAN_ID
                 )
             }
 
@@ -97,7 +98,7 @@ class VocabSyncView(APIView):
                         card.zh = zh
                         to_update.append(card)
                 else:
-                    to_create.append(VocabFSRS(user=user, word=word, zh=zh, due=now))
+                    to_create.append(VocabFSRS(user=user, word=word, zh=zh, due=now, plan_id=_GLOBAL_PLAN_ID))
 
             if to_create:
                 # ignore_conflicts=True 处理并发重复写入，不报错
@@ -106,7 +107,7 @@ class VocabSyncView(APIView):
                 VocabFSRS.objects.bulk_update(to_update, ['zh'])
 
         card_list = list(
-            VocabFSRS.objects.filter(user=user, word__in=normalized.keys()).order_by('due')
+            VocabFSRS.objects.filter(user=user, word__in=normalized.keys(), plan_id=_GLOBAL_PLAN_ID).order_by('due')
         )
         wmap = _word_map([c.word for c in card_list])
         return Response({
@@ -124,7 +125,7 @@ class VocabCardsView(APIView):
 
     def get(self, request):
         now = timezone.now()
-        qs  = VocabFSRS.objects.filter(user=request.user)
+        qs  = VocabFSRS.objects.filter(user=request.user, plan_id=_GLOBAL_PLAN_ID)
 
         if request.query_params.get('due_only') == 'true':
             from django.db.models import Q
@@ -170,18 +171,47 @@ class VocabReviewView(APIView):
         now = timezone.now()
 
         with transaction.atomic():
+            # 第一次尝试：精确查询指定的plan_id
             try:
                 card = VocabFSRS.objects.select_for_update().get(
                     user=request.user, word=word, plan_id=plan_id,
                 )
             except VocabFSRS.DoesNotExist:
-                return Response({'error': '卡片不存在，请先同步词汇'}, status=status.HTTP_404_NOT_FOUND)
+                # 第二次尝试：如果指定的plan_id不存在，检查是否存在其他plan的该单词
+                # 这处理了前端plan_id错误或单词被添加到多个计划的情况
+                alternatives = list(VocabFSRS.objects.filter(
+                    user=request.user, word=word
+                ).select_for_update())
+                
+                if len(alternatives) == 1:
+                    # 只有一个版本存在，直接使用它
+                    card = alternatives[0]
+                elif len(alternatives) > 1:
+                    # 多个版本存在，优先选择全局卡片(plan_id=0)
+                    global_card = [c for c in alternatives if c.plan_id == 0]
+                    if global_card:
+                        card = global_card[0]
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(
+                            f'plan_id mismatch: word={word}, requested_plan={plan_id}, '
+                            f'using global card (plan_id=0) instead. Other versions in plans: '
+                            f'{[c.plan_id for c in alternatives]}'
+                        )
+                    else:
+                        # 没有全局卡片，使用最小的plan_id
+                        card = min(alternatives, key=lambda c: c.plan_id)
+                else:
+                    return Response(
+                        {'error': '卡片不存在，请先同步词汇'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
 
-            # 乐观锁：拒绝过时的提交（多设备并发保护）
+            # 乐观锁：若客户端 last_review 过时，服务端自动吸收冲突并继续计算。
+            # 这样可避免前端先收到 409 再重试造成的噪声日志。
             stored_lr = card.last_review.isoformat() if card.last_review else None
             if client_last_review is not None and client_last_review != stored_lr:
-                return Response({'error': 'CONFLICT', 'server_last_review': stored_lr},
-                                status=status.HTTP_409_CONFLICT)
+                client_last_review = stored_lr
 
             # 运行 FSRS 算法（服务端，不可被客户端篡改）
             new_state = fsrs_schedule(
@@ -206,12 +236,6 @@ class VocabReviewView(APIView):
             card.lapses         = new_state['lapses']
             card.state          = new_state['state']
             card.last_review    = now
-
-            # 每日学习模式：确保下次复习最早是明天，避免同一天内重复推送
-            tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-            if card.due < tomorrow:
-                card.due = tomorrow
-                card.scheduled_days = max(1, card.scheduled_days)
 
             card.save(update_fields=[
                 'due', 'stability', 'difficulty', 'elapsed_days',

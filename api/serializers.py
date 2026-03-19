@@ -39,6 +39,7 @@ class UserSerializer(serializers.ModelSerializer):
     atBalance = serializers.IntegerField(source='at_balance', read_only=True)
     createdAt = serializers.DateTimeField(source='date_joined', read_only=True)
     updatedAt = serializers.DateTimeField(source='updated_at', read_only=True)
+    aiGenerationRetryCount = serializers.IntegerField(source='ai_generation_retry_count')
 
     class Meta:
         model = User
@@ -50,6 +51,7 @@ class UserSerializer(serializers.ModelSerializer):
             'at_balance', 'atBalance', 'is_email_verified', 'last_login', 'date_joined',
             'createdAt', 'updatedAt',
             'bg_color', 'bg_image_url', 'bg_blur', 'is_staff', 'is_superuser',
+            'ai_generation_retry_count', 'aiGenerationRetryCount',
         )
 
 from .models import Feedback

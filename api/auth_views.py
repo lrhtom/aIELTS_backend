@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import UserRegistrationSerializer, UserSerializer
 from .email_service import send_verification_code, verify_code
+from datetime import timedelta
 import os
 import mimetypes
 from PIL import Image
@@ -142,19 +143,20 @@ class DeleteAccountView(APIView):
     def delete(self, request):
         try:
             user = request.user
-            # 记录用户信息用于日志（可选）
-            username = user.username
-            email = user.email
-
-            # 删除用户
-            user.delete()
+            # 软删除：保留恢复窗口，避免误操作导致不可恢复的数据丢失
+            now = timezone.now()
+            if user.deletion_requested_at is None:
+                user.deletion_requested_at = now
+            user.is_active = False
+            user.is_banned = True
+            # 刷新 token id 立即使当前设备及其他设备 token 失效
+            user.jwt_token_id = str(uuid.uuid4())
+            user.save(update_fields=['deletion_requested_at', 'is_active', 'is_banned', 'jwt_token_id', 'updated_at'])
 
             return Response({
-                'message': '账户已成功删除',
-                'deleted_user': {
-                    'username': username,
-                    'email': email
-                }
+                'message': '账户已申请注销，30天内可联系管理员恢复',
+                'deletion_requested_at': user.deletion_requested_at.isoformat(),
+                'recoverable_until': (user.deletion_requested_at + timedelta(days=30)).isoformat(),
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -325,5 +327,49 @@ class AvatarUploadView(APIView):
         except Exception as e:
             return Response({
                 'error': '删除头像失败',
+                'detail': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserSettingsView(APIView):
+    """
+    更新用户设置的视图，包括AI生成重试次数等
+    """
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        """
+        更新用户设置
+        请求数据示例:
+        {
+            "ai_generation_retry_count": 5,
+        }
+        """
+        try:
+            user = request.user
+            
+            # 处理AI生成重试次数
+            if 'ai_generation_retry_count' in request.data:
+                retry_count = request.data.get('ai_generation_retry_count')
+                
+                # 验证范围（0-10）
+                if not isinstance(retry_count, int) or retry_count < 0 or retry_count > 10:
+                    return Response({
+                        'error': 'AI生成重试次数必须是0-10之间的整数'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                user.ai_generation_retry_count = retry_count
+            
+            # 保存所有更改
+            user.save(update_fields=['ai_generation_retry_count', 'updated_at'])
+            
+            return Response({
+                'message': '用户设置更新成功',
+                'user': UserSerializer(user).data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'error': '更新用户设置失败',
                 'detail': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

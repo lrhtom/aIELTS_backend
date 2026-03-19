@@ -21,6 +21,7 @@ RULES:
 3. "blanked_passage": the EXACT SAME text as "passage", but replace exactly 10 key words/phrases with "_____". These 10 blanks are the questions. Each blank replaces {word_count_desc}.
 4. "questions": an array of EXACTLY 10 objects (id 1-10). Each has "question" (include _____ in it), "answers" (at least 2 acceptable variations, each MUST be {word_count_desc}), and "explanation" in Chinese.
 5. The passage should be a lecture, conversation, or monologue typical of IELTS listening.
+{answer_priority_rule}
 
 Output ONLY valid JSON, no markdown, no comments:
 {{
@@ -88,6 +89,7 @@ RULES:
 3. "questions": an array of EXACTLY 10 independent fill-in-the-blank sentences. Each summarizes a key fact from the passage and contains exactly one "_____". These sentences do NOT form a paragraph.
 4. Each "answers" array must have at least 2 acceptable variations, and each answer MUST be {word_count_desc}.
 5. The passage should be a lecture, conversation, or monologue typical of IELTS listening.
+{answer_priority_rule}
 
 Output ONLY valid JSON, no markdown, no comments:
 {{
@@ -142,11 +144,13 @@ def generate_listening(request):
             vocab_instruction = ""
             marker_rule = ""
             mc_marker_rule = ""
+            answer_priority_rule = ""
         else:
             word_str = ', '.join(words)
-            vocab_instruction = f"using the following vocabulary words: {word_str}. You MUST use ALL of them!"
+            vocab_instruction = f"incorporating the following vocabulary words as much as possible: {word_str}"
             marker_rule = "Wrap target vocabulary in double asterisks like **word**."
             mc_marker_rule = "IMPORTANT RULES:\\nWhenever you use one of the target vocabulary words (or its tense/plural variations) in either the passage OR the questions/options, you MUST wrap it in double asterisks, like **word**. Do NOT use asterisks for anything else."
+            answer_priority_rule = "IMPORTANT: Try to incorporate the provided vocabulary words as answers. If possible, make these words the primary answers in the answers array."
 
         # 生成更明确的词数描述和示例答案
         if word_count_min == word_count_max:
@@ -183,6 +187,7 @@ def generate_listening(request):
                 word_count_desc=word_count_desc,
                 example_answer=example_answer,
                 marker_rule=marker_rule,
+                answer_priority_rule=answer_priority_rule,
                 tone_instruction=tone_instruction,
             )
         else:
@@ -192,10 +197,13 @@ def generate_listening(request):
                 word_count_desc=word_count_desc,
                 example_answer=example_answer,
                 marker_rule=marker_rule,
+                answer_priority_rule=answer_priority_rule,
                 tone_instruction=tone_instruction,
             )
 
+        print(f"[Listening] 📝 AI 提示词:\n{prompt[:500]}...\n", flush=True)
         result = call_ai_api(prompt, provider=provider, user_id=request.user.id)
+        print(f"[Listening] 🤖 AI 完整返回:\n{json.dumps(result, ensure_ascii=False, indent=2)[:2000]}...\n", flush=True)
 
         # ── 打印 AI 返回的关键信息 ──
         print(f"[Listening] 📊 AI 返回数据:", flush=True)
@@ -263,6 +271,21 @@ def generate_listening(request):
                         q['id'] = i + 1
 
         print(f"[Listening] ✅ 最终返回 {len(result.get('questions', []))} 个题目", flush=True)
+        
+        # ★ 禁用用户词汇答案优化，直接使用AI生成的答案
+        print(f"[Listening] 📌 不执行词汇优化，使用AI生成的答案", flush=True)
+        
+        # 打印最终返回的答案
+        print(f"[Listening] 📤 最终返回的答案和题目:", flush=True)
+        final_questions = result.get('questions', [])
+        for q in final_questions:
+            print(f"[Listening]   Q{q.get('id')}: {q.get('question', '')}", flush=True)
+            print(f"[Listening]      答案: {q.get('answers', [])}", flush=True)
+            print(f"[Listening]      解析: {q.get('explanation', '')}", flush=True)
+        
+        print(f"[Listening] 📄 Passage:", flush=True)
+        print(f"{result.get('passage', '')}", flush=True)
+        
         print(f"{'='*60}\n", flush=True)
         return JsonResponse(result)
 
@@ -271,7 +294,6 @@ def generate_listening(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
 def generate_listening_audio(request):
     """POST /api/listening/audio — 生成 Edge-TTS 的 mp3 文件"""
     try:
@@ -300,3 +322,33 @@ def generate_listening_audio(request):
                 os.remove(temp_path)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+def _clean_answer_value(answer: any) -> str:
+    """
+    清理答案值：处理多种格式
+    1. 如果是对象/字典，提取answer字段
+    2. 移除括号和其他封装符号 (answer) → answer
+    3. 移除多个相关答案，只保留第一个 answer1/answer2 → answer1
+    4. 去除前后空格和标点
+    """
+    # 如果是字典/对象，尝试提取answer字段
+    if isinstance(answer, dict):
+        answer = answer.get('answer', answer.get('value', str(answer)))
+    
+    answer = str(answer).strip()
+    
+    # 移除所有括号（圆括号、方括号、花括号）
+    answer = answer.strip('()[]{}')
+    
+    # 处理多个相关答案，按优先级只保留第一个
+    # 优先级：/ > , > ;
+    for separator in ['/', ',', ';', ' or ', ' OR ', ' | ']:
+        if separator in answer:
+            answer = answer.split(separator)[0].strip()
+            break
+    
+    # 移除结尾的标点符号
+    answer = answer.rstrip('.,;:!?')
+    
+    return answer.strip()

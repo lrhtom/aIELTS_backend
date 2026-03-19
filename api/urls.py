@@ -27,6 +27,7 @@ urlpatterns = [
     path('auth/login', CustomLoginView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/profile', auth_views.UserProfileView.as_view(), name='auth_profile'),
+    path('auth/settings', auth_views.UserSettingsView.as_view(), name='user_settings'),
     path('auth/avatar', auth_views.AvatarUploadView.as_view(), name='avatar_upload'),
     path('auth/delete-account', auth_views.DeleteAccountView.as_view(), name='delete_account'),
     path('auth/background', background_views.BackgroundSettingsView.as_view(), name='user_background'),

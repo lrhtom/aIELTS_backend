@@ -319,8 +319,10 @@ class PlanWordDetailView(APIView):
             )
             fsrs.due            = now + timedelta(days=days)
             fsrs.scheduled_days = days
-            if fsrs.reps > 0:
+            if days > 0:
                 fsrs.state = 2  # Review
+            else:
+                fsrs.state = 2 if fsrs.reps > 0 else 1  # due-now: review or learning
             fsrs.save(update_fields=['due', 'scheduled_days', 'state'])
 
         fsrs_map = _build_fsrs_map(request.user, [entry.word], plan_id=entry.plan_id)
@@ -375,6 +377,7 @@ class PlanStartView(APIView):
 
         # 3. Build session: due cards first, then new cards, capped at remaining daily quota
         today = now.date()
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Words from this plan already reviewed today
         studied_today = sum(
@@ -384,13 +387,25 @@ class PlanStartView(APIView):
         # Remaining quota: daily_count minus what's already done today
         remaining_today = max(0, plan.daily_count - studied_today)
 
-        # Due: non-new state, due date is today or earlier, and not already reviewed today
+        # Due: non-new state and truly due now.
         due_cards = [
             c for c in all_cards
             if c.state != 0
-            and c.due.date() <= today
-            and (c.last_review is None or c.last_review.date() < today)
+            and c.due <= now
         ]
+
+        # Carry-over: cards answered earlier today that are still in learning/relearning
+        # should reappear when user restarts session, otherwise they look "skipped".
+        carryover_cards = sorted(
+            [
+                c for c in all_cards
+                if c.state in (1, 3)
+                and c.due > now
+                and c.last_review is not None
+                and c.last_review >= start_of_today
+            ],
+            key=lambda c: c.due,
+        )
         # New: never been reviewed (state == 0)
         new_cards = [c for c in all_cards if c.state == 0]
         # Pending: previously studied via another context, due in the future,
@@ -399,23 +414,50 @@ class PlanStartView(APIView):
             [
                 c for c in all_cards
                 if c.state != 0
-                and c.due.date() > today
-                and (c.last_review is None or c.last_review.date() < today)
+                and c.due > now
+                and (c.last_review is None or c.last_review < start_of_today)
             ],
             key=lambda c: c.due,
         )
 
-        session_cards = due_cards[:remaining_today]
-        remaining = remaining_today - len(session_cards)
-        if remaining > 0:
-            fill = new_cards[:remaining]
-            session_cards += fill
-            remaining -= len(fill)
-        if remaining > 0:
-            session_cards += pending_cards[:remaining]
+        # ── 严格遵守 daily_count 上限（修复版） ──────────────────────────────────────
+        # 优先级：CARRYOVER > DUE > NEW
+        # 原则：
+        #   1. CARRYOVER 绝对保留（今天答过，不能丢）
+        #   2. DUE 尽可能保留（FSRS需要，优先级次高）
+        #   3. NEW 受限制（可以延迟到明天）
+        
+        # 步骤1: 必须保留 CARRYOVER（今天实时答题反馈）
+        session_cards = list(carryover_cards)
+        
+        # 步骤2: 在剩余容量内加入已到期的 DUE 卡片
+        remaining_space = plan.daily_count - len(session_cards)
+        due_to_add = due_cards[:remaining_space] if remaining_space > 0 else []
+        session_cards.extend(due_to_add)
+        
+        # 步骤3: 最后尝试填充新词（受daily_count限制）
+        new_quota = max(0, plan.daily_count - len(session_cards))
+        if new_quota > 0 and new_cards:
+            # 新词按 due 时间排序（均匀分布），而不是按稳定性（都是0）
+            sorted_new_cards = sorted(new_cards, key=lambda c: (c.due, c.word))
+            selected_new = sorted_new_cards[:new_quota]
+            session_cards.extend(selected_new)
+        
+        # 步骤4: 最终安全检查（绝不超过daily_count）
+        if len(session_cards) > plan.daily_count:
+            # 按优先级重新排序并截断
+            def priority(card):
+                if card in carryover_cards:
+                    return (0, card.due)  # CARRYOVER 优先级0（最高）
+                elif card in due_cards:
+                    return (1, card.due)  # DUE 优先级1
+                else:
+                    return (2, card.due)  # NEW 优先级2（可能被截断）
+            session_cards = sorted(session_cards, key=priority)[:plan.daily_count]
 
         total   = len(all_cards)
         due     = len(due_cards)
+        carryover = len(carryover_cards)
         new     = len(new_cards)
         pending = len(pending_cards)
 
@@ -432,6 +474,7 @@ class PlanStartView(APIView):
             'stats': {
                 'total':           total,
                 'due':             due,
+                'carryover':       carryover,
                 'new':             new,
                 'pending':         pending,
                 'studied_today':   studied_today,

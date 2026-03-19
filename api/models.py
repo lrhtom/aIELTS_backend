@@ -44,6 +44,7 @@ class User(AbstractUser):
 
     is_email_verified = models.BooleanField(default=False, verbose_name="邮箱是否验证")
     is_banned = models.BooleanField(default=False, verbose_name="是否封号")
+    deletion_requested_at = models.DateTimeField(blank=True, null=True, verbose_name="申请注销时间")
     last_ip = models.GenericIPAddressField(blank=True, null=True, verbose_name="最后登录IP")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="信息最后更新时间")
 
@@ -51,6 +52,13 @@ class User(AbstractUser):
     bg_color = models.CharField(max_length=200, blank=True, null=True, verbose_name="背景颜色/渐变值")
     bg_image_url = models.URLField(max_length=1000, blank=True, null=True, verbose_name="背景图片URL")
     bg_blur = models.FloatField(default=2.0, verbose_name="背景模糊度(px)")
+
+    # AI生成相关设置
+    ai_generation_retry_count = models.IntegerField(
+        default=0, 
+        verbose_name="AI生成重试次数(0-10)",
+        help_text="当AI生成失败时自动重试的次数，范围0-10次。更多重试次数会增加AT币消耗。"
+    )
 
     class Meta:
         verbose_name = "用户信息"

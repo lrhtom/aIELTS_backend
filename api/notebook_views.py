@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Count
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from .models import Notebook, NotebookWord, NotebookWordTag, Word, VocabBook, WordBookMembership
@@ -43,12 +44,13 @@ def _entry_dict(entry: NotebookWord) -> dict:
 def _save_tags(entry: NotebookWord, raw_tags: list):
     """Replace all tags for a NotebookWord entry."""
     names = list({t.strip().lower() for t in raw_tags if t.strip()})
-    NotebookWordTag.objects.filter(notebook_word=entry).delete()
-    if names:
-        NotebookWordTag.objects.bulk_create(
-            [NotebookWordTag(notebook_word=entry, name=n) for n in names],
-            ignore_conflicts=True,
-        )
+    with transaction.atomic():
+        NotebookWordTag.objects.filter(notebook_word=entry).delete()
+        if names:
+            NotebookWordTag.objects.bulk_create(
+                [NotebookWordTag(notebook_word=entry, name=n) for n in names],
+                ignore_conflicts=True,
+            )
 
 
 def _extract_zh(word_obj: Word) -> str:

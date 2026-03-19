@@ -138,18 +138,18 @@ def fsrs_schedule(card: dict, rating: int, now: datetime) -> dict:
         new_lapses = lapses
         new_reps   = reps + 1
 
-        if rating == 1:    # Again → 1 分钟后
+        if rating == 1:    # Again → 1 天后
             new_state  = LEARNING
-            sched_days = 0
-            due        = now + timedelta(minutes=1)
-        elif rating == 2:  # Hard → 5 分钟后
+            sched_days = 1
+            due        = now + timedelta(days=1)
+        elif rating == 2:  # Hard → 1 天后
             new_state  = LEARNING
-            sched_days = 0
-            due        = now + timedelta(minutes=5)
-        elif rating == 3:  # Good → 10 分钟后
+            sched_days = 1
+            due        = now + timedelta(days=1)
+        elif rating == 3:  # Good → 1 天后
             new_state  = LEARNING
-            sched_days = 0
-            due        = now + timedelta(minutes=10)
+            sched_days = 1
+            due        = now + timedelta(days=1)
         else:              # Easy → 直接进入复习阶段
             new_state  = REVIEW
             sched_days = max(1, round(new_s))
@@ -163,15 +163,15 @@ def fsrs_schedule(card: dict, rating: int, now: datetime) -> dict:
         new_lapses = lapses
         new_reps   = reps + 1
 
-        if rating == 1:    # Again → 5 分钟后重来
+        if rating == 1:    # Again → 1 天后重来
             new_state  = state
             new_s      = _init_stability(1)
-            sched_days = 0
-            due        = now + timedelta(minutes=5)
-        elif rating in (2, 3):  # Hard / Good → 10 分钟后
+            sched_days = 1
+            due        = now + timedelta(days=1)
+        elif rating in (2, 3):  # Hard / Good → 1 天后
             new_state  = state
-            sched_days = 0
-            due        = now + timedelta(minutes=10)
+            sched_days = 1
+            due        = now + timedelta(days=1)
         else:              # Easy → 毕业进入复习
             new_state  = REVIEW
             sched_days = max(1, round(new_s))
