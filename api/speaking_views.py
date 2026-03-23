@@ -227,3 +227,116 @@ def speaking_transcribe(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_scenario(request):
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'check_scenario', max_calls=20, window=60)
+        if limit_resp: return limit_resp
+        
+        scenario = request.data.get('scenario', '').strip()
+        if not scenario:
+            return JsonResponse({'valid': False, 'reason': 'Scenario description is empty'})
+            
+        system_instruction = {
+            "role": "system",
+            "content": (
+                "You are a content moderation AI for an English learning platform. "
+                "Analyze the following scenario description provided by a user for a role-play practice. "
+                "Check if it contains any NSFW content, extreme violence, illegal activities, hate speech, or highly inappropriate topics. "
+                "Output ONLY a raw JSON strictly matching: {\"valid\": true|false, \"reason\": \"If false, brief reason in Chinese, else empty string\"}"
+            )
+        }
+        
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        from .ai_client import AIClient
+        client = AIClient(provider=provider)
+        
+        ai_text, at_cost = client.generate([system_instruction, {"role": "user", "content": scenario}], expect_json=False, temperature=0.1, user_id=request.user.id)
+        
+        json_match = re.search(r'\{(.*?)\}', ai_text, re.DOTALL)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group(0))
+                return JsonResponse({
+                    'valid': bool(parsed.get('valid', True)),
+                    'reason': parsed.get('reason', ''),
+                    'atConsumed': at_cost
+                })
+            except json.JSONDecodeError:
+                pass
+                
+        # Fallback if AI fails to return strict JSON
+        is_invalid = any(w in ai_text.lower() for w in ['false', 'nsfw', 'illegal', 'inappropriate'])
+        return JsonResponse({'valid': not is_invalid, 'reason': '审核接口数据异常' if is_invalid else '', 'atConsumed': at_cost})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def scenario_chat(request):
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'scenario_chat', max_calls=15, window=60)
+        if limit_resp: return limit_resp
+        
+        messages = request.data.get('messages', [])
+        scenario = request.data.get('scenario', '').strip()
+        if not messages or not scenario:
+            return JsonResponse({'error': 'messages and scenario required'}, status=400)
+
+        system_instruction = {
+            "role": "system",
+            "content": (
+                f"You are engaging in a role-play speaking practice with an English learner.\n"
+                f"SCENARIO: {scenario}\n\n"
+                "Act as the counterpart in this scenario. Evaluate the user's latest message, keep the conversation moving naturally, "
+                "and decide if the conversation has reached a natural conclusion or if the user explicitly ended it.\n"
+                "CRITICAL INSTRUCTION: You MUST return your response as a raw JSON object and nothing else. "
+                "Your JSON MUST contain exactly these five keys:\n"
+                "{\n"
+                "  \"reply\": \"(string) Your in-character conversational response\",\n"
+                "  \"grammar_score\": (integer 0-100) Grammar accuracy of the user's latest message,\n"
+                "  \"vocab_score\": (integer 0-100) Vocabulary richness of the user's latest message,\n"
+                "  \"relevance_score\": (integer 0-100) How relevant the user's message is to the topic,\n"
+                "  \"is_continue\": (integer 1 or 0) Output 1 to continue the conversation, or 0 if the scenario is completely resolved/ended.\n"
+                "}"
+            )
+        }
+        messages.insert(0, system_instruction)
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        from .ai_client import AIClient
+        client = AIClient(provider=provider)
+        
+        ai_text, at_cost = client.generate(messages, expect_json=False, temperature=0.75, user_id=request.user.id)
+        
+        json_match = re.search(r'\{(.*?)\}', ai_text, re.DOTALL)
+        json_str = json_match.group(0) if json_match else ai_text
+
+        try:
+            parsed = json.loads(json_str)
+            reply_text = parsed.get('reply') or str(parsed)
+            reply_text = re.sub(r'[*#`_]', '', str(reply_text)).strip()
+            
+            grammar_score = int(parsed.get('grammar_score', 0))
+            vocab_score = int(parsed.get('vocab_score', 0))
+            relevance_score = int(parsed.get('relevance_score', 0))
+            is_continue = int(parsed.get('is_continue', 1))
+        except (json.JSONDecodeError, ValueError, TypeError):
+            reply_text = re.sub(r'[*#`_]', '', ai_text).strip()
+            grammar_score, vocab_score, relevance_score, is_continue = 0, 0, 0, 1
+
+        return JsonResponse({
+            'reply': reply_text,
+            'grammar_score': grammar_score,
+            'vocab_score': vocab_score,
+            'relevance_score': relevance_score,
+            'is_continue': is_continue,
+            'atConsumed': at_cost
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

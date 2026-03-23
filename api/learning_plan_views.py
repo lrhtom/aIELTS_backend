@@ -15,20 +15,149 @@ from .models import (
     VocabFSRS,
 )
 from .vocab_views import _card_to_dict, _word_map as _build_word_map
+from .fsrs_utils import _USER_TZ, _next_day_midnight
+
+def _user_today():
+    """返回国际0点线（UTC+0）的今日 date"""
+    return timezone.now().astimezone(_USER_TZ).date()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 核心 FSRS 选卡逻辑
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _build_today_summary(plan: LearningPlan, all_cards: list[VocabFSRS]):
+    """
+    根据该计划下的所有卡片，按 FSRS 规则分发并截断出「今日需学计划」。
+    返回：
+      studied_today_cards : 今日已毕业的卡片(state=2)
+      session_cards       : 接下来需要学的卡片（受 daily_count 限制）
+      stats               : 各类卡片统计
+    """
+    now = timezone.now()
+    today = _user_today()
+    start_of_today_utc = now.astimezone(_USER_TZ).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+    studied_today_cards = [
+        c for c in all_cards
+        if c.last_review is not None
+        and c.last_review.astimezone(_USER_TZ).date() == today
+        and c.state == 2
+    ]
+    studied_today = len(studied_today_cards)
+    remaining_today = max(0, plan.daily_count - studied_today)
+
+    due_cards = [c for c in all_cards if c.state != 0 and c.due <= now]
+    carryover_cards = sorted(
+        [
+            c for c in all_cards
+            if c.state in (1, 3) and c.due > now
+            and c.last_review is not None and c.last_review >= start_of_today_utc
+        ],
+        key=lambda c: c.due,
+    )
+    new_cards = [c for c in all_cards if c.state == 0]
+    pending_cards = sorted(
+        [
+            c for c in all_cards
+            if c.state != 0 and c.due > now
+            and (c.last_review is None or c.last_review < start_of_today_utc)
+        ],
+        key=lambda c: c.due,
+    )
+
+    # 组装 Session 队列
+    session_cards = list(carryover_cards)
+    
+    # 还能塞入多少新卡/到期卡：当日剩余名额扣除已经塞进去的（比如 carryover）
+    remaining_space = remaining_today - len(session_cards)
+    due_to_add = due_cards[:remaining_space] if remaining_space > 0 else []
+    session_cards.extend(due_to_add)
+
+    new_quota = remaining_today - len(session_cards)
+    if new_quota > 0 and new_cards:
+        sorted_new_cards = sorted(new_cards, key=lambda c: (c.due, c.word))
+        session_cards.extend(sorted_new_cards[:new_quota])
+
+    # 边界截断保护：队列最大长度理应为 remaining_today。只有 carryover 可能导致超出。
+    # 若超出，则截断多余的（优先保留 carryover 和 due）
+    if len(session_cards) > remaining_today:
+        def priority(card):
+            if card in carryover_cards: return (0, card.due)
+            if card in due_cards:       return (1, card.due)
+            return (2, card.due)
+        # 注意：如果 carryover 本身数量就 > remaining_today，我们不强行截掉 carryover
+        # 但如果是由于别的逻辑导致超标，我们就截掉优先级低的
+        safe_limit = max(remaining_today, len(carryover_cards))
+        session_cards = sorted(session_cards, key=priority)[:safe_limit]
+
+    stats = {
+        'total':           len(all_cards),
+        'due':             len(due_cards),
+        'carryover':       len(carryover_cards),
+        'new':             len(new_cards),
+        'pending':         len(pending_cards),
+        'studied_today':   studied_today,
+        'remaining_today': remaining_today,
+    }
+    return studied_today_cards, session_cards, stats
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Serialisers
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _plan_dict(plan: LearningPlan, word_count: int | None = None) -> dict:
+def _plan_dict(plan: LearningPlan, word_count: int | None = None, user=None, detail=False) -> dict:
+    today = _user_today()
+    studied_today = 0
+    today_words: list[dict] = []
+    
+    if user:
+        if detail:
+            # 详情页：显示"今天的全部学习计划"（已学 + 待学队列）
+            all_cards = list(VocabFSRS.objects.filter(user=user, plan_id=plan.pk).order_by('due'))
+            studied_cards, session_cards, _ = _build_today_summary(plan, all_cards)
+            
+            # 按先后顺序：已学完的排前面，待学的排后面
+            today_cards = studied_cards + session_cards
+            
+            # 获取发音
+            words = [c.word for c in today_cards]
+            wmap = _build_word_map(words) if words else {}
+            
+            studied_today = len(studied_cards)
+            today_words = [
+                {
+                    'word':     c.word,
+                    'zh':       c.zh,
+                    'state':    c.state,
+                    'reps':     c.reps,
+                    'phonetic': (wmap.get(c.word).phonetic or '') if wmap.get(c.word) else '',
+                }
+                for c in today_cards
+            ]
+        else:
+            # 列表页简略计算，仅查 studied_today 不计算复杂队列
+            today_cards_lite = list(
+                VocabFSRS.objects.filter(user=user, plan_id=plan.pk).order_by('-last_review')
+            )
+            # 用用户时区的日期过滤
+            today_cards_lite = [c for c in today_cards_lite
+                                if c.last_review and c.last_review.astimezone(_USER_TZ).date() == today]
+            studied_today = sum(1 for c in today_cards_lite if c.state == 2)
     return {
-        'id':          plan.pk,
-        'name':        plan.name,
-        'daily_count': plan.daily_count,
-        'word_count':  word_count if word_count is not None else plan.entries.count(),
-        'created_at':  plan.created_at.isoformat(),
-        'updated_at':  plan.updated_at.isoformat(),
+        'id':             plan.pk,
+        'name':           plan.name,
+        'daily_count':    plan.daily_count,
+        'default_mode':   plan.default_mode,
+        'mastery_target': plan.mastery_target,
+        'word_count':     word_count if word_count is not None else plan.entries.count(),
+        'studied_today':  studied_today,
+        'today_words':    today_words,
+        'created_at':     plan.created_at.isoformat(),
+        'updated_at':     plan.updated_at.isoformat(),
     }
 
 
@@ -75,7 +204,7 @@ class PlanListView(APIView):
             .annotate(wc=Count('entries'))
             .order_by('created_at')
         )
-        return Response({'plans': [_plan_dict(p, p.wc) for p in plans]})
+        return Response({'plans': [_plan_dict(p, p.wc, user=request.user) for p in plans]})
 
     def post(self, request):
         name = request.data.get('name', '').strip()
@@ -98,7 +227,7 @@ class PlanListView(APIView):
             msg = str(e)
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'plan': _plan_dict(plan, 0)}, status=status.HTTP_201_CREATED)
+        return Response({'plan': _plan_dict(plan, 0, user=request.user)}, status=status.HTTP_201_CREATED)
 
 
 class PlanDetailView(APIView):
@@ -110,7 +239,7 @@ class PlanDetailView(APIView):
 
     def get(self, request, pk):
         plan = self._get_plan(pk, request.user)
-        return Response({'plan': _plan_dict(plan)})
+        return Response({'plan': _plan_dict(plan, user=request.user, detail=True)})
 
     def patch(self, request, pk):
         plan = self._get_plan(pk, request.user)
@@ -127,12 +256,24 @@ class PlanDetailView(APIView):
                 plan.daily_count = daily_count
             except (TypeError, ValueError):
                 return Response({'error': '每日学习词数必须在 1-200 之间'}, status=status.HTTP_400_BAD_REQUEST)
+        if 'default_mode' in request.data:
+            plan.default_mode = request.data['default_mode'].strip()
+        if 'mastery_target' in request.data:
+            try:
+                target = int(request.data['mastery_target'])
+                if not (1 <= target <= 5):
+                    raise ValueError
+                plan.mastery_target = target
+            except (TypeError, ValueError):
+                return Response({'error': '连续答对目标次数必须在 1-5 之间'}, status=status.HTTP_400_BAD_REQUEST)
+
         # bypass full_clean (no new-plan limit check on update)
         LearningPlan.objects.filter(pk=plan.pk).update(
-            name=plan.name, daily_count=plan.daily_count
+            name=plan.name, daily_count=plan.daily_count,
+            default_mode=plan.default_mode, mastery_target=plan.mastery_target
         )
         plan.refresh_from_db()
-        return Response({'plan': _plan_dict(plan)})
+        return Response({'plan': _plan_dict(plan, user=request.user)})
 
     def delete(self, request, pk):
         plan = self._get_plan(pk, request.user)
@@ -317,11 +458,12 @@ class PlanWordDetailView(APIView):
                 plan_id=entry.plan_id,
                 defaults={'zh': entry.zh, 'due': now},
             )
-            fsrs.due            = now + timedelta(days=days)
             fsrs.scheduled_days = days
             if days > 0:
+                fsrs.due   = _next_day_midnight(now, days)
                 fsrs.state = 2  # Review
             else:
+                fsrs.due   = now
                 fsrs.state = 2 if fsrs.reps > 0 else 1  # due-now: review or learning
             fsrs.save(update_fields=['due', 'scheduled_days', 'state'])
 
@@ -355,7 +497,42 @@ class PlanStartView(APIView):
             return Response({'error': '计划中没有单词，请先添加单词'}, status=status.HTTP_400_BAD_REQUEST)
 
         now = timezone.now()
+        mode = request.data.get('mode', 'study')  # 'study' | 'review'
 
+        # ── Review mode: return today's cards for read-only browsing ──
+        if mode == 'review':
+            today = now.date()
+            word_zh_map = {e.word: e.zh for e in entries}
+            today_cards = list(
+                VocabFSRS.objects.filter(
+                    user=user,
+                    plan_id=plan.pk,
+                    last_review__date=today,
+                ).order_by('-last_review')
+            )
+            wmap = _build_word_map([c.word for c in today_cards])
+            cards = []
+            for c in today_cards:
+                d = _card_to_dict(c, wmap.get(c.word))
+                d['zh']      = word_zh_map.get(c.word) or c.zh
+                d['plan_id'] = c.plan_id
+                cards.append(d)
+            studied_today = sum(1 for c in today_cards if c.state == 2)
+            return Response({
+                'cards': cards,
+                'stats': {
+                    'total':           len(entries),
+                    'due':             0,
+                    'carryover':       0,
+                    'new':             0,
+                    'pending':         0,
+                    'studied_today':   studied_today,
+                    'remaining_today': 0,
+                },
+                'review_mode': True,
+            })
+
+        # ── Normal study mode ──
         # 1. Sync plan entries → VocabFSRS, scoped to this plan
         word_zh_map = {e.word: e.zh for e in entries}
         existing = {
@@ -375,91 +552,9 @@ class PlanStartView(APIView):
             VocabFSRS.objects.filter(user=user, word__in=word_zh_map.keys(), plan_id=plan.pk).order_by('due')
         )
 
-        # 3. Build session: due cards first, then new cards, capped at remaining daily quota
-        today = now.date()
-        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        # 3. Build session: use shared logic
+        _, session_cards, stats = _build_today_summary(plan, all_cards)
 
-        # Words from this plan already reviewed today
-        studied_today = sum(
-            1 for c in all_cards
-            if c.last_review is not None and c.last_review.date() == today
-        )
-        # Remaining quota: daily_count minus what's already done today
-        remaining_today = max(0, plan.daily_count - studied_today)
-
-        # Due: non-new state and truly due now.
-        due_cards = [
-            c for c in all_cards
-            if c.state != 0
-            and c.due <= now
-        ]
-
-        # Carry-over: cards answered earlier today that are still in learning/relearning
-        # should reappear when user restarts session, otherwise they look "skipped".
-        carryover_cards = sorted(
-            [
-                c for c in all_cards
-                if c.state in (1, 3)
-                and c.due > now
-                and c.last_review is not None
-                and c.last_review >= start_of_today
-            ],
-            key=lambda c: c.due,
-        )
-        # New: never been reviewed (state == 0)
-        new_cards = [c for c in all_cards if c.state == 0]
-        # Pending: previously studied via another context, due in the future,
-        # not yet reviewed today — sorted nearest-due first to minimise FSRS disruption
-        pending_cards = sorted(
-            [
-                c for c in all_cards
-                if c.state != 0
-                and c.due > now
-                and (c.last_review is None or c.last_review < start_of_today)
-            ],
-            key=lambda c: c.due,
-        )
-
-        # ── 严格遵守 daily_count 上限（修复版） ──────────────────────────────────────
-        # 优先级：CARRYOVER > DUE > NEW
-        # 原则：
-        #   1. CARRYOVER 绝对保留（今天答过，不能丢）
-        #   2. DUE 尽可能保留（FSRS需要，优先级次高）
-        #   3. NEW 受限制（可以延迟到明天）
-        
-        # 步骤1: 必须保留 CARRYOVER（今天实时答题反馈）
-        session_cards = list(carryover_cards)
-        
-        # 步骤2: 在剩余容量内加入已到期的 DUE 卡片
-        remaining_space = plan.daily_count - len(session_cards)
-        due_to_add = due_cards[:remaining_space] if remaining_space > 0 else []
-        session_cards.extend(due_to_add)
-        
-        # 步骤3: 最后尝试填充新词（受daily_count限制）
-        new_quota = max(0, plan.daily_count - len(session_cards))
-        if new_quota > 0 and new_cards:
-            # 新词按 due 时间排序（均匀分布），而不是按稳定性（都是0）
-            sorted_new_cards = sorted(new_cards, key=lambda c: (c.due, c.word))
-            selected_new = sorted_new_cards[:new_quota]
-            session_cards.extend(selected_new)
-        
-        # 步骤4: 最终安全检查（绝不超过daily_count）
-        if len(session_cards) > plan.daily_count:
-            # 按优先级重新排序并截断
-            def priority(card):
-                if card in carryover_cards:
-                    return (0, card.due)  # CARRYOVER 优先级0（最高）
-                elif card in due_cards:
-                    return (1, card.due)  # DUE 优先级1
-                else:
-                    return (2, card.due)  # NEW 优先级2（可能被截断）
-            session_cards = sorted(session_cards, key=priority)[:plan.daily_count]
-
-        total   = len(all_cards)
-        due     = len(due_cards)
-        carryover = len(carryover_cards)
-        new     = len(new_cards)
-        pending = len(pending_cards)
 
         # 4. Enrich cards with Word data; use this plan's zh, not the shared FSRS card's zh
         wmap = _build_word_map([c.word for c in session_cards])
@@ -471,15 +566,7 @@ class PlanStartView(APIView):
             cards.append(d)
         return Response({
             'cards': cards,
-            'stats': {
-                'total':           total,
-                'due':             due,
-                'carryover':       carryover,
-                'new':             new,
-                'pending':         pending,
-                'studied_today':   studied_today,
-                'remaining_today': remaining_today,
-            },
+            'stats': stats,
         })
 
 

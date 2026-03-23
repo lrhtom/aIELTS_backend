@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.db import transaction
 
-from .models import VocabFSRS, Word
+from .models import VocabFSRS, Word, NotebookWord
 from .fsrs_utils import fsrs_schedule
 
 # 新卡状态常量
@@ -131,7 +131,7 @@ class VocabCardsView(APIView):
             from django.db.models import Q
             qs = qs.filter(Q(state=_NEW) | Q(due__lte=now))
 
-        card_list = list(qs.order_by('due'))
+        card_list = list(qs.order_by('due')[:200])
         wmap = _word_map([c.word for c in card_list])
         return Response({
             'cards': [_card_to_dict(c, wmap.get(c.word)) for c in card_list],
@@ -207,11 +207,13 @@ class VocabReviewView(APIView):
                         status=status.HTTP_404_NOT_FOUND
                     )
 
-            # 乐观锁：若客户端 last_review 过时，服务端自动吸收冲突并继续计算。
-            # 这样可避免前端先收到 409 再重试造成的噪声日志。
+            # 乐观锁：冲突时返回 409，强制前端同步最新状态
             stored_lr = card.last_review.isoformat() if card.last_review else None
             if client_last_review is not None and client_last_review != stored_lr:
-                client_last_review = stored_lr
+                return Response(
+                    {'error': '卡片已被其他设备更新', 'server_last_review': stored_lr},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
             # 运行 FSRS 算法（服务端，不可被客户端篡改）
             new_state = fsrs_schedule(
@@ -243,4 +245,26 @@ class VocabReviewView(APIView):
             ])
 
         word_obj = Word.objects.filter(word=word).first()
+
+        # #9 联动更新用户笔记本中该单词的 mastery_level
+        _sync_notebook_mastery(request.user, word, card)
+
         return Response({'card': _card_to_dict(card, word_obj)})
+
+
+def _sync_notebook_mastery(user, word_str: str, fsrs_card: VocabFSRS):
+    """将 FSRS 状态映射到 NotebookWord.mastery_level (0-5)"""
+    state_map = {0: 0, 1: 1, 3: 2}  # New→0, Learning→1, Relearning→2
+    if fsrs_card.state == 2:  # Review
+        s = fsrs_card.stability
+        if s >= 60:
+            level = 5
+        elif s >= 21:
+            level = 4
+        else:
+            level = 3
+    else:
+        level = state_map.get(fsrs_card.state, 0)
+    NotebookWord.objects.filter(
+        notebook__user=user, word__word=word_str,
+    ).update(mastery_level=level)

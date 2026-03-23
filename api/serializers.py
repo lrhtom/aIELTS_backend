@@ -41,6 +41,10 @@ class UserSerializer(serializers.ModelSerializer):
     updatedAt = serializers.DateTimeField(source='updated_at', read_only=True)
     aiGenerationRetryCount = serializers.IntegerField(source='ai_generation_retry_count')
 
+    targetVocabName = serializers.CharField(source='target_vocab_name', read_only=True)
+    languagePreference = serializers.CharField(source='language_preference', read_only=True)
+    aiProvider = serializers.CharField(source='ai_provider', read_only=True)
+
     class Meta:
         model = User
         # 除去了密码等敏感字段
@@ -52,6 +56,9 @@ class UserSerializer(serializers.ModelSerializer):
             'createdAt', 'updatedAt',
             'bg_color', 'bg_image_url', 'bg_blur', 'is_staff', 'is_superuser',
             'ai_generation_retry_count', 'aiGenerationRetryCount',
+            'target_vocab_name', 'targetVocabName',
+            'language_preference', 'languagePreference',
+            'ai_provider', 'aiProvider',
         )
 
 from .models import Feedback

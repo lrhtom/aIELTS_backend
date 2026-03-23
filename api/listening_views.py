@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import random
 import subprocess
 import tempfile
 from django.http import JsonResponse, HttpResponse
@@ -53,7 +54,10 @@ Tone requirement:
 
 {mc_marker_rule}
 
-Then, create exactly 5 multiple-choice questions (A, B, C, D) based on the passage. Assign the correct answer for each question completely at random. Please ensure true randomness, which means it is entirely acceptable and expected if the distribution is uneven, and one option (A, B, C, or D) might not appear as the correct answer at all.
+Then, create exactly 5 multiple-choice questions based on the passage.
+For each question, provide 4 options as a JSON array. 
+CRITICAL RULE: The VERY FIRST option in the "options" array (index 0) MUST ALWAYS BE THE CORRECT ANSWER. The remaining 3 options must be the incorrect distractors. 
+Our system will shuffle them automatically later. Do not assign A, B, C, D letters yourself.
 
 You MUST output your response strictly in the following JSON format without any markdown wrappers or extra text:
 {{
@@ -64,14 +68,13 @@ You MUST output your response strictly in the following JSON format without any 
         {{
             "id": 1,
             "question": "Question text here",
-            "options": {{
-                "A": "Option A text",
-                "B": "Option B text",
-                "C": "Option C text",
-                "D": "Option D text"
-            }},
-            "answer": "A",
-            "explanation": "Detailed explanation of why A is correct and others are wrong. explanation使用中文题解"
+            "options": [
+                "The EXACT text of the CORRECT option goes here FIRST",
+                "Wrong option distractor 1",
+                "Wrong option distractor 2",
+                "Wrong option distractor 3"
+            ],
+            "explanation": "Detailed explanation using 中文. Explain why the correct option is right."
         }}
     ]
 }}
@@ -269,6 +272,26 @@ def generate_listening(request):
                     result['questions'] = questions[:blank_count]
                     for i, q in enumerate(result['questions']):
                         q['id'] = i + 1
+
+        if practice_type == 'multiple_choice':
+            for q in result.get('questions', []):
+                options_list = q.get('options')
+                if isinstance(options_list, list) and len(options_list) >= 1:
+                    correct_text = options_list[0]
+                    shuffled = list(options_list)
+                    random.shuffle(shuffled)
+                    
+                    letters = ['A', 'B', 'C', 'D']
+                    options_dict = {}
+                    correct_letter = 'A'
+                    for idx, opt_text in enumerate(shuffled[:4]):
+                        letter = letters[idx]
+                        options_dict[letter] = opt_text
+                        if opt_text == correct_text:
+                            correct_letter = letter
+                    
+                    q['options'] = options_dict
+                    q['answer'] = correct_letter
 
         print(f"[Listening] ✅ 最终返回 {len(result.get('questions', []))} 个题目", flush=True)
         

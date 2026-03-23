@@ -5,6 +5,9 @@ FSRS-4.5 间隔重复算法 —— 纯 Python 实现，无外部依赖
 import math
 from datetime import datetime, timedelta, timezone
 
+# 用户时区：UTC+0（国际0点线），用于日历日边界计算
+_USER_TZ = timezone.utc
+
 # ── FSRS-4.5 默认权重 ─────────────────────────────────────────────────────
 W = [
     0.4072, 1.1829, 3.1262, 15.4722,   # w[0-3] 新卡四个评分的初始稳定性
@@ -34,6 +37,29 @@ NEW        = 0
 LEARNING   = 1
 REVIEW     = 2
 RELEARNING = 3
+
+
+# ── 辅助：日历日边界 ────────────────────────────────────────────────
+
+def _calendar_days(now: datetime, last_review: datetime) -> int:
+    """
+    用用户时区（UTC+8）的日历日差计算 elapsed days。
+    例：用户 23:00 学习，过了 0:00 后即算 1 天。
+    """
+    today_local = now.astimezone(_USER_TZ).date()
+    lr_local    = last_review.astimezone(_USER_TZ).date()
+    return (today_local - lr_local).days
+
+
+def _next_day_midnight(now: datetime, days: int = 1) -> datetime:
+    """
+    返回用户时区下 +days 天的 0:00（转为 UTC）。
+    例：用户在 UTC+8 23:00 学习，due = UTC+8 明天 0:00 → UTC 16:00。
+    """
+    local_now = now.astimezone(_USER_TZ)
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    target = local_midnight + timedelta(days=days)
+    return target.astimezone(timezone.utc)
 
 
 # ── 核心公式 ──────────────────────────────────────────────────────────────
@@ -125,7 +151,7 @@ def fsrs_schedule(card: dict, rating: int, now: datetime) -> dict:
     else:
         lr = None
 
-    elapsed = int((now - lr).days) if lr else 0
+    elapsed = float(_calendar_days(now, lr)) if lr else 0.0
 
     # 保底：若 d 为 0，用评分 3 的初始难度
     if d <= 0:
@@ -138,22 +164,22 @@ def fsrs_schedule(card: dict, rating: int, now: datetime) -> dict:
         new_lapses = lapses
         new_reps   = reps + 1
 
-        if rating == 1:    # Again → 1 天后
+        if rating == 1:    # Again → 明天 0 点
             new_state  = LEARNING
             sched_days = 1
-            due        = now + timedelta(days=1)
-        elif rating == 2:  # Hard → 1 天后
+            due        = _next_day_midnight(now, 1)
+        elif rating == 2:  # Hard → 明天 0 点
             new_state  = LEARNING
             sched_days = 1
-            due        = now + timedelta(days=1)
-        elif rating == 3:  # Good → 1 天后
+            due        = _next_day_midnight(now, 1)
+        elif rating == 3:  # Good → 明天 0 点
             new_state  = LEARNING
             sched_days = 1
-            due        = now + timedelta(days=1)
+            due        = _next_day_midnight(now, 1)
         else:              # Easy → 直接进入复习阶段
             new_state  = REVIEW
             sched_days = max(1, round(new_s))
-            due        = now + timedelta(days=sched_days)
+            due        = _next_day_midnight(now, sched_days)
 
     # ── 学习中 / 重学 ────────────────────────────────────────────────────
     elif state in (LEARNING, RELEARNING):
@@ -163,19 +189,19 @@ def fsrs_schedule(card: dict, rating: int, now: datetime) -> dict:
         new_lapses = lapses
         new_reps   = reps + 1
 
-        if rating == 1:    # Again → 1 天后重来
+        if rating == 1:    # Again → 明天 0 点重来
             new_state  = state
             new_s      = _init_stability(1)
             sched_days = 1
-            due        = now + timedelta(days=1)
-        elif rating in (2, 3):  # Hard / Good → 1 天后
+            due        = _next_day_midnight(now, 1)
+        elif rating in (2, 3):  # Hard / Good → 明天 0 点
             new_state  = state
             sched_days = 1
-            due        = now + timedelta(days=1)
+            due        = _next_day_midnight(now, 1)
         else:              # Easy → 毕业进入复习
             new_state  = REVIEW
             sched_days = max(1, round(new_s))
-            due        = now + timedelta(days=sched_days)
+            due        = _next_day_midnight(now, sched_days)
 
     # ── 复习阶段 ─────────────────────────────────────────────────────────
     else:  # REVIEW
@@ -187,20 +213,20 @@ def fsrs_schedule(card: dict, rating: int, now: datetime) -> dict:
             new_s      = _forget_stability(d, s, r)
             new_state  = RELEARNING
             new_lapses = lapses + 1
-            sched_days = 0
+            sched_days = 0              # 0 表示"当天内"（实际 due 为 5 分钟后）
             due        = now + timedelta(minutes=5)
         else:
             new_s      = _recall_stability(d, s, r, rating)
             new_state  = REVIEW
             new_lapses = lapses
             sched_days = max(1, round(new_s))
-            due        = now + timedelta(days=sched_days)
+            due        = _next_day_midnight(now, sched_days)
 
     return {
         'due':            due,
         'stability':      round(new_s, 4),
         'difficulty':     round(new_d, 4),
-        'elapsed_days':   elapsed,
+        'elapsed_days':   round(elapsed, 4),
         'scheduled_days': sched_days,
         'reps':           new_reps,
         'lapses':         new_lapses,

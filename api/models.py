@@ -60,6 +60,11 @@ class User(AbstractUser):
         help_text="当AI生成失败时自动重试的次数，范围0-10次。更多重试次数会增加AT币消耗。"
     )
 
+    # 跨端同步的偏好设置
+    target_vocab_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="首选目标生词本")
+    language_preference = models.CharField(max_length=10, default='zh', verbose_name="语言偏好(zh/en)")
+    ai_provider = models.CharField(max_length=20, default='deepseek', verbose_name="默认AI提供商")
+
     class Meta:
         verbose_name = "用户信息"
         verbose_name_plural = "用户信息列表"
@@ -291,7 +296,7 @@ class VocabFSRS(models.Model):
     due            = models.DateTimeField(default=timezone.now, verbose_name='下次复习时间')
     stability      = models.FloatField(default=0.0, verbose_name='稳定性 S')
     difficulty     = models.FloatField(default=0.0, verbose_name='难度 D')
-    elapsed_days   = models.IntegerField(default=0, verbose_name='距上次复习天数')
+    elapsed_days   = models.FloatField(default=0.0, verbose_name='距上次复习天数')
     scheduled_days = models.IntegerField(default=0, verbose_name='计划间隔天数')
     reps           = models.IntegerField(default=0, verbose_name='总复习次数')
     lapses         = models.IntegerField(default=0, verbose_name='遗忘次数')
@@ -322,6 +327,8 @@ class LearningPlan(models.Model):
     user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='learning_plans')
     name        = models.CharField(max_length=50, verbose_name='计划名称')
     daily_count = models.IntegerField(default=20, verbose_name='每日学习词数')
+    default_mode = models.CharField(max_length=20, default='flashcard', verbose_name='默认学习模式')
+    mastery_target = models.IntegerField(default=2, verbose_name='连续答对目标次数')
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 

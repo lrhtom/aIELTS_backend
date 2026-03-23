@@ -348,6 +348,8 @@ class UserSettingsView(APIView):
         try:
             user = request.user
             
+            update_fields = ['updated_at']
+            
             # 处理AI生成重试次数
             if 'ai_generation_retry_count' in request.data:
                 retry_count = request.data.get('ai_generation_retry_count')
@@ -359,9 +361,25 @@ class UserSettingsView(APIView):
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
                 user.ai_generation_retry_count = retry_count
+                update_fields.append('ai_generation_retry_count')
+                
+            # 处理生词本目标
+            if 'target_vocab_name' in request.data:
+                user.target_vocab_name = request.data.get('target_vocab_name', '')
+                update_fields.append('target_vocab_name')
+                
+            # 处理语言偏好
+            if 'language_preference' in request.data:
+                user.language_preference = request.data.get('language_preference', 'zh')
+                update_fields.append('language_preference')
+                
+            # 处理AI提供商
+            if 'ai_provider' in request.data:
+                user.ai_provider = request.data.get('ai_provider', 'deepseek')
+                update_fields.append('ai_provider')
             
             # 保存所有更改
-            user.save(update_fields=['ai_generation_retry_count', 'updated_at'])
+            user.save(update_fields=update_fields)
             
             return Response({
                 'message': '用户设置更新成功',
