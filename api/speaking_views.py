@@ -25,19 +25,21 @@ def speaking_chat(request):
                 "You are an IELTS speaking examiner. Evaluate the user's latest message and reply to it to continue the conversation.\n"
                 "CRITICAL INSTRUCTION: You MUST return your response as a raw JSON object and nothing else. "
                 "Do not use markdown blocks like ```json. Do not include any explanations. "
-                "Your JSON MUST contain exactly these four keys with appropriate values:\n"
+                "Your JSON MUST contain exactly these five keys with appropriate values:\n"
                 "{\n"
                 "  \"reply\": \"(string) Your conversational response to the user's latest statement\",\n"
-                "  \"grammar_score\": (integer 0-100) Grammar accuracy of the user's latest message,\n"
-                "  \"vocab_score\": (integer 0-100) Vocabulary richness of the user's latest message,\n"
-                "  \"relevance_score\": (integer 0-100) How relevant the user's message is to the topic\n"
+                "  \"grammar_score\": (float 0.0-9.0, in 0.5 increments, e.g. 6.5) Grammar accuracy of the user's latest message,\n"
+                "  \"vocab_score\": (float 0.0-9.0, in 0.5 increments) Vocabulary richness of the user's latest message,\n"
+                "  \"relevance_score\": (float 0.0-9.0, in 0.5 increments) How relevant the user's message is to the topic,\n"
+                "  \"corrected_text\": \"(string) A corrected and improved version of the user's latest message, fixing grammar errors and upgrading vocabulary while preserving the original meaning. If the user's message is already perfect, return it as-is.\"\n"
                 "}\n"
                 "Example of expected output:\n"
                 "{\n"
                 "  \"reply\": \"That sounds like a beautiful town. What do you like most about living there?\",\n"
-                "  \"grammar_score\": 85,\n"
-                "  \"vocab_score\": 75,\n"
-                "  \"relevance_score\": 95\n"
+                "  \"grammar_score\": 6.5,\n"
+                "  \"vocab_score\": 5.5,\n"
+                "  \"relevance_score\": 7.0,\n"
+                "  \"corrected_text\": \"I have been living in this city for five years, and I find it incredibly vibrant.\"\n"
                 "}"
             )
         }
@@ -68,25 +70,27 @@ def speaking_chat(request):
                 
             reply_text = re.sub(r'[*#`_]', '', str(reply_text)).strip()
             
-            # Ensure they are integers, even if the model returns string "85"
-            try:
-                grammar_score = int(parsed.get('grammar_score', 0))
-            except (ValueError, TypeError):
-                grammar_score = 0
-            try:
-                vocab_score = int(parsed.get('vocab_score', 0))
-            except (ValueError, TypeError):
-                vocab_score = 0
-            try:
-                relevance_score = int(parsed.get('relevance_score', 0))
-            except (ValueError, TypeError):
-                relevance_score = 0
+            # Ensure they are floats clamped to [0, 9], rounded to 0.5
+            def clamp_score(val):
+                try:
+                    s = float(val)
+                except (ValueError, TypeError):
+                    return 0.0
+                s = max(0.0, min(9.0, s))
+                return round(s * 2) / 2  # round to nearest 0.5
+
+            grammar_score = clamp_score(parsed.get('grammar_score', 0))
+            vocab_score = clamp_score(parsed.get('vocab_score', 0))
+            relevance_score = clamp_score(parsed.get('relevance_score', 0))
+            corrected_text = str(parsed.get('corrected_text', '')).strip()
+            corrected_text = re.sub(r'[*#`_]', '', corrected_text).strip()
         except json.JSONDecodeError:
             print("[JSONDecodeError] Failed to parse AI JSON_STR", repr(json_str), flush=True)
             reply_text = re.sub(r'[*#`_]', '', ai_text).strip()
-            grammar_score = 0
-            vocab_score = 0
-            relevance_score = 0
+            grammar_score = 0.0
+            vocab_score = 0.0
+            relevance_score = 0.0
+            corrected_text = ''
 
         print(f"[AI PARSED RESULT]: Reply='{reply_text[:20]}...', Grammar={grammar_score}, Vocab={vocab_score}, Relevance={relevance_score}", flush=True)
 
@@ -95,6 +99,7 @@ def speaking_chat(request):
             'grammar_score': grammar_score,
             'vocab_score': vocab_score,
             'relevance_score': relevance_score,
+            'corrected_text': corrected_text,
             'atConsumed': at_cost
         })
 
@@ -295,13 +300,14 @@ def scenario_chat(request):
                 "Act as the counterpart in this scenario. Evaluate the user's latest message, keep the conversation moving naturally, "
                 "and decide if the conversation has reached a natural conclusion or if the user explicitly ended it.\n"
                 "CRITICAL INSTRUCTION: You MUST return your response as a raw JSON object and nothing else. "
-                "Your JSON MUST contain exactly these five keys:\n"
+                "Your JSON MUST contain exactly these six keys:\n"
                 "{\n"
                 "  \"reply\": \"(string) Your in-character conversational response\",\n"
-                "  \"grammar_score\": (integer 0-100) Grammar accuracy of the user's latest message,\n"
-                "  \"vocab_score\": (integer 0-100) Vocabulary richness of the user's latest message,\n"
-                "  \"relevance_score\": (integer 0-100) How relevant the user's message is to the topic,\n"
-                "  \"is_continue\": (integer 1 or 0) Output 1 to continue the conversation, or 0 if the scenario is completely resolved/ended.\n"
+                "  \"grammar_score\": (float 0.0-9.0, in 0.5 increments, e.g. 6.5) Grammar accuracy of the user's latest message,\n"
+                "  \"vocab_score\": (float 0.0-9.0, in 0.5 increments) Vocabulary richness of the user's latest message,\n"
+                "  \"relevance_score\": (float 0.0-9.0, in 0.5 increments) How relevant the user's message is to the topic,\n"
+                "  \"is_continue\": (integer 1 or 0) Output 1 to continue the conversation, or 0 if the scenario is completely resolved/ended,\n"
+                "  \"corrected_text\": \"(string) A corrected and improved version of the user's latest message, fixing grammar errors and upgrading vocabulary while preserving the original meaning. If already perfect, return it as-is.\"\n"
                 "}"
             )
         }
@@ -321,13 +327,24 @@ def scenario_chat(request):
             reply_text = parsed.get('reply') or str(parsed)
             reply_text = re.sub(r'[*#`_]', '', str(reply_text)).strip()
             
-            grammar_score = int(parsed.get('grammar_score', 0))
-            vocab_score = int(parsed.get('vocab_score', 0))
-            relevance_score = int(parsed.get('relevance_score', 0))
+            def clamp_score(val):
+                try:
+                    s = float(val)
+                except (ValueError, TypeError):
+                    return 0.0
+                s = max(0.0, min(9.0, s))
+                return round(s * 2) / 2
+
+            grammar_score = clamp_score(parsed.get('grammar_score', 0))
+            vocab_score = clamp_score(parsed.get('vocab_score', 0))
+            relevance_score = clamp_score(parsed.get('relevance_score', 0))
             is_continue = int(parsed.get('is_continue', 1))
+            corrected_text = str(parsed.get('corrected_text', '')).strip()
+            corrected_text = re.sub(r'[*#`_]', '', corrected_text).strip()
         except (json.JSONDecodeError, ValueError, TypeError):
             reply_text = re.sub(r'[*#`_]', '', ai_text).strip()
-            grammar_score, vocab_score, relevance_score, is_continue = 0, 0, 0, 1
+            grammar_score, vocab_score, relevance_score, is_continue = 0.0, 0.0, 0.0, 1
+            corrected_text = ''
 
         return JsonResponse({
             'reply': reply_text,
@@ -335,6 +352,7 @@ def scenario_chat(request):
             'vocab_score': vocab_score,
             'relevance_score': relevance_score,
             'is_continue': is_continue,
+            'corrected_text': corrected_text,
             'atConsumed': at_cost
         })
 
