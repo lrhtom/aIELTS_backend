@@ -64,6 +64,7 @@ class User(AbstractUser):
     target_vocab_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="首选目标生词本")
     language_preference = models.CharField(max_length=10, default='zh', verbose_name="语言偏好(zh/en)")
     ai_provider = models.CharField(max_length=20, default='deepseek', verbose_name="默认AI提供商")
+    vocab_complete_difficulty = models.CharField(max_length=10, default='hint', verbose_name='补全模式难度(easy/hint/hard)')
 
     class Meta:
         verbose_name = "用户信息"
@@ -328,7 +329,10 @@ class LearningPlan(models.Model):
     name        = models.CharField(max_length=50, verbose_name='计划名称')
     daily_count = models.IntegerField(default=20, verbose_name='每日学习词数')
     default_mode = models.CharField(max_length=20, default='flashcard', verbose_name='默认学习模式')
+    complete_difficulty = models.CharField(max_length=10, default='hint', verbose_name='拼写难度')
     mastery_target = models.IntegerField(default=2, verbose_name='连续答对目标次数')
+    copy_repetitions = models.PositiveSmallIntegerField(default=3, verbose_name='抄写模式每词次数')
+    copy_review_days = models.PositiveIntegerField(default=2, verbose_name='抄写完成后复习间隔天数')
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
@@ -371,3 +375,161 @@ class LearningPlanEntry(models.Model):
 
     def __str__(self):
         return f'{self.word} → {self.plan.name}'
+
+
+class UserDailyLearningTime(models.Model):
+    """Per-user daily accumulated learning time shared across all plans."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='daily_learning_times',
+        verbose_name='用户',
+    )
+    study_date = models.DateField(verbose_name='学习日期')
+    total_seconds = models.PositiveIntegerField(default=0, verbose_name='学习时长(秒)')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_daily_learning_time'
+        verbose_name = '用户每日学习时长'
+        verbose_name_plural = '用户每日学习时长'
+        unique_together = ('user', 'study_date')
+        indexes = [
+            models.Index(fields=['user', 'study_date'], name='idx_udlt_user_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} {self.study_date} {self.total_seconds}s'
+
+
+class CustomMemoryDeck(models.Model):
+    """用户自定义记忆卡卡组。"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='custom_memory_decks',
+        verbose_name='用户',
+    )
+    title = models.CharField(max_length=100, default='未命名记忆卡组', verbose_name='卡组名称')
+    daily_count = models.IntegerField(default=20, verbose_name='每日学习卡片数')
+    source_text = models.TextField(blank=True, default='', verbose_name='原始文本')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'custom_memory_decks'
+        verbose_name = '自定义记忆卡组'
+        verbose_name_plural = '自定义记忆卡组'
+
+    def __str__(self):
+        return f'{self.title} ({self.user.username})'
+
+
+class CustomMemoryCard(models.Model):
+    """自定义记忆卡，独立维护FSRS状态。"""
+    deck = models.ForeignKey(
+        CustomMemoryDeck,
+        on_delete=models.CASCADE,
+        related_name='cards',
+        verbose_name='所属卡组',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='custom_memory_cards',
+        verbose_name='用户',
+    )
+    front_text = models.TextField(verbose_name='正面内容')
+    back_text = models.TextField(blank=True, default='', verbose_name='背面内容')
+    order = models.PositiveIntegerField(default=0, verbose_name='卡片顺序')
+
+    due = models.DateTimeField(default=timezone.now, verbose_name='下次复习时间')
+    stability = models.FloatField(default=0.0, verbose_name='稳定性 S')
+    difficulty = models.FloatField(default=0.0, verbose_name='难度 D')
+    elapsed_days = models.FloatField(default=0.0, verbose_name='距上次复习天数')
+    scheduled_days = models.IntegerField(default=0, verbose_name='计划间隔天数')
+    reps = models.IntegerField(default=0, verbose_name='总复习次数')
+    lapses = models.IntegerField(default=0, verbose_name='遗忘次数')
+    state = models.SmallIntegerField(default=0, verbose_name='卡片状态')
+    last_review = models.DateTimeField(null=True, blank=True, verbose_name='上次复习时间')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'custom_memory_cards'
+        verbose_name = '自定义记忆卡'
+        verbose_name_plural = '自定义记忆卡'
+        unique_together = ('deck', 'order')
+        indexes = [
+            models.Index(fields=['user', 'deck', 'due'], name='idx_custom_card_user_deck_due'),
+        ]
+
+    def __str__(self):
+        return f'Card#{self.order} {self.deck_id} ({self.user.username})'
+
+
+class CreativeWorkshopPage(models.Model):
+    """用户在创意工坊中生成的学习网页。"""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='creative_workshop_pages',
+        verbose_name='用户',
+    )
+    title = models.CharField(max_length=120, verbose_name='网页标题')
+    method_prompt = models.TextField(verbose_name='学习方法描述')
+    generated_html = models.TextField(verbose_name='AI 生成网页源码')
+    is_favorited = models.BooleanField(default=False, verbose_name='是否收藏')
+    ai_provider = models.CharField(max_length=30, default='deepseek', verbose_name='生成模型提供商')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'creative_workshop_pages'
+        verbose_name = '创意工坊网页'
+        verbose_name_plural = '创意工坊网页'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'is_favorited', 'updated_at'], name='idx_cw_user_fav_updated'),
+        ]
+
+    def __str__(self):
+        return f'{self.title} ({self.user.username})'
+
+class StoreProduct(models.Model):
+    name = models.CharField(max_length=100, verbose_name="商品名称")
+    description = models.TextField(blank=True, verbose_name="商品描述")
+    price_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="价格数值")
+    price_currency = models.CharField(max_length=10, choices=[('CNY', '人民币'), ('AT_COIN', 'AT币')], default='CNY', verbose_name="货币类型")
+    reward_type = models.CharField(max_length=20, default='AT_COIN', verbose_name="发货类型")
+    reward_amount = models.IntegerField(default=0, verbose_name="发货数量(如AT币数量)")
+    is_active = models.BooleanField(default=True, verbose_name="是否上架")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        db_table = 'store_products'
+        verbose_name = '商品'
+        verbose_name_plural = '商品列表'
+
+    def __str__(self):
+        return f'{self.name} - {self.price_amount} {self.price_currency}'
+
+class CartItem(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='cart_items', verbose_name='用户')
+    product = models.ForeignKey(StoreProduct, on_delete=models.CASCADE, related_name='cart_entries', verbose_name='商品')
+    quantity = models.IntegerField(default=1, verbose_name='数量')
+    added_at = models.DateTimeField(auto_now_add=True, verbose_name='加入时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'store_cart_items'
+        verbose_name = '购物车项目'
+        verbose_name_plural = '购物车项目列表'
+        unique_together = ('user', 'product')
+
+    def __str__(self):
+        return f'{self.user.username} -> {self.product.name} x{self.quantity}'

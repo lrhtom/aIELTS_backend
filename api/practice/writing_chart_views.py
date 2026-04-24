@@ -1,0 +1,1419 @@
+import os
+import uuid
+import subprocess
+import json
+import re
+import random
+import hashlib
+import html
+import base64
+from django.conf import settings
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from api.core.ai_client import AIClient, refund_at
+from api.core.rate_limit import check_rate_limit
+
+CHART_SUBJECT_AREAS = [
+    "internet usage and social media trends",
+    "employment rates across industries",
+    "energy consumption and renewable sources",
+    "education enrolment and graduation rates",
+    "transport usage in urban areas",
+    "household spending and consumer prices",
+    "tourism arrivals and revenue",
+    "population growth and demographic change",
+    "healthcare expenditure and life expectancy",
+    "crime rates and types of offences",
+    "water usage and access to clean water",
+    "carbon emissions by country or sector",
+    "trade exports and imports between countries",
+    "average wages across professions or genders",
+    "smartphone and technology adoption",
+    "agricultural land use and food production",
+    "university subject enrolment trends",
+    "housing prices in different cities",
+    "obesity and dietary habits",
+    "waste production and recycling rates",
+]
+
+MAP_SCENARIO_TYPES = ('geographical_change', 'site_selection')
+MAP_ENV_TYPES = ('indoor', 'outdoor')
+
+MAP_LOCATION_CANDIDATES = [
+    'A university campus',
+    'A public library',
+    'A local museum',
+    'An art gallery',
+    'A city park',
+    'A leisure centre',
+    'A sports club',
+    'A community centre',
+    'A coastal town',
+    'A rural village',
+    'An industrial estate',
+    'A shopping mall',
+    'A supermarket layout',
+    'A local hospital',
+    'An international airport',
+    'A train station',
+    'A bus terminal',
+    'A city centre',
+    'A residential area',
+    'A tourist resort',
+    'A hotel complex',
+    'A holiday campsite',
+    'A golf course',
+    'A botanical garden',
+    'A local zoo',
+    'An exhibition centre',
+    'A conference hall',
+    'A theatre building',
+    'A cinema complex',
+    'A science park',
+    'Student accommodation',
+    'A factory layout',
+    'A business park',
+    'An office building',
+    'A ferry port',
+    'A sea harbour',
+    'A road network',
+    'A town square',
+    'A nature reserve',
+    'An archaeological site',
+    'A tropical island',
+    'A beach resort',
+    'A secondary school',
+    'A primary school',
+    'A college campus',
+    'A healthcare centre',
+    'A fitness centre',
+    'A swimming pool complex',
+    'A public playground',
+    'A town library',
+    'A historical museum',
+    'A modern art gallery',
+    'A regional park',
+    'A local sports centre',
+    'A youth centre',
+    'A mountain village',
+    'A fishing village',
+    'A commercial area',
+    'A retail park',
+    'A department store',
+    'A private clinic',
+    'A domestic airport',
+    'A railway station',
+    'A central bus station',
+    'A downtown area',
+    'A housing estate',
+    'A winter resort',
+    'A luxury hotel',
+    'A summer camp',
+    'A public golf club',
+    'A city botanical garden',
+    'A wildlife park',
+    'A trade fair centre',
+    'A civic centre',
+    'A concert hall',
+    'A movie theatre',
+    'A technology park',
+    'A university dormitory',
+    'A manufacturing plant',
+    'A corporate headquarters',
+    'A cruise terminal',
+    'A marina',
+    'A highway intersection',
+    'A market square',
+    'A national park',
+    'A historical site',
+    'A deserted island',
+    'A seaside resort',
+    'A high school',
+    'An elementary school',
+    'A vocational college',
+    'A medical clinic',
+    'A local gym',
+    'A community swimming pool',
+    "A children's playground",
+    'A central library',
+    'A science museum',
+    'A cultural centre',
+    'A suburban area',
+    'A riverside town',
+]
+
+MAP_INDOOR_KEYWORDS = (
+    'campus', 'library', 'museum', 'gallery', 'centre', 'center', 'club', 'mall',
+    'supermarket', 'hospital', 'station', 'terminal', 'hall', 'theatre', 'cinema',
+    'office', 'building', 'dormitory', 'factory', 'plant', 'headquarters', 'clinic',
+    'pool', 'playground', 'department store', 'accommodation', 'layout'
+)
+
+MAP_OUTDOOR_KEYWORDS = (
+    'town', 'village', 'park', 'resort', 'campsite', 'golf', 'garden', 'zoo',
+    'harbour', 'harbor', 'port', 'road', 'square', 'reserve', 'site', 'island',
+    'beach', 'suburban', 'riverside', 'coastal', 'mountain', 'fishing', 'estate',
+    'intersection', 'marina', 'downtown', 'area'
+)
+
+MAP_VIEWBOX_WIDTH = 1000.0
+MAP_VIEWBOX_HEIGHT = 620.0
+
+MAP_ICON_DEFINITIONS = [
+    {'key': 'school', 'file': '01_school.png'},
+    {'key': 'hospital', 'file': '02_hospital.png'},
+    {'key': 'apartment', 'file': '03_apartment.png'},
+    {'key': 'airport_terminal', 'file': '04_airport_terminal.png'},
+    {'key': 'museum', 'file': '05_museum.png'},
+    {'key': 'classical_building', 'file': '06_classical_building.png'},
+    {'key': 'temple', 'file': '07_temple.png'},
+    {'key': 'classroom', 'file': '08_classroom.png'},
+    {'key': 'art_studio', 'file': '09_art_studio.png'},
+    {'key': 'living_room', 'file': '10_living_room.png'},
+    {'key': 'bedroom', 'file': '11_bedroom.png'},
+    {'key': 'kitchen', 'file': '12_kitchen.png'},
+    {'key': 'bathroom', 'file': '13_bathroom.png'},
+    {'key': 'office', 'file': '14_office.png'},
+    {'key': 'tree', 'file': '15_tree.png'},
+    {'key': 'hedge', 'file': '16_hedge.png'},
+    {'key': 'tulip', 'file': '17_tulip.png'},
+    {'key': 'flower', 'file': '18_flower.png'},
+    {'key': 'grass', 'file': '19_grass.png'},
+    {'key': 'cactus', 'file': '20_cactus.png'},
+    {'key': 'palm', 'file': '21_palm.png'},
+    {'key': 'bus_stop', 'file': '22_bus_stop.png'},
+    {'key': 'park_bench', 'file': '23_park_bench.png'},
+    {'key': 'lamp_post', 'file': '24_lamp_post.png'},
+    {'key': 'toilet', 'file': '25_toilet.png'},
+    {'key': 'library', 'file': '26_library.png'},
+    {'key': 'gym', 'file': '27_gym.png'},
+    {'key': 'train_station', 'file': '28_train_station.png'},
+]
+
+MAP_ICON_FILE_BY_KEY = {item['key']: item['file'] for item in MAP_ICON_DEFINITIONS}
+
+MAP_FALLBACK_PLACEMENTS_SITE = [
+    {'iconKey': 'school', 'x': 90, 'y': 80, 'w': 86, 'h': 86, 'rotation': 0, 'label': 'Primary School'},
+    {'iconKey': 'hospital', 'x': 420, 'y': 80, 'w': 84, 'h': 84, 'rotation': 0, 'label': 'City Hospital'},
+    {'iconKey': 'library', 'x': 730, 'y': 86, 'w': 88, 'h': 88, 'rotation': 0, 'label': 'Public Library'},
+    {'iconKey': 'park_bench', 'x': 190, 'y': 250, 'w': 82, 'h': 72, 'rotation': 0, 'label': 'Central Park'},
+    {'iconKey': 'bus_stop', 'x': 60, 'y': 410, 'w': 92, 'h': 76, 'rotation': 0, 'label': 'Bus Stop'},
+    {'iconKey': 'train_station', 'x': 790, 'y': 406, 'w': 96, 'h': 86, 'rotation': 0, 'label': 'Railway Station'},
+    {'iconKey': 'gym', 'x': 586, 'y': 410, 'w': 90, 'h': 82, 'rotation': 0, 'label': 'Fitness Centre'},
+    {'iconKey': 'tree', 'x': 326, 'y': 414, 'w': 82, 'h': 86, 'rotation': 0, 'label': 'Woodland Area'},
+]
+
+MAP_FALLBACK_PLACEMENTS_CHANGE = [
+    {'iconKey': 'school', 'x': 100, 'y': 120, 'w': 82, 'h': 82, 'rotation': 0, 'label': 'School (Before)'},
+    {'iconKey': 'apartment', 'x': 180, 'y': 360, 'w': 86, 'h': 84, 'rotation': 0, 'label': 'Old Apartments'},
+    {'iconKey': 'bus_stop', 'x': 90, 'y': 452, 'w': 84, 'h': 70, 'rotation': 0, 'label': 'Old Bus Stop'},
+    {'iconKey': 'tree', 'x': 322, 'y': 456, 'w': 78, 'h': 82, 'rotation': 0, 'label': 'Green Strip'},
+    {'iconKey': 'hospital', 'x': 700, 'y': 126, 'w': 86, 'h': 86, 'rotation': 0, 'label': 'New Hospital'},
+    {'iconKey': 'library', 'x': 552, 'y': 236, 'w': 86, 'h': 86, 'rotation': 0, 'label': 'New Library'},
+    {'iconKey': 'museum', 'x': 760, 'y': 272, 'w': 84, 'h': 82, 'rotation': 0, 'label': 'Museum'},
+    {'iconKey': 'train_station', 'x': 842, 'y': 420, 'w': 90, 'h': 82, 'rotation': 0, 'label': 'New Station'},
+    {'iconKey': 'gym', 'x': 602, 'y': 420, 'w': 84, 'h': 78, 'rotation': 0, 'label': 'Fitness Centre'},
+    {'iconKey': 'park_bench', 'x': 700, 'y': 506, 'w': 84, 'h': 68, 'rotation': 0, 'label': 'Riverside Park'},
+]
+
+MAP_MIN_ICON_COUNT = 8
+
+MAP_ICON_GROUPS = {
+    'school': 'major_building',
+    'hospital': 'major_building',
+    'apartment': 'major_building',
+    'airport_terminal': 'transport_hub',
+    'museum': 'major_building',
+    'classical_building': 'major_building',
+    'temple': 'major_building',
+    'classroom': 'indoor_facility',
+    'art_studio': 'indoor_facility',
+    'living_room': 'indoor_facility',
+    'bedroom': 'indoor_facility',
+    'kitchen': 'indoor_facility',
+    'bathroom': 'indoor_facility',
+    'office': 'indoor_facility',
+    'tree': 'nature',
+    'hedge': 'nature',
+    'tulip': 'nature',
+    'flower': 'nature',
+    'grass': 'nature',
+    'cactus': 'nature',
+    'palm': 'nature',
+    'bus_stop': 'street_furniture',
+    'park_bench': 'street_furniture',
+    'lamp_post': 'street_furniture',
+    'toilet': 'indoor_facility',
+    'library': 'major_building',
+    'gym': 'indoor_facility',
+    'train_station': 'transport_hub',
+}
+
+# (min_w_ratio, max_w_ratio, min_h_ratio, max_h_ratio)
+MAP_ICON_SIZE_PROFILES = {
+    'major_building': (0.052, 0.132, 0.052, 0.145),
+    'transport_hub': (0.058, 0.145, 0.052, 0.14),
+    'indoor_facility': (0.046, 0.118, 0.04, 0.115),
+    'nature': (0.036, 0.096, 0.04, 0.108),
+    'street_furniture': (0.032, 0.088, 0.032, 0.086),
+}
+
+MAP_ICON_ROTATION_LIMITS = {
+    'major_building': (-6.0, 6.0),
+    'transport_hub': (-8.0, 8.0),
+    'indoor_facility': (-10.0, 10.0),
+    'nature': (-12.0, 12.0),
+    'street_furniture': (-14.0, 14.0),
+}
+
+SCRIPT_TAG_RE = re.compile(r'<\s*script\b[^>]*>.*?<\s*/\s*script\s*>', re.IGNORECASE | re.DOTALL)
+EVENT_HANDLER_RE = re.compile(r'\son[a-zA-Z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)', re.IGNORECASE)
+JS_PROTOCOL_RE = re.compile(r'javascript\s*:', re.IGNORECASE)
+VIEWBOX_RE = re.compile(r'viewBox\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
+
+
+def _build_map_icon_assets() -> dict[str, str]:
+    media_prefix = settings.MEDIA_URL.rstrip('/')
+    return {
+        item['key']: f"{media_prefix}/map_icons/items/{item['file']}"
+        for item in MAP_ICON_DEFINITIONS
+    }
+
+
+def _build_map_icon_data_urls(icon_keys: set[str]) -> dict[str, str]:
+    if not icon_keys:
+        return {}
+
+    result: dict[str, str] = {}
+    for key in sorted(icon_keys):
+        filename = MAP_ICON_FILE_BY_KEY.get(key)
+        if not filename:
+            continue
+        file_path = os.path.join(settings.MEDIA_ROOT, 'map_icons', 'items', filename)
+        if not os.path.isfile(file_path):
+            continue
+
+        try:
+            with open(file_path, 'rb') as f:
+                encoded = base64.b64encode(f.read()).decode('ascii')
+            result[key] = f'data:image/png;base64,{encoded}'
+        except OSError:
+            continue
+
+    return result
+
+
+def _infer_scene_environment(scene_name: str) -> str:
+    text = (scene_name or '').lower()
+    indoor_hits = sum(1 for token in MAP_INDOOR_KEYWORDS if token in text)
+    outdoor_hits = sum(1 for token in MAP_OUTDOOR_KEYWORDS if token in text)
+    if indoor_hits > outdoor_hits:
+        return 'indoor'
+    if outdoor_hits > indoor_hits:
+        return 'outdoor'
+    return random.choice(MAP_ENV_TYPES)
+
+
+def _candidate_scenes_for_env(environment_type: str) -> list[str]:
+    env = (environment_type or '').strip().lower()
+    if env not in MAP_ENV_TYPES:
+        return MAP_LOCATION_CANDIDATES[:]
+    result = [scene for scene in MAP_LOCATION_CANDIDATES if _infer_scene_environment(scene) == env]
+    return result if result else MAP_LOCATION_CANDIDATES[:]
+
+
+def _scene_catalog_prompt_text(max_items: int = 80) -> str:
+    candidates = MAP_LOCATION_CANDIDATES[:max_items]
+    return '\n'.join(f"- {item}" for item in candidates)
+
+
+def _pick_map_generation_profile() -> dict[str, str]:
+    question_type = random.choice(MAP_SCENARIO_TYPES)
+    environment_type = random.choice(MAP_ENV_TYPES)
+    scene_pool = _candidate_scenes_for_env(environment_type)
+    scene_name = random.choice(scene_pool) if scene_pool else random.choice(MAP_LOCATION_CANDIDATES)
+    return {
+        'questionType': question_type,
+        'environmentType': environment_type,
+        'sceneName': scene_name,
+    }
+
+
+def _safe_float(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def _icon_size_bounds(icon_key: str, view_w: float, view_h: float) -> tuple[float, float, float, float]:
+    group = MAP_ICON_GROUPS.get(icon_key, 'indoor_facility')
+    w_min_r, w_max_r, h_min_r, h_max_r = MAP_ICON_SIZE_PROFILES.get(group, MAP_ICON_SIZE_PROFILES['indoor_facility'])
+    min_w = _clamp(view_w * w_min_r, 24.0, max(24.0, view_w * 0.28))
+    max_w = _clamp(view_w * w_max_r, min_w + 2.0, max(min_w + 2.0, view_w * 0.34))
+    min_h = _clamp(view_h * h_min_r, 24.0, max(24.0, view_h * 0.28))
+    max_h = _clamp(view_h * h_max_r, min_h + 2.0, max(min_h + 2.0, view_h * 0.34))
+    return min_w, max_w, min_h, max_h
+
+
+def _icon_rotation_bounds(icon_key: str) -> tuple[float, float]:
+    group = MAP_ICON_GROUPS.get(icon_key, 'indoor_facility')
+    return MAP_ICON_ROTATION_LIMITS.get(group, (-10.0, 10.0))
+
+
+def _stable_sign(seed: str) -> float:
+    marker = hashlib.sha1(seed.encode('utf-8')).hexdigest()
+    return -1.0 if int(marker[-1], 16) % 2 else 1.0
+
+
+def _rect_intersection_area(a: dict, b: dict) -> float:
+    ax1, ay1 = a['x'], a['y']
+    ax2, ay2 = ax1 + a['w'], ay1 + a['h']
+    bx1, by1 = b['x'], b['y']
+    bx2, by2 = bx1 + b['w'], by1 + b['h']
+    overlap_w = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+    overlap_h = max(0.0, min(ay2, by2) - max(ay1, by1))
+    return overlap_w * overlap_h
+
+
+def _overlap_ratio(a: dict, b: dict) -> float:
+    inter = _rect_intersection_area(a, b)
+    if inter <= 0.0:
+        return 0.0
+    min_area = max(1.0, min(a['w'] * a['h'], b['w'] * b['h']))
+    return inter / min_area
+
+
+def _quadrant_coverage(placements: list[dict], view_w: float, view_h: float) -> set[int]:
+    covered: set[int] = set()
+    cx_mid = view_w / 2.0
+    cy_mid = view_h / 2.0
+    for item in placements:
+        cx = item['x'] + item['w'] / 2.0
+        cy = item['y'] + item['h'] / 2.0
+        if cx < cx_mid and cy < cy_mid:
+            covered.add(1)
+        elif cx >= cx_mid and cy < cy_mid:
+            covered.add(2)
+        elif cx < cx_mid and cy >= cy_mid:
+            covered.add(3)
+        else:
+            covered.add(4)
+    return covered
+
+
+def _count_overlap_conflicts(placements: list[dict], threshold: float) -> tuple[int, float]:
+    conflicts = 0
+    max_ratio = 0.0
+    for i in range(len(placements)):
+        for j in range(i + 1, len(placements)):
+            ratio = _overlap_ratio(placements[i], placements[j])
+            max_ratio = max(max_ratio, ratio)
+            if ratio > threshold:
+                conflicts += 1
+    return conflicts, max_ratio
+
+
+def _clamp_placement_in_bounds(item: dict, view_w: float, view_h: float) -> None:
+    item['x'] = _clamp(item['x'], 0.0, max(0.0, view_w - item['w']))
+    item['y'] = _clamp(item['y'], 0.0, max(0.0, view_h - item['h']))
+
+
+def _nudge_pair_apart(a: dict, b: dict, view_w: float, view_h: float) -> None:
+    acx = a['x'] + a['w'] / 2.0
+    acy = a['y'] + a['h'] / 2.0
+    bcx = b['x'] + b['w'] / 2.0
+    bcy = b['y'] + b['h'] / 2.0
+
+    dx = acx - bcx
+    dy = acy - bcy
+    if abs(dx) + abs(dy) < 0.001:
+        dx = _stable_sign(f"{a['iconKey']}|{b['iconKey']}")
+        dy = _stable_sign(f"{b['iconKey']}|{a['iconKey']}")
+
+    dist = max(0.001, (dx * dx + dy * dy) ** 0.5)
+    ux = dx / dist
+    uy = dy / dist
+    push = max(6.0, min(a['w'], a['h'], b['w'], b['h']) * 0.16)
+
+    a['x'] += ux * push * 0.5
+    a['y'] += uy * push * 0.5
+    b['x'] -= ux * push * 0.5
+    b['y'] -= uy * push * 0.5
+
+    _clamp_placement_in_bounds(a, view_w, view_h)
+    _clamp_placement_in_bounds(b, view_w, view_h)
+
+
+def _placement_penalty(candidate: dict, others: list[dict], view_w: float, view_h: float) -> float:
+    overlap_penalty = 0.0
+    for other in others:
+        overlap_penalty += (_overlap_ratio(candidate, other) ** 2) * 20.0
+
+    edge_margin_x = view_w * 0.025
+    edge_margin_y = view_h * 0.025
+    edge_penalty = 0.0
+    if candidate['x'] < edge_margin_x or (candidate['x'] + candidate['w']) > (view_w - edge_margin_x):
+        edge_penalty += 1.0
+    if candidate['y'] < edge_margin_y or (candidate['y'] + candidate['h']) > (view_h - edge_margin_y):
+        edge_penalty += 1.0
+
+    return overlap_penalty + edge_penalty
+
+
+def _improve_map_icon_placements(placements: list[dict], view_w: float, view_h: float) -> list[dict]:
+    improved = [dict(item) for item in placements]
+    if len(improved) < 2:
+        return improved
+
+    for item in improved:
+        _clamp_placement_in_bounds(item, view_w, view_h)
+
+    # Phase 1: iterative separation for pairwise overlaps.
+    for _ in range(6):
+        moved = False
+        for i in range(len(improved)):
+            for j in range(i + 1, len(improved)):
+                if _overlap_ratio(improved[i], improved[j]) > 0.18:
+                    _nudge_pair_apart(improved[i], improved[j], view_w, view_h)
+                    moved = True
+        if not moved:
+            break
+
+    # Phase 2: coverage balancing (avoid all icons clustered in one side).
+    covered = _quadrant_coverage(improved, view_w, view_h)
+    if len(covered) < 3 and len(improved) >= 4:
+        anchors = {
+            1: (0.18, 0.2),
+            2: (0.72, 0.2),
+            3: (0.2, 0.7),
+            4: (0.72, 0.72),
+        }
+        movable_indices = sorted(range(len(improved)), key=lambda idx: improved[idx]['w'] * improved[idx]['h'])
+        used: set[int] = set()
+        for quadrant in [1, 2, 3, 4]:
+            if quadrant in covered:
+                continue
+            anchor = anchors[quadrant]
+            for idx in movable_indices:
+                if idx in used:
+                    continue
+                item = improved[idx]
+                item['x'] = anchor[0] * view_w - item['w'] / 2.0
+                item['y'] = anchor[1] * view_h - item['h'] / 2.0
+                _clamp_placement_in_bounds(item, view_w, view_h)
+                used.add(idx)
+                break
+
+    # Phase 3: local search for severely overlapping nodes.
+    offsets = [
+        (0.0, 0.0),
+        (0.14, 0.0), (-0.14, 0.0), (0.0, 0.14), (0.0, -0.14),
+        (0.12, 0.12), (-0.12, 0.12), (0.12, -0.12), (-0.12, -0.12),
+        (0.22, 0.0), (-0.22, 0.0), (0.0, 0.22), (0.0, -0.22),
+    ]
+    for idx, item in enumerate(improved):
+        peers = [p for p_i, p in enumerate(improved) if p_i != idx]
+        current_penalty = _placement_penalty(item, peers, view_w, view_h)
+        if current_penalty < 2.5:
+            continue
+
+        best_x = item['x']
+        best_y = item['y']
+        best_penalty = current_penalty
+        base_x = item['x']
+        base_y = item['y']
+        for ox, oy in offsets:
+            candidate = dict(item)
+            candidate['x'] = base_x + ox * view_w
+            candidate['y'] = base_y + oy * view_h
+            _clamp_placement_in_bounds(candidate, view_w, view_h)
+            score = _placement_penalty(candidate, peers, view_w, view_h)
+            if score < best_penalty:
+                best_penalty = score
+                best_x = candidate['x']
+                best_y = candidate['y']
+
+        item['x'] = best_x
+        item['y'] = best_y
+
+    return improved
+
+
+def _evaluate_map_placement_quality(placements: list[dict], view_w: float, view_h: float) -> dict:
+    conflicts, max_overlap = _count_overlap_conflicts(placements, threshold=0.18)
+    severe_conflicts, _ = _count_overlap_conflicts(placements, threshold=0.32)
+    quadrant_coverage = len(_quadrant_coverage(placements, view_w, view_h))
+
+    edge_margin_x = view_w * 0.018
+    edge_margin_y = view_h * 0.018
+    edge_touch_count = 0
+    icon_counts: dict[str, int] = {}
+    for item in placements:
+        icon_counts[item['iconKey']] = icon_counts.get(item['iconKey'], 0) + 1
+        if (
+            item['x'] < edge_margin_x or
+            item['y'] < edge_margin_y or
+            (item['x'] + item['w']) > (view_w - edge_margin_x) or
+            (item['y'] + item['h']) > (view_h - edge_margin_y)
+        ):
+            edge_touch_count += 1
+
+    repeated_icon_penalty = sum(max(0, count - 2) for count in icon_counts.values())
+
+    score = 100.0
+    score -= conflicts * 8.0
+    score -= severe_conflicts * 18.0
+    score -= max(0, 3 - quadrant_coverage) * 14.0
+    score -= edge_touch_count * 2.2
+    score -= repeated_icon_penalty * 3.0
+    score = round(_clamp(score, 0.0, 100.0), 2)
+
+    return {
+        'score': score,
+        'count': len(placements),
+        'overlapConflicts': conflicts,
+        'severeConflicts': severe_conflicts,
+        'maxOverlapRatio': round(max_overlap, 4),
+        'quadrantCoverage': quadrant_coverage,
+        'edgeTouchCount': edge_touch_count,
+        'fallbackApplied': False,
+    }
+
+
+def _sanitize_svg(svg_text: str) -> str:
+    cleaned = (svg_text or '').strip()
+    if not cleaned:
+        return ''
+    cleaned = SCRIPT_TAG_RE.sub('', cleaned)
+    cleaned = EVENT_HANDLER_RE.sub('', cleaned)
+    cleaned = JS_PROTOCOL_RE.sub('', cleaned)
+    if '<svg' not in cleaned.lower():
+        cleaned = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {int(MAP_VIEWBOX_WIDTH)} {int(MAP_VIEWBOX_HEIGHT)}">'
+            + cleaned +
+            '</svg>'
+        )
+    return cleaned
+
+
+def _extract_svg_viewport(svg_text: str) -> tuple[float, float]:
+    match = VIEWBOX_RE.search(svg_text or '')
+    if not match:
+        return MAP_VIEWBOX_WIDTH, MAP_VIEWBOX_HEIGHT
+    parts = re.split(r'\s+', match.group(1).strip())
+    if len(parts) != 4:
+        return MAP_VIEWBOX_WIDTH, MAP_VIEWBOX_HEIGHT
+    width = _safe_float(parts[2], MAP_VIEWBOX_WIDTH)
+    height = _safe_float(parts[3], MAP_VIEWBOX_HEIGHT)
+    if width <= 10 or height <= 10:
+        return MAP_VIEWBOX_WIDTH, MAP_VIEWBOX_HEIGHT
+    return width, height
+
+
+def _evaluate_map_svg_structure(svg_text: str, question_type: str) -> dict:
+    text = (svg_text or '')
+    lower = text.lower()
+
+    rect_count = len(re.findall(r'<\s*rect\b', lower))
+    line_count = len(re.findall(r'<\s*line\b', lower))
+    polyline_count = len(re.findall(r'<\s*polyline\b', lower))
+    path_count = len(re.findall(r'<\s*path\b', lower))
+    text_node_count = len(re.findall(r'<\s*text\b', lower))
+
+    road_terms = len(re.findall(r'road|street|avenue|lane|corridor|path|route|highway|drive|boulevard|junction|intersection', lower))
+    area_terms = len(re.findall(r'district|zone|area|park|residential|commercial|industrial|medical|education|leisure|civic|wing|hall|sector|site', lower))
+    candidate_terms = len(re.findall(r'candidate\s*site|site\s*[abc]', lower))
+    before_after_terms = len(re.findall(r'before|after|previous|current|existing|redevelop', lower))
+
+    road_shape_count = line_count + polyline_count + path_count
+
+    score = 100.0
+    if rect_count < 4:
+        score -= (4 - rect_count) * 8.0
+    if road_shape_count < 3:
+        score -= (3 - road_shape_count) * 12.0
+    if road_terms < 2:
+        score -= (2 - road_terms) * 10.0
+    if area_terms < 3:
+        score -= (3 - area_terms) * 8.0
+    if text_node_count < 8:
+        score -= (8 - text_node_count) * 4.0
+
+    q_type = (question_type or '').strip().lower()
+    if q_type == 'site_selection' and candidate_terms < 2:
+        score -= (2 - candidate_terms) * 16.0
+    if q_type == 'geographical_change' and before_after_terms < 2:
+        score -= (2 - before_after_terms) * 14.0
+
+    score = round(_clamp(score, 0.0, 100.0), 2)
+    return {
+        'score': score,
+        'rectCount': rect_count,
+        'roadShapeCount': road_shape_count,
+        'roadTerms': road_terms,
+        'areaTerms': area_terms,
+        'textNodeCount': text_node_count,
+        'candidateTerms': candidate_terms,
+        'beforeAfterTerms': before_after_terms,
+    }
+
+
+def _normalize_map_icon_placements(raw_placements, allowed_keys: set[str], view_w: float, view_h: float) -> list[dict]:
+    normalized: list[dict] = []
+    if not isinstance(raw_placements, list):
+        return normalized
+
+    for item in raw_placements:
+        if not isinstance(item, dict):
+            continue
+        icon_key = str(item.get('iconKey', '')).strip()
+        if icon_key not in allowed_keys:
+            continue
+
+        min_w, max_w, min_h, max_h = _icon_size_bounds(icon_key, view_w, view_h)
+        rot_low, rot_high = _icon_rotation_bounds(icon_key)
+
+        w = _clamp(_safe_float(item.get('w'), 82.0), min_w, max_w)
+        h = _clamp(_safe_float(item.get('h'), 82.0), min_h, max_h)
+        x = _clamp(_safe_float(item.get('x'), 0.0), 0.0, max(0.0, view_w - w))
+        y = _clamp(_safe_float(item.get('y'), 0.0), 0.0, max(0.0, view_h - h))
+        rotation = _clamp(_safe_float(item.get('rotation'), 0.0), rot_low, rot_high)
+
+        label = str(item.get('label', '') or '').strip()
+        label = re.sub(r'\s+', ' ', label)[:64]
+
+        normalized.append({
+            'iconKey': icon_key,
+            'x': round(x, 2),
+            'y': round(y, 2),
+            'w': round(w, 2),
+            'h': round(h, 2),
+            'rotation': round(rotation, 2),
+            'label': label,
+        })
+        if len(normalized) >= 24:
+            break
+
+    return normalized
+
+
+def _scaled_fallback_placements(view_w: float, view_h: float, question_type: str = 'site_selection') -> list[dict]:
+    sx = view_w / MAP_VIEWBOX_WIDTH
+    sy = view_h / MAP_VIEWBOX_HEIGHT
+    scaled: list[dict] = []
+    q_type = (question_type or '').strip().lower()
+    template = MAP_FALLBACK_PLACEMENTS_CHANGE if q_type == 'geographical_change' else MAP_FALLBACK_PLACEMENTS_SITE
+    for item in template:
+        scaled.append({
+            'iconKey': item['iconKey'],
+            'x': round(float(item['x']) * sx, 2),
+            'y': round(float(item['y']) * sy, 2),
+            'w': round(float(item['w']) * sx, 2),
+            'h': round(float(item['h']) * sy, 2),
+            'rotation': item.get('rotation', 0),
+            'label': item.get('label', ''),
+        })
+    return scaled
+
+
+def _fallback_map_svg(
+    question_type: str = 'site_selection',
+    environment_type: str = 'outdoor',
+    scene_name: str = 'A city centre',
+) -> str:
+    q_type = (question_type or '').strip().lower()
+    env = (environment_type or '').strip().lower()
+    if q_type not in MAP_SCENARIO_TYPES:
+        q_type = 'site_selection'
+    if env not in MAP_ENV_TYPES:
+        env = 'outdoor'
+
+    safe_scene = html.escape(scene_name or 'A city centre')
+
+    if q_type == 'geographical_change':
+        if env == 'indoor':
+            before_1, before_2, before_3 = 'Old Study Wing', 'Old Service Wing', 'Old Transit Hall'
+            after_1, after_2, after_3 = 'New Learning Hub', 'New Service Core', 'Renovated Access Hall'
+            road_main, road_cross = 'Main Corridor', 'Cross Corridor'
+        else:
+            before_1, before_2, before_3 = 'Old Residential Zone', 'Old Commercial Block', 'Open Yard'
+            after_1, after_2, after_3 = 'New Civic Zone', 'Medical District', 'Riverside Park'
+            road_main, road_cross = 'Old Main Road', 'New Ring Road'
+
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620">'
+            '<rect width="1000" height="620" fill="#f8fafc"/>'
+            f'<text x="500" y="36" text-anchor="middle" font-size="24" fill="#0f172a" font-family="Arial, sans-serif">{safe_scene}: Before and After Redevelopment</text>'
+            '<rect x="40" y="70" width="430" height="510" rx="14" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.6"/>'
+            '<rect x="530" y="70" width="430" height="510" rx="14" fill="#eef2ff" stroke="#94a3b8" stroke-width="1.6"/>'
+            '<line x1="500" y1="64" x2="500" y2="584" stroke="#64748b" stroke-width="2" stroke-dasharray="8 7"/>'
+            '<text x="255" y="96" text-anchor="middle" font-size="20" fill="#334155" font-family="Arial, sans-serif">Before</text>'
+            '<text x="745" y="96" text-anchor="middle" font-size="20" fill="#334155" font-family="Arial, sans-serif">After</text>'
+            '<rect x="70" y="130" width="170" height="130" rx="10" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.2"/>'
+            '<rect x="260" y="130" width="180" height="130" rx="10" fill="#e5e7eb" stroke="#94a3b8" stroke-width="1.2"/>'
+            '<rect x="80" y="390" width="230" height="150" rx="10" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.2"/>'
+            f'<text x="155" y="194" text-anchor="middle" font-size="16" fill="#334155" font-family="Arial, sans-serif">{html.escape(before_1)}</text>'
+            f'<text x="350" y="194" text-anchor="middle" font-size="16" fill="#334155" font-family="Arial, sans-serif">{html.escape(before_2)}</text>'
+            f'<text x="195" y="468" text-anchor="middle" font-size="18" fill="#334155" font-family="Arial, sans-serif">{html.escape(before_3)}</text>'
+            '<rect x="560" y="130" width="170" height="130" rx="10" fill="#dbeafe" stroke="#60a5fa" stroke-width="1.2"/>'
+            '<rect x="750" y="130" width="180" height="130" rx="10" fill="#d1fae5" stroke="#34d399" stroke-width="1.2"/>'
+            '<rect x="570" y="390" width="340" height="150" rx="10" fill="#dcfce7" stroke="#4ade80" stroke-width="1.2"/>'
+            f'<text x="645" y="194" text-anchor="middle" font-size="16" fill="#334155" font-family="Arial, sans-serif">{html.escape(after_1)}</text>'
+            f'<text x="840" y="194" text-anchor="middle" font-size="16" fill="#334155" font-family="Arial, sans-serif">{html.escape(after_2)}</text>'
+            f'<text x="740" y="468" text-anchor="middle" font-size="18" fill="#334155" font-family="Arial, sans-serif">{html.escape(after_3)}</text>'
+            '<line x1="58" y1="326" x2="460" y2="326" stroke="#94a3b8" stroke-width="14" stroke-linecap="round"/>'
+            '<line x1="540" y1="326" x2="942" y2="326" stroke="#64748b" stroke-width="18" stroke-linecap="round"/>'
+            '<line x1="255" y1="102" x2="255" y2="564" stroke="#94a3b8" stroke-width="10" stroke-linecap="round"/>'
+            '<line x1="725" y1="102" x2="725" y2="564" stroke="#64748b" stroke-width="10" stroke-linecap="round"/>'
+            f'<text x="255" y="312" text-anchor="middle" font-size="14" fill="#475569" font-family="Arial, sans-serif">{html.escape(road_main)}</text>'
+            f'<text x="725" y="312" text-anchor="middle" font-size="14" fill="#334155" font-family="Arial, sans-serif">{html.escape(road_cross)}</text>'
+            '</svg>'
+        )
+
+    if env == 'indoor':
+        zone_1, zone_2, zone_3, zone_4 = 'Entrance Hall', 'Service Zone', 'Study Zone', 'Quiet Wing'
+        road_1, road_2, road_3 = 'Main Corridor', 'North-South Corridor', 'East Link'
+    else:
+        zone_1, zone_2, zone_3, zone_4 = 'Residential Area', 'Commercial Area', 'Civic District', 'Green Park'
+        road_1, road_2, road_3 = 'Central Avenue', 'North-South Road', 'Riverside Drive'
+
+    compass = ''
+    if env == 'outdoor':
+        compass = (
+            '<text x="86" y="52" font-size="18" fill="#0f172a" font-family="Arial, sans-serif">N</text>'
+            '<line x1="92" y1="56" x2="92" y2="84" stroke="#0f172a" stroke-width="3"/>'
+            '<polygon points="92,40 86,56 98,56" fill="#0f172a"/>'
+        )
+
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620">'
+        '<rect width="1000" height="620" fill="#f8fafc"/>'
+        f'<text x="500" y="36" text-anchor="middle" font-size="24" fill="#0f172a" font-family="Arial, sans-serif">{safe_scene}: Site Selection</text>'
+        '<rect x="52" y="74" width="896" height="500" rx="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>'
+        '<rect x="78" y="112" width="320" height="180" rx="12" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.1"/>'
+        '<rect x="620" y="112" width="286" height="180" rx="12" fill="#dbeafe" stroke="#60a5fa" stroke-width="1.1"/>'
+        '<rect x="86" y="384" width="268" height="168" rx="12" fill="#e5e7eb" stroke="#94a3b8" stroke-width="1.1"/>'
+        '<rect x="536" y="378" width="370" height="176" rx="12" fill="#dcfce7" stroke="#4ade80" stroke-width="1.1"/>'
+        f'<text x="238" y="198" text-anchor="middle" font-size="18" fill="#334155" font-family="Arial, sans-serif">{html.escape(zone_1)}</text>'
+        f'<text x="762" y="198" text-anchor="middle" font-size="18" fill="#334155" font-family="Arial, sans-serif">{html.escape(zone_2)}</text>'
+        f'<text x="220" y="472" text-anchor="middle" font-size="18" fill="#334155" font-family="Arial, sans-serif">{html.escape(zone_3)}</text>'
+        f'<text x="720" y="470" text-anchor="middle" font-size="18" fill="#334155" font-family="Arial, sans-serif">{html.escape(zone_4)}</text>'
+        '<line x1="60" y1="330" x2="940" y2="330" stroke="#64748b" stroke-width="16" stroke-linecap="round"/>'
+        '<line x1="470" y1="96" x2="470" y2="560" stroke="#64748b" stroke-width="12" stroke-linecap="round"/>'
+        '<line x1="130" y1="560" x2="470" y2="440" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>'
+        f'<text x="500" y="318" text-anchor="middle" font-size="15" fill="#1f2937" font-family="Arial, sans-serif">{html.escape(road_1)}</text>'
+        f'<text x="486" y="98" text-anchor="start" font-size="14" fill="#1f2937" font-family="Arial, sans-serif">{html.escape(road_2)}</text>'
+        f'<text x="260" y="532" text-anchor="middle" font-size="13" fill="#475569" font-family="Arial, sans-serif">{html.escape(road_3)}</text>'
+        '<circle cx="340" cy="318" r="20" fill="#f97316" opacity="0.88"/>'
+        '<circle cx="520" cy="276" r="20" fill="#0ea5e9" opacity="0.88"/>'
+        '<circle cx="710" cy="350" r="20" fill="#10b981" opacity="0.88"/>'
+        '<text x="340" y="323" text-anchor="middle" font-size="16" fill="#ffffff" font-family="Arial, sans-serif" font-weight="700">A</text>'
+        '<text x="520" y="281" text-anchor="middle" font-size="16" fill="#ffffff" font-family="Arial, sans-serif" font-weight="700">B</text>'
+        '<text x="710" y="355" text-anchor="middle" font-size="16" fill="#ffffff" font-family="Arial, sans-serif" font-weight="700">C</text>'
+        '<text x="340" y="350" text-anchor="middle" font-size="13" fill="#334155" font-family="Arial, sans-serif">Candidate Site A</text>'
+        '<text x="520" y="308" text-anchor="middle" font-size="13" fill="#334155" font-family="Arial, sans-serif">Candidate Site B</text>'
+        '<text x="710" y="382" text-anchor="middle" font-size="13" fill="#334155" font-family="Arial, sans-serif">Candidate Site C</text>'
+        f'{compass}'
+        '</svg>'
+    )
+
+
+def _build_map_prompt_payload(
+    client: AIClient,
+    user,
+    subject_area: str,
+    map_profile: dict[str, str],
+) -> tuple[dict, float]:
+    icon_keys = [i['key'] for i in MAP_ICON_DEFINITIONS]
+    scenario = (map_profile.get('questionType') or 'site_selection').strip().lower()
+    environment = (map_profile.get('environmentType') or 'outdoor').strip().lower()
+    scene_name = map_profile.get('sceneName') or 'A city centre'
+
+    if scenario not in MAP_SCENARIO_TYPES:
+        scenario = 'site_selection'
+    if environment not in MAP_ENV_TYPES:
+        environment = 'outdoor'
+
+    scenario_desc = 'geographical-change map (before vs after)' if scenario == 'geographical_change' else 'site-selection map (candidate locations)'
+    environment_desc = 'indoor floor-plan style' if environment == 'indoor' else 'outdoor town/area style'
+    location_catalog = _scene_catalog_prompt_text(max_items=90)
+
+    map_prompt = f'''You are an IELTS Task 1 examiner and a map-layout planner.
+Generate ONE high-quality map question as JSON with EXACTLY these fields:
+{{
+  "prompt": "IELTS Task 1 prompt sentence",
+  "mapSvg": "Complete SVG string with root <svg ... viewBox=\"0 0 1000 620\">...</svg>",
+  "iconPlacements": [
+    {{
+      "iconKey": "one icon key",
+      "x": <number>,
+      "y": <number>,
+      "w": <number>,
+      "h": <number>,
+      "rotation": <number>,
+      "label": "optional short label"
+    }}
+  ],
+  "layoutSummary": "2-4 concise lines about spatial logic",
+  "mapScenarioType": "geographical_change or site_selection",
+  "environmentType": "indoor or outdoor",
+  "locationName": "selected location name"
+}}
+
+MANDATORY RANDOMIZATION PROFILE (must follow exactly for this request):
+- mapScenarioType must be: {scenario}
+- environmentType must be: {environment}
+- locationName must be: {scene_name}
+- This scenario means: {scenario_desc}
+- This environment style means: {environment_desc}
+
+Possible IELTS map locations (indoor/outdoor mixed, for global consistency reference):
+{location_catalog}
+
+CAN DO:
+- Design a natural and readable map with clear areas, roads, and orientation cues.
+- Use visual hierarchy: major roads thicker, minor roads thinner, and areas clearly separated.
+- Place landmarks/icons in semantically plausible places (e.g., transport near routes, benches in parks, hospitals near main access).
+- Use controlled asymmetry so the map looks realistic, not artificially mirrored.
+
+CANNOT DO:
+- Do NOT output any field other than prompt/mapSvg/iconPlacements/layoutSummary/mapScenarioType/environmentType/locationName.
+- Do NOT use script/foreignObject/external image URLs/CSS imports/event handlers.
+- Do NOT output markdown fences or any extra commentary.
+- Do NOT invent icon keys outside this whitelist: {', '.join(icon_keys)}
+
+AREA GENERATION LOGIC (strict):
+1) Create at least 4 named areas (zones/districts/functional blocks).
+2) Areas must be visibly separated and not heavily overlapping.
+3) Area labels must be short and readable.
+
+ROAD GENERATION LOGIC (strict):
+1) Include at least one major horizontal or vertical road/corridor.
+2) Include at least two additional roads/paths/connectors.
+3) Named roads must be visible and logically connect important areas.
+
+SCENARIO-SPECIFIC RULES:
+- If mapScenarioType is geographical_change:
+  1) show clear "before" and "after" structure,
+  2) each side should have at least 3 area blocks,
+  3) at least one road/path must be clearly changed or newly added.
+- If mapScenarioType is site_selection:
+  1) include candidate Site A/B/C,
+  2) keep at least 4 context areas and 3 roads,
+  3) candidate sites should have different trade-offs by location.
+
+QUALITY TARGETS:
+1) mapSvg must be valid standalone SVG using safe primitives only: rect, circle, ellipse, polygon, polyline, line, path, text, g.
+2) Coordinates in iconPlacements are top-left based and in the SAME viewBox coordinate system.
+3) Use 9-14 icons; spread across at least 3 quadrants.
+4) Avoid heavy overlap; icons must remain readable at normal zoom.
+5) Topic should relate to: {subject_area}
+
+SUCCESS REFERENCE (for calibration only, NOT a template to copy):
+- Good: clear area zoning + hierarchical road network + landmarks placed in sensible context + balanced icon spacing.
+
+FAILURE REFERENCE (must avoid):
+- Bad: random blocks without hierarchy, roads disconnected from areas, icons clustered in one corner, or rigid copying of any sample composition.
+
+IMPORTANT ANTI-TEMPLATE RULE:
+- Examples above are constraints calibration only. Produce a NEW layout; do not mirror or clone fixed coordinates/structures.
+'''
+
+    messages = [
+        {'role': 'system', 'content': map_prompt},
+        {'role': 'user', 'content': 'Generate a complete map question now.'}
+    ]
+
+    return client.generate(
+        messages,
+        expect_json=True,
+        user_id=user.id,
+        singleflight_scope='writing_chart_generate',
+    )
+
+
+def _strip_code_fences(text: str) -> str:
+    cleaned = (text or '').strip()
+    if cleaned.startswith('```'):
+        lines = cleaned.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == '```':
+            lines = lines[:-1]
+        cleaned = '\n'.join(lines).strip()
+    return cleaned
+
+
+def _looks_like_python(code: str) -> bool:
+    lower = code.lower()
+    markers = [
+        'import matplotlib',
+        'def ',
+        'plt.',
+        'ax.',
+        'if __name__ == "__main__":',
+        'if __name__ == \"__main__\":',
+        'sys.argv',
+    ]
+    return any(m in lower for m in markers)
+
+
+def _is_valid_mermaid_flowchart(code: str) -> bool:
+    stripped = (code or '').lstrip().lower()
+    return stripped.startswith('flowchart ') or stripped.startswith('graph ')
+
+
+def _build_fallback_flowchart(prompt_text: str) -> str:
+    # Keep fallback deterministic and parser-safe.
+    title = (prompt_text or 'Process Diagram').strip()
+    title = re.sub(r'[^a-zA-Z0-9\s\-:,\.\(\)]', '', title)[:90] or 'Process Diagram'
+    return (
+        'flowchart TD\n'
+        f'  T["{title}"]\n'
+        '  A["Step 1: Start"] --> B["Step 2: Main Process"]\n'
+        '  B --> C["Step 3: Quality Check"]\n'
+        '  C --> D["Step 4: Output"]\n'
+        '  D --> E["Step 5: End"]\n'
+    )
+
+
+def _build_singleflight_scope(scope_prefix: str, payload) -> str:
+    try:
+        payload_text = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError):
+        payload_text = str(payload)
+    digest = hashlib.sha256(payload_text.encode('utf-8')).hexdigest()[:16]
+    return f"{scope_prefix}:{digest}"
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_chart(request):
+    try:
+        user = request.user
+        limit_resp = check_rate_limit(user.id, 'chart_generate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
+        chart_type = request.data.get('type', 'line')
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+
+        client = AIClient(provider=provider)
+
+        if chart_type == 'flowchart':
+            chart_instructions = """
+   - The user requested a FLOWCHART (Process Diagram).
+   - You MUST NOT use matplotlib or python.
+   - You MUST generate valid `mermaid.js` flowchart code.
+    - VARIETY IS REQUIRED - randomly pick one of these structural patterns each time:
+       A) LINEAR WITH BRANCH: a main chain that splits into 2-3 parallel paths, then reconverges (one-to-many then many-to-one).
+       B) LOOP/CYCLE: a decision diamond that loops back to an earlier step when the condition is not met (e.g. quality-check retry, feedback loop, resubmission cycle).
+       C) PARALLEL MERGE: two or more independent starting sub-processes that both feed into a shared downstream step.
+       D) MIXED: combine a loop AND a branch in the same diagram (most complex, use for longer processes).
+   - Use VARIED node shapes for semantic clarity:
+    A["label"]    - standard rectangular process step
+    A(("label"))  - circle, for key events
+    A{"label"}    - diamond, for decisions only
+    A(["label"])  - pill/stadium, for start or end
+   - For one-to-many branching use: A --> B & C & D
+   - For many-to-one merging  use: B & C --> D
+   - For a loop-back          use: D -->|No| B
+   - Direction: prefer flowchart TD for tall processes, flowchart LR for wide/parallel ones.
+   - Aim for 8-14 nodes total; label edges where it adds meaning (Yes/No, Approved/Rejected, etc.).
+   - CRITICAL SYNTAX RULES (violations cause parse errors):
+       * Every node label MUST be in double quotes: A["Label text here"]
+       * Never use unquoted labels containing spaces or : ( ) { }
+       * Edge labels use pipe syntax: A -->|Yes| B
+       * No spaces around & in parallel syntax: A --> B & C
+   - Example A (loop pattern):
+     flowchart TD
+       S(["Start"]) --> A["Submit Application"]
+       A --> B{"Complete?"}
+       B -->|No| C["Return for Revision"]
+       C --> A
+       B -->|Yes| D["Review Panel"]
+       D --> E{"Approved?"}
+       E -->|No| F["Notify Applicant"]
+       F --> A
+       E -->|Yes| G["Issue Certificate"]
+       G --> Z(["End"])
+   - Example B (branch and merge pattern):
+     flowchart LR
+       S(["Raw Material"]) --> P["Pre-treatment"]
+       P --> Q & R & T
+       Q["Line A Cutting"] --> M["Assembly"]
+       R["Line B Moulding"] --> M
+       T["Line C Printing"] --> M
+       M --> I{"Quality Check"}
+       I -->|Pass| D(["Dispatch"])
+       I -->|Fail| X["Rework"] --> M"""
+        elif chart_type == 'map':
+            chart_instructions = """
+     - MAP mode is handled by the dedicated SVG + icon placement branch below.
+     - This instruction block is intentionally unused for map generation."""
+        else:
+            chart_instructions = """
+   - The code must generate its own random but plausible data arrays inline for the chart.
+   - Use ONLY standard chart functions (plot, bar, pie, etc.) for data visualization."""
+
+        if chart_type == 'flowchart':
+            code_requirement = '''Mermaid.js flowchart code ONLY.
+       - Start with `flowchart TD` or `flowchart LR`.
+       - Do NOT return Python, matplotlib, pseudocode, or markdown explanation.
+       - Use the structural variety described in the chart constraints (branch, loop, parallel, or mixed).
+       - Node labels must be parser-safe: wrap multi-word labels in double quotes inside brackets, e.g. A["Raw Material Input"].
+       - Edge labels use the pipe syntax: A -->|Yes| B  or  A -- label --> B.
+       - For parallel edges use: A --> B & C  (no extra spaces around &).
+       - Return pure Mermaid text in the `code` field.'''
+        else:
+            code_requirement = '''Python code using Matplotlib.
+       - The code MUST save the chart to the image path passed as `sys.argv[1]`.
+       - Do NOT use `plt.show()`.
+       - Use ONLY `matplotlib`, `numpy`, or standard libraries. NO dangerous OS imports.
+       - It is crutial that the image is sized correctly and looks professional.
+       - Example file structure:
+         import sys
+         import matplotlib.pyplot as plt
+         import numpy as np
+         ...
+         plt.savefig(sys.argv[1])
+         plt.close()'''
+
+        # 鈹€鈹€ FLOWCHART: plain-text mode avoids JSON-escaping issues with Mermaid { } " 鈹€鈹€
+        if chart_type == 'flowchart':
+            fc_system = (
+                "You are an IELTS Task 1 examiner generating a process diagram practice question.\n"
+                "Return your response in EXACTLY this two-part format - no other text:\n\n"
+                "IELTS_PROMPT: <one sentence IELTS question, e.g. 'The diagram below shows the process of...'>\n"
+                "MERMAID_CODE:\n<valid mermaid flowchart code starting with 'flowchart TD' or 'flowchart LR'>\n\n"
+                "Flowchart constraints:\n" + chart_instructions.strip()
+            )
+            fc_messages = [
+                {"role": "system", "content": fc_system},
+                {"role": "user", "content": "Generate an IELTS Task 1 process diagram practice question now."},
+            ]
+            try:
+                raw_text, at_cost = client.generate(
+                    fc_messages,
+                    expect_json=False,
+                    user_id=user.id,
+                    singleflight_scope='writing_chart_generate',
+                )
+            except Exception as e:
+                return Response({'error': f'AI generation failed: {e}'}, status=500)
+
+            # Parse the delimiter-separated response
+            prompt_text = ''
+            mermaid_code = ''
+            prompt_match = re.search(r'IELTS_PROMPT:\s*(.+?)(?=MERMAID_CODE:)', raw_text, re.DOTALL | re.IGNORECASE)
+            code_match   = re.search(r'MERMAID_CODE:\s*(.+)',                    raw_text, re.DOTALL | re.IGNORECASE)
+            if prompt_match:
+                prompt_text  = prompt_match.group(1).strip()
+            if code_match:
+                mermaid_code = _strip_code_fences(code_match.group(1).strip())
+
+            # Fallback: scan the raw text for any flowchart block
+            if not _is_valid_mermaid_flowchart(mermaid_code):
+                fc_find = re.search(r'(flowchart\s+(?:TD|LR|TB|BT|RL)\b.+)', raw_text, re.DOTALL | re.IGNORECASE)
+                mermaid_code = fc_find.group(1).strip() if fc_find else _build_fallback_flowchart(prompt_text)
+
+            if _looks_like_python(mermaid_code):
+                mermaid_code = _build_fallback_flowchart(prompt_text)
+
+            if not prompt_text:
+                prompt_text = ('The diagram below shows the process illustrated in the flowchart. '
+                               'Summarise the information by selecting and reporting the main features.')
+
+            return Response({
+                'imageUrl':    None,
+                'mermaidCode': mermaid_code,
+                'prompt':      prompt_text,
+                'pythonCode':  mermaid_code,
+                'atConsumed':  at_cost,
+            })
+
+        # ── MAP: generate SVG + icon placement JSON (no matplotlib execution) ──
+        if chart_type == 'map':
+            subject_area = random.choice(CHART_SUBJECT_AREAS)
+            icon_assets = _build_map_icon_assets()
+            allowed_keys = set(icon_assets.keys())
+            map_profile = _pick_map_generation_profile()
+
+            chosen_question_type = map_profile['questionType']
+            chosen_environment_type = map_profile['environmentType']
+            chosen_scene_name = map_profile['sceneName']
+
+            try:
+                map_data, at_cost = _build_map_prompt_payload(client, user, subject_area, map_profile)
+            except Exception as map_err:
+                return Response({'error': f'AI map generation failed: {map_err}'}, status=500)
+
+            question_type = str(map_data.get('mapScenarioType', '') or '').strip().lower()
+            if question_type not in MAP_SCENARIO_TYPES:
+                question_type = chosen_question_type
+
+            environment_type = str(map_data.get('environmentType', '') or '').strip().lower()
+            if environment_type not in MAP_ENV_TYPES:
+                environment_type = chosen_environment_type
+
+            location_name = str(map_data.get('locationName', '') or '').strip()[:100]
+            if not location_name:
+                location_name = chosen_scene_name
+
+            prompt_text = str(map_data.get('prompt', '') or '').strip()
+            map_svg = _sanitize_svg(str(map_data.get('mapSvg', '') or ''))
+            if not map_svg:
+                map_svg = _fallback_map_svg(question_type, environment_type, location_name)
+
+            svg_quality = _evaluate_map_svg_structure(map_svg, question_type)
+
+            view_w, view_h = _extract_svg_viewport(map_svg)
+            placements = _normalize_map_icon_placements(
+                map_data.get('iconPlacements', []),
+                allowed_keys,
+                view_w,
+                view_h,
+            )
+
+            if placements:
+                placements = _improve_map_icon_placements(placements, view_w, view_h)
+            quality = _evaluate_map_placement_quality(placements, view_w, view_h)
+
+            need_fallback = (
+                len(placements) < MAP_MIN_ICON_COUNT or
+                quality['score'] < 62 or
+                quality['severeConflicts'] > 0 or
+                quality['quadrantCoverage'] < 3 or
+                svg_quality['score'] < 64 or
+                (question_type == 'geographical_change' and svg_quality['beforeAfterTerms'] < 2) or
+                (question_type == 'site_selection' and svg_quality['candidateTerms'] < 2)
+            )
+
+            if need_fallback:
+                map_svg = _fallback_map_svg(question_type, environment_type, location_name)
+                view_w, view_h = _extract_svg_viewport(map_svg)
+                placements = _scaled_fallback_placements(view_w, view_h, question_type)
+                placements = _improve_map_icon_placements(placements, view_w, view_h)
+                quality = _evaluate_map_placement_quality(placements, view_w, view_h)
+                svg_quality = _evaluate_map_svg_structure(map_svg, question_type)
+                quality['fallbackApplied'] = True
+                svg_quality['fallbackApplied'] = True
+
+            used_icon_keys = {
+                str(item.get('iconKey', '')).strip()
+                for item in placements
+                if isinstance(item, dict)
+            }
+            used_icon_keys.discard('')
+            icon_data_urls = _build_map_icon_data_urls(used_icon_keys)
+
+            layout_summary = str(map_data.get('layoutSummary', '') or '').strip()
+            if not layout_summary:
+                if question_type == 'geographical_change':
+                    layout_summary = (
+                        f'The map compares before-and-after changes in {location_name}, with clearer functional zones and upgraded road access.'
+                    )
+                else:
+                    layout_summary = (
+                        f'The map presents three candidate sites in {location_name}, with contrasting access, surrounding land use, and service convenience.'
+                    )
+
+            if not prompt_text:
+                if question_type == 'geographical_change':
+                    prompt_text = (
+                        f'The maps below show how {location_name} has changed over time. '
+                        'Summarise the information by selecting and reporting the main features, and make comparisons where relevant.'
+                    )
+                else:
+                    prompt_text = (
+                        f'The map below shows three possible sites for development in {location_name}. '
+                        'Summarise the information by selecting and reporting the main features, and make comparisons where relevant.'
+                    )
+
+            reference_payload = {
+                'type': 'map-svg',
+                'questionType': question_type,
+                'environmentType': environment_type,
+                'locationName': location_name,
+                'viewport': {'width': round(view_w, 2), 'height': round(view_h, 2)},
+                'iconPlacements': placements,
+                'layoutSummary': layout_summary,
+                'placementQuality': quality,
+                'svgQuality': svg_quality,
+            }
+
+            return Response({
+                'imageUrl': None,
+                'mermaidCode': None,
+                'prompt': prompt_text,
+                'pythonCode': json.dumps(reference_payload, ensure_ascii=False),
+                'mapSvg': map_svg,
+                'mapScenarioType': question_type,
+                'mapEnvironmentType': environment_type,
+                'mapLocationName': location_name,
+                'mapViewport': {
+                    'width': round(view_w, 2),
+                    'height': round(view_h, 2),
+                },
+                'mapIconPlacements': placements,
+                'mapIconAssets': icon_assets,
+                'mapIconDataUrls': icon_data_urls,
+                'mapPlacementQuality': quality,
+                'mapSvgQuality': svg_quality,
+                'atConsumed': at_cost,
+            })
+
+        # 鈹€鈹€ OTHER CHART TYPES: JSON mode + Matplotlib sandbox ┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢
+        subject_area = random.choice(CHART_SUBJECT_AREAS)
+        system_prompt = f'''You are an IELTS Task 1 examiner.
+You need to provide a new chart practice question.
+The requested chart type is: {chart_type}.
+The subject area for the data must relate to: {subject_area}.
+
+You MUST return a JSON with EXACTLY these two fields:
+1. "prompt": The IELTS Task 1 question description (e.g., "The graph below shows the population of three cities...").
+2. "code": {code_requirement}
+
+Additional chart constraints:
+{chart_instructions}
+'''
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "Generate the chart prompt and code for the requested chart type."}
+        ]
+
+        try:
+            response_data, at_cost = client.generate(
+                messages,
+                expect_json=True,
+                user_id=user.id,
+                singleflight_scope='writing_chart_generate',
+            )
+            prompt_text = response_data.get('prompt', '')
+            python_code = response_data.get('code', '')
+            if not python_code:
+                raise ValueError("No code generated")
+        except Exception as e:
+            return Response({'error': f'Failed to parse AI response: {e}.'}, status=500)
+
+        # --- SANDBOX EXECUTION FOR REGULAR CHARTS/MAPS ---
+        # Save and run python code
+        # We save media files in the static media directory
+        charts_dir = os.path.join(settings.MEDIA_ROOT, 'charts')
+        os.makedirs(charts_dir, exist_ok=True)
+        
+        file_id = str(uuid.uuid4())
+        py_path = os.path.join(charts_dir, f'{file_id}.py')
+        img_path = os.path.join(charts_dir, f'{file_id}.png')
+        
+        with open(py_path, 'w', encoding='utf-8') as f:
+            f.write(python_code)
+            
+        # Execute the sandbox script
+        try:
+            result = subprocess.run(['python', py_path, img_path], capture_output=True, text=True, timeout=12)
+            if result.returncode != 0:
+                refund_at(user.id, at_cost)
+                return Response({'error': '抱歉，AI 图表代码执行失败，已退还 AT 币。请稍后重试。', 'atRefunded': at_cost}, status=500)
+        except subprocess.TimeoutExpired:
+            refund_at(user.id, at_cost)
+            return Response({'error': '抱歉，AI 图表生成超时，已退还 AT 币。请稍后重试。', 'atRefunded': at_cost}, status=500)
+
+        # Read the generated image into base64
+        import base64
+        try:
+            with open(img_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                img_url = f"data:image/png;base64,{encoded_string}"
+        except OSError as oe:
+            refund_at(user.id, at_cost)
+            return Response({'error': f'抱歉，图表读取失败，已退还 AT 币。({oe})', 'atRefunded': at_cost}, status=500)
+            
+        # Delete temporary files to save server storage
+        try:
+            os.remove(py_path)
+            os.remove(img_path)
+        except OSError:
+            pass # ignore cleanup errors
+        
+        return Response({
+            'imageUrl': img_url,
+            'mermaidCode': None,
+            'prompt': prompt_text,
+            'pythonCode': python_code,
+            'atConsumed': at_cost
+        })
+    except Exception as e:
+        import traceback
+        return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def evaluate_chart(request):
+    try:
+        user = request.user
+        limit_resp = check_rate_limit(user.id, 'chart_evaluate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
+        prompt_text = request.data.get('prompt', '')
+        python_code = request.data.get('pythonCode', '')
+        user_answer = request.data.get('userAnswer', '')
+        ui_lang = request.data.get('lang', 'en')
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        eval_scope = _build_singleflight_scope(
+            'writing_chart_evaluate',
+            {
+                'prompt': prompt_text,
+                'pythonCode': python_code,
+                'userAnswer': user_answer,
+                'lang': ui_lang,
+            },
+        )
+
+        client = AIClient(provider=provider)
+
+        lang_instruction = (
+            'Write the "feedback" field in Simplified Chinese (中文).'
+            if ui_lang == 'zh'
+            else 'Write the "feedback" field in English.'
+        )
+
+        system_prompt = f'''You are an expert IELTS examiner evaluator.
+    Evaluate the user's Task 1 Writing based on the provided Prompt and the Reference Data Code (Python / Mermaid / Map JSON) which represents the exact figures, map layout, or process steps to describe.
+Return a JSON with EXACTLY this structure:
+{{
+  "scores": {{
+    "ta": <0-9 float for Task Achievement>,
+    "cc": <0-9 float for Coherence & Cohesion>,
+    "lr": <0-9 float for Lexical Resource>,
+    "gra": <0-9 float for Grammatical Range & Accuracy>
+  }},
+  "overall": <0-9 float for overall band score>,
+  "feedback": "Detailed feedback..."
+}}
+LANGUAGE INSTRUCTION: {lang_instruction}'''
+        user_msg = f"Prompt:\n{prompt_text}\n\nReference Data (Python/Mermaid/Map JSON):\n{python_code}\n\nUser Answer:\n{user_answer}"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_msg}
+        ]
+        
+        try:
+            response_data, at_cost = client.generate(
+                messages,
+                expect_json=True,
+                user_id=user.id,
+                singleflight_scope=eval_scope,
+            )
+            response_data['atConsumed'] = at_cost
+            return Response(response_data)
+        except Exception as e:
+            return Response({'error': f'Failed to evaluate or parse: {e}'}, status=500)
+            
+    except Exception as e:
+        import traceback
+        return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
+
+

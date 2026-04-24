@@ -2,8 +2,10 @@
 Django settings for backend project.
 """
 import os
+import socket
 from pathlib import Path
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # 加载 .env
 load_dotenv(Path(__file__).resolve().parent.parent / '.env')
@@ -44,6 +46,8 @@ MIDDLEWARE = [
 ]
 
 # CORS — 允许前端开发服务器跨域
+CORS_ALLOW_ALL_ORIGINS = True
+# 在开发环境中允许所有来源；生产环境可按需关闭 allow-all 并使用白名单。
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
@@ -52,17 +56,12 @@ CORS_ALLOWED_ORIGINS = [
 if os.environ.get('CORS_ORIGIN'):
     CORS_ALLOWED_ORIGINS.append(os.environ['CORS_ORIGIN'])
 
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
+CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-ai-provider",
+    "ngrok-skip-browser-warning",
+    "x-mcp-request-id",
+    "cache-control",
+    "pragma",
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -84,17 +83,49 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
+
+def _get_database_host() -> str:
+    host = os.environ.get('DB_HOST', 'localhost').strip()
+    fallback_host = os.environ.get('DB_HOST_FALLBACK', '').strip()
+
+    if not fallback_host:
+        return host
+
+    try:
+        socket.getaddrinfo(host, int(os.environ.get('DB_PORT', '3306')), 0, socket.SOCK_STREAM)
+        return host
+    except socket.gaierror:
+        # Allow explicit fallback host (usually a fixed DB IP) when DNS is unstable.
+        return fallback_host
+
+
+def _get_database_ssl_options() -> dict:
+    ca_path_raw = os.environ.get('DB_SSL_CA', '').strip()
+    if not ca_path_raw:
+        return {}
+
+    ca_path = Path(ca_path_raw)
+    if not ca_path.is_absolute():
+        ca_path = (BASE_DIR / ca_path).resolve()
+
+    if ca_path.exists() and ca_path.is_file():
+        return {'ca': str(ca_path)}
+
+    # Avoid startup/request crashes when DB_SSL_CA points to a missing file.
+    print(f"[settings] DB_SSL_CA not found: {ca_path_raw}. Falling back to default SSL context.")
+    return {}
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'HOST': _get_database_host(),
         'PORT': os.environ.get('DB_PORT', '3306'),
         'USER': os.environ.get('DB_USER', ''),
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'NAME': os.environ.get('DB_NAME', 'aielts_db'),
         'OPTIONS': {
             'charset': 'utf8mb4',
-            **({'ssl': {'ca': os.environ['DB_SSL_CA']}} if os.environ.get('DB_SSL_CA') else {'ssl': {}}),
+            'ssl': _get_database_ssl_options(),
         },
     }
 }
@@ -124,7 +155,7 @@ AUTH_USER_MODEL = 'api.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'api.authentication.SingleDeviceJWTAuthentication',
+        'api.core.authentication.SingleDeviceJWTAuthentication',
     ),
 }
 
