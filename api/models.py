@@ -533,3 +533,82 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f'{self.user.username} -> {self.product.name} x{self.quantity}'
+
+class SpeakingScenarioHistory(models.Model):
+    """
+    全局共享的口语场景生成历史，防止AI重复生成相同场景。
+    """
+    topic = models.CharField(max_length=500, verbose_name="场景主题")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="生成时间")
+
+    class Meta:
+        db_table = 'speaking_scenario_history'
+        verbose_name = '口语随机场景历史'
+        verbose_name_plural = '口语随机场景历史列表'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.topic[:50]} ({self.created_at})"
+
+
+class SpeakingTopicBank(models.Model):
+    """
+    环球教育雅思口语题库（2025年9-12月）
+    包含 Part 1、Part 2、Part 3 全部真题，AI 选题时优先选取 times_used 最少的题目。
+    """
+    part = models.SmallIntegerField(verbose_name="考试部分 (1/2/3)")
+    category = models.CharField(max_length=100, verbose_name="大类标签")
+    date = models.CharField(max_length=100, blank=True, verbose_name="日期批次")
+    topic_en = models.CharField(max_length=300, blank=True, verbose_name="英文话题名")
+    topic_zh = models.CharField(max_length=300, blank=True, verbose_name="中文话题名")
+    questions_json = models.JSONField(default=list, verbose_name="问题列表（Part 1/3）")
+    cue_card = models.TextField(blank=True, verbose_name="Cue Card 描述（Part 2）")
+    bullet_points_json = models.JSONField(default=list, verbose_name="提示要点（Part 2）")
+    times_used = models.IntegerField(default=0, verbose_name="已使用次数")
+    is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="入库时间")
+
+    class Meta:
+        db_table = 'speaking_topic_bank'
+        verbose_name = '口语题库'
+        verbose_name_plural = '口语题库列表'
+        indexes = [
+            models.Index(fields=['part', 'is_active', 'times_used'], name='idx_sp_bank_part_active_used'),
+        ]
+
+    def __str__(self):
+        name = self.topic_en or self.topic_zh
+        return f'[Part{self.part}] {name[:60]}'
+
+
+class UserDailyStats(models.Model):
+    """Per-user per-day learning stats, check-in, and activity tracking."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='daily_stats')
+    date = models.DateField(verbose_name="日期")
+    # Check-in
+    is_checked_in = models.BooleanField(default=False, verbose_name="是否签到")
+    checkin_bonus = models.PositiveIntegerField(default=0, verbose_name="签到奖励AT")
+    checkin_count = models.PositiveIntegerField(default=0, verbose_name="累计签到次数")
+    # Activity
+    has_activity = models.BooleanField(default=False, verbose_name="是否有学习活动")
+    practice_count = models.PositiveSmallIntegerField(default=0, verbose_name="练习次数")
+    speaking_count = models.PositiveSmallIntegerField(default=0, verbose_name="口语练习次数")
+    listening_count = models.PositiveSmallIntegerField(default=0, verbose_name="听力练习次数")
+    reading_count = models.PositiveSmallIntegerField(default=0, verbose_name="阅读练习次数")
+    writing_count = models.PositiveSmallIntegerField(default=0, verbose_name="写作练习次数")
+    vocab_count = models.PositiveSmallIntegerField(default=0, verbose_name="词汇练习次数")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_daily_stats'
+        verbose_name = '用户每日统计'
+        verbose_name_plural = '用户每日统计列表'
+        unique_together = [['user', 'date']]
+        indexes = [
+            models.Index(fields=['user', 'date'], name='idx_uds_user_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} — {self.date}'
+

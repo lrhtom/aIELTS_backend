@@ -73,7 +73,7 @@ def _count_words(text: str) -> int:
 
 
 def _provider_supports_task1_image(provider: str) -> bool:
-    return provider == 'gpt5'
+    return str(provider or '').strip().lower().startswith('gpt5')
 
 
 def _validate_task1_image_data_url(raw_data_url: str) -> str:

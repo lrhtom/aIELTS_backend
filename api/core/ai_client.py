@@ -13,16 +13,34 @@ class AIClient:
     支持对 DeepSeek, Gemini, Doubao, Qwen 等不同 Base URL 和密钥的管理。
     """
     def __init__(self, provider: str = 'deepseek'):
-        self.provider = provider
-        
-        if provider == 'gemini':
+        self.provider = (provider or '').strip().lower()
+        self.is_gpt5 = self.provider.startswith('gpt5')
+
+        if self.provider == 'gemini':
             self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
             self.api_key = os.environ.get('GEMINI_API_KEY', '')
             self.model = os.environ.get('GEMINI_MODEL', 'gemini-3.0-flash')
-        elif provider == 'gpt5':
-            self.base_url = os.environ.get('GPT5_BASE_URL', '')
-            self.api_key = os.environ.get('GPT5_API_KEY', '')
-            self.model = os.environ.get('GPT5_MODEL', 'gpt-5.3-chat')
+        elif self.is_gpt5:
+            base_url = ""
+            api_key = ""
+            model = ""
+
+            if self.provider == 'gpt5_4':
+                base_url = os.environ.get('GPT54_BASE_URL', '')
+                api_key = os.environ.get('GPT54_API_KEY', '')
+                model = os.environ.get('GPT54_MODEL', 'gpt-5.4')
+            elif self.provider == 'gpt5_mini':
+                base_url = os.environ.get('GPT5MINI_BASE_URL', '')
+                api_key = os.environ.get('GPT5MINI_API_KEY', '')
+                model = os.environ.get('GPT5MINI_MODEL', 'gpt-5.4-mini')
+
+            normalized_base_url = (base_url or '').strip()
+            if normalized_base_url.rstrip('/').lower().endswith('/openai/v1'):
+                # Allow v1 base endpoint; default to Responses API path.
+                base_url = normalized_base_url.rstrip('/') + '/responses'
+            self.base_url = base_url
+            self.api_key = api_key
+            self.model = model
         else:
             self.base_url = os.environ.get('AI_BASE_URL', '')
             self.api_key = os.environ.get('AI_API_KEY', '')
@@ -180,13 +198,14 @@ class AIClient:
 
             # 构建请求头
             headers = {'Content-Type': 'application/json'}
-            if self.provider == 'gpt5':
+            if self.is_gpt5:
                 headers['api-key'] = self.api_key
             else:
                 headers['Authorization'] = f'Bearer {self.api_key}'
 
-            # Azure Responses API (gpt5) 使用不同的请求格式
-            if self.provider == 'gpt5':
+            # Azure Responses API 和标准 Chat Completions 的格式区分
+            is_responses_api = '/responses' in self.base_url.lower()
+            if self.is_gpt5 and is_responses_api:
                 # Responses API 格式：input 数组，每条 message 包含 role 和 content
                 gpt5_input = [{'role': msg['role'], 'content': msg['content']} for msg in messages]
                 # gpt5 不支持 response_format，用 system 消息强制 JSON 输出
@@ -229,24 +248,24 @@ class AIClient:
             data = response.json()
 
             # 解析响应内容：Responses API 和 Chat Completions API 路径不同
-            if self.provider == 'gpt5':
+            if self.is_gpt5 and is_responses_api:
                 # Responses API: 遍历 output 找 type=='message'（第一项可能是 reasoning summary）
-                print(f"[AIClient][gpt5] 原始响应 keys: {list(data.keys())}")
+                print(f"[AIClient][{self.provider}] 原始响应 keys: {list(data.keys())}")
                 try:
                     msg_block = next(
                         item for item in data['output'] if item.get('type') == 'message'
                     )
                     ai_content = msg_block['content'][0]['text']
                 except (StopIteration, KeyError, IndexError, TypeError) as parse_err:
-                    print(f"[AIClient] ❌ gpt5 响应解析失败，output: {str(data.get('output', ''))[:800]}")
-                    _sf_write_error(f"gpt5 响应格式异常，无法提取内容: {parse_err}")
-                    raise ValueError(f"gpt5 响应格式异常，无法提取内容: {parse_err}") from parse_err
+                    print(f"[AIClient] ❌ GPT-5 响应解析失败，output: {str(data.get('output', ''))[:800]}")
+                    _sf_write_error(f"GPT-5 响应格式异常，无法提取内容: {parse_err}")
+                    raise ValueError(f"GPT-5 响应格式异常，无法提取内容: {parse_err}") from parse_err
             else:
                 ai_content = data['choices'][0]['message']['content']
 
             # 获取真实 Token 消耗（兼容 Chat Completions 和 Responses API 两种格式）
             usage = data.get('usage', {})
-            if self.provider == 'gpt5':
+            if self.is_gpt5 and is_responses_api:
                 # Responses API: input_tokens + output_tokens
                 total_tokens = usage.get('input_tokens', 0) + usage.get('output_tokens', 0)
             else:
@@ -362,13 +381,14 @@ class AIClient:
                 return
 
         headers = {'Content-Type': 'application/json'}
-        if self.provider == 'gpt5':
+        if self.is_gpt5:
             headers['api-key'] = self.api_key
         else:
             headers['Authorization'] = f'Bearer {self.api_key}'
 
-        if self.provider == 'gpt5':
-            # Azure / Custom GPT-5 可能使用独特的结构
+        is_responses_api = '/responses' in self.base_url.lower()
+        if self.is_gpt5 and is_responses_api:
+            # Azure / Custom GPT-5 Responses API 结构
             input_msgs = [{'role': msg['role'], 'content': msg['content']} for msg in messages]
             payload = {
                 'model': self.model,
@@ -410,7 +430,7 @@ class AIClient:
                 try:
                     chunk = json.loads(data_str)
                     content_piece = ''
-                    if self.provider == 'gpt5':
+                    if self.is_gpt5 and is_responses_api:
                         if 'output' in chunk and len(chunk['output']) > 0:
                             content_piece = chunk['output'][0].get('text', '')
                     else:

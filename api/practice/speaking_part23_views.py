@@ -45,80 +45,100 @@ def _clamp_multiplier(value):
     return max(0.0, min(1.0, multiplier))
 
 
-def _resolve_length_scoring(parsed: dict, local_multiplier: float, local_feedback: str):
+def _resolve_length_scoring(parsed: dict, local_penalty: float, local_feedback: str):
+    """Resolve length scoring: prefer AI's assessment, fallback to local penalty."""
     duration_raw = parsed.get('duration_score')
     word_raw = parsed.get('word_count_score')
     duration_score = _clamp_score(duration_raw) if duration_raw is not None else 0.0
     word_count_score = _clamp_score(word_raw) if word_raw is not None else 0.0
 
-    final_multiplier = local_multiplier
+    final_penalty = local_penalty
     length_score_source = 'local'
 
     ai_multiplier = _clamp_multiplier(parsed.get('length_multiplier'))
     if ai_multiplier is not None:
-        final_multiplier = ai_multiplier
+        final_penalty = 1.0 - ai_multiplier
         length_score_source = 'ai'
     elif duration_raw is not None and word_raw is not None:
-        # AI multiplier missing/invalid: derive from AI time+word scores.
-        final_multiplier = max(0.0, min(1.0, (duration_score / 9.0) * (word_count_score / 9.0)))
+        ai_derived_mult = max(0.0, min(1.0, (duration_score / 9.0) * (word_count_score / 9.0)))
+        final_penalty = 1.0 - ai_derived_mult
         length_score_source = 'ai_derived'
 
     length_feedback = str(parsed.get('length_feedback', '')).strip() or local_feedback
-    return final_multiplier, length_feedback, duration_score, word_count_score, length_score_source
+    return final_penalty, length_feedback, duration_score, word_count_score, length_score_source
 
 
-def _calculate_multiplier(part_kind: str, duration_seconds: float, word_count: int):
+# ── Floor score and max deduction constants ──────────────────────────────
+PART2_FLOOR_SCORE = 3.0
+PART2_MAX_DEDUCTION = 2.5
+PART3_FLOOR_SCORE = 3.0
+PART3_MAX_DEDUCTION = 2.0
+
+
+def _calculate_length_penalty(part_kind: str, duration_seconds: float, word_count: int):
+    """
+    Calculate a length-based penalty (0.0 = perfect, 1.0 = worst).
+    Returns (penalty, feedback_string).
+    """
     if part_kind == 'part2':
-        if duration_seconds <= 20:
-            time_weight = 0.30
-        elif duration_seconds <= 60:
-            time_weight = 0.30 + ((duration_seconds - 20.0) / 40.0) * 0.70
-        elif duration_seconds <= 140:
-            time_weight = 1.0
-        elif duration_seconds <= 220:
-            time_weight = 1.0 - ((duration_seconds - 140.0) / 80.0) * 0.35
+        # Part 2: optimal 60-120s, 100-250 words
+        if duration_seconds <= 0:
+            time_penalty = 1.0
+        elif duration_seconds < 60:
+            time_penalty = max(0.0, 1.0 - duration_seconds / 60.0)
+        elif duration_seconds <= 120:
+            time_penalty = 0.0
+        elif duration_seconds <= 200:
+            time_penalty = min(1.0, (duration_seconds - 120.0) / 80.0)
         else:
-            time_weight = 0.65
+            time_penalty = 1.0
 
-        if word_count <= 30:
-            word_weight = 0.25
-        elif word_count <= 120:
-            word_weight = 0.25 + ((word_count - 30.0) / 90.0) * 0.75
-        elif word_count <= 260:
-            word_weight = 1.0
-        elif word_count <= 420:
-            word_weight = 1.0 - ((word_count - 260.0) / 160.0) * 0.35
+        if word_count <= 0:
+            word_penalty = 1.0
+        elif word_count < 100:
+            word_penalty = max(0.0, 1.0 - word_count / 100.0)
+        elif word_count <= 250:
+            word_penalty = 0.0
+        elif word_count <= 400:
+            word_penalty = min(1.0, (word_count - 250.0) / 150.0)
         else:
-            word_weight = 0.65
+            word_penalty = 1.0
+
+        max_deduction = PART2_MAX_DEDUCTION
     else:
-        if duration_seconds <= 10:
-            time_weight = 0.35
-        elif duration_seconds <= 35:
-            time_weight = 0.35 + ((duration_seconds - 10.0) / 25.0) * 0.65
-        elif duration_seconds <= 95:
-            time_weight = 1.0
-        elif duration_seconds <= 170:
-            time_weight = 1.0 - ((duration_seconds - 95.0) / 75.0) * 0.35
+        # Part 3: optimal 20-60s, 40-150 words
+        if duration_seconds <= 0:
+            time_penalty = 1.0
+        elif duration_seconds < 20:
+            time_penalty = max(0.0, 1.0 - duration_seconds / 20.0)
+        elif duration_seconds <= 60:
+            time_penalty = 0.0
+        elif duration_seconds <= 120:
+            time_penalty = min(1.0, (duration_seconds - 60.0) / 60.0)
         else:
-            time_weight = 0.65
+            time_penalty = 1.0
 
-        if word_count <= 20:
-            word_weight = 0.30
-        elif word_count <= 70:
-            word_weight = 0.30 + ((word_count - 20.0) / 50.0) * 0.70
-        elif word_count <= 190:
-            word_weight = 1.0
-        elif word_count <= 300:
-            word_weight = 1.0 - ((word_count - 190.0) / 110.0) * 0.35
+        if word_count <= 0:
+            word_penalty = 1.0
+        elif word_count < 40:
+            word_penalty = max(0.0, 1.0 - word_count / 40.0)
+        elif word_count <= 150:
+            word_penalty = 0.0
+        elif word_count <= 280:
+            word_penalty = min(1.0, (word_count - 150.0) / 130.0)
         else:
-            word_weight = 0.65
+            word_penalty = 1.0
 
-    multiplier = max(0.0, min(1.0, time_weight * word_weight))
+        max_deduction = PART3_MAX_DEDUCTION
+
+    combined_penalty = (time_penalty + word_penalty) / 2.0
+    deduction = combined_penalty * max_deduction
+
     feedback = (
         f"({int(duration_seconds)}s, {word_count} words). "
-        f"Length multiplier: {int(multiplier * 100)}%."
+        f"Length deduction: -{deduction:.1f} pts (max -{max_deduction})."
     )
-    return multiplier, feedback
+    return combined_penalty, feedback
 
 
 def _generate_questions(request, part_kind: str):
@@ -132,12 +152,16 @@ def _generate_questions(request, part_kind: str):
             'content': (
                 'You are an IELTS speaking examiner. Generate a Part 2 practice set. '\
                 'Return strict raw JSON only with key "questions". '\
-                'questions must be an array of exactly 4 objects. '\
-                'Each object must have keys "topic" and "question". '\
-                'Q1 must be a cue card with clear speaking points. '\
-                'Each "question" value must be valid Markdown (GFM), and Q1 should include bullet points in Markdown. '\
-                'Q2-Q4 are follow-up prompts to deepen the same topic. '\
-                'Example: {"questions":[{"topic":"...","question":"..."}]}'
+                'questions must be an array of exactly 1 object. '\
+                'The object must have keys "topic" and "question". '\
+                'The "question" value MUST exactly follow this official IELTS Cue Card format using Markdown:\n'\
+                'Describe a/an [topic].\n'\
+                'You should say:\n'\
+                '- [point 1]\n'\
+                '- [point 2]\n'\
+                '- [point 3]\n'\
+                'and explain [reason/feeling].\n'\
+                'Example: {"questions":[{"topic":"A place","question":"Describe a place you visited..."}]}'
             ),
         }
         scope = 'speaking_part2_generate'
@@ -146,16 +170,19 @@ def _generate_questions(request, part_kind: str):
         if limit_resp:
             return limit_resp
 
+        part2_topic = request.data.get('part2_topic', '')
+        topic_instruction = f"The Part 2 topic was: '{part2_topic}'. Generate Part 3 discussion questions that naturally extend and abstract from this topic. " if part2_topic else "All questions should be around one coherent theme. "
+
         system_prompt = {
             'role': 'system',
             'content': (
                 'You are an IELTS speaking examiner. Generate a Part 3 discussion set. '\
+                f'{topic_instruction}'\
                 'Return strict raw JSON only with key "questions". '\
                 'questions must be an array of exactly 6 objects. '\
                 'Each object must have keys "topic" and "question". '\
                 'Each "question" value must be valid Markdown (GFM). '\
                 'Use abstract, society-level discussion style questions with increasing depth. '\
-                'All questions should be around one coherent theme. '\
                 'Example: {"questions":[{"topic":"...","question":"..."}]}'
             ),
         }
@@ -212,7 +239,7 @@ def _evaluate_answer(request, part_kind: str):
     if not question or not user_answer:
         return JsonResponse({'error': 'question and user_answer are required'}, status=400)
 
-    local_multiplier, local_length_feedback = _calculate_multiplier(part_kind, duration_seconds, word_count)
+    local_penalty, local_length_feedback = _calculate_length_penalty(part_kind, duration_seconds, word_count)
 
     system_instruction = {
         'role': 'system',
@@ -274,15 +301,20 @@ def _evaluate_answer(request, part_kind: str):
     depth = _clamp_score(parsed.get('depth_score'))
 
     (
-        final_multiplier,
+        final_penalty,
         length_feedback,
         duration_score,
         word_count_score,
         length_score_source,
-    ) = _resolve_length_scoring(parsed, local_multiplier, local_length_feedback)
+    ) = _resolve_length_scoring(parsed, local_penalty, local_length_feedback)
 
     raw_avg = (grammar + vocab + relevance + coherence + depth) / 5.0
-    weighted_total = _clamp_score(raw_avg * final_multiplier)
+    floor_score = PART2_FLOOR_SCORE if part_kind == 'part2' else PART3_FLOOR_SCORE
+    max_deduction = PART2_MAX_DEDUCTION if part_kind == 'part2' else PART3_MAX_DEDUCTION
+    deduction = final_penalty * max_deduction
+    weighted_total = _clamp_score(max(floor_score, raw_avg - deduction))
+    # Keep final_multiplier for backwards compatibility
+    final_multiplier = max(0.0, 1.0 - final_penalty)
 
     feedback = str(parsed.get('feedback', '')).strip()
     corrected_text = str(parsed.get('corrected_text', '')).strip()

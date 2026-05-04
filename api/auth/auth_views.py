@@ -108,9 +108,11 @@ class UserRegistrationView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             
+            # 验证码已校验 → 邮箱真实有效，直接标记为已验证
             # 注册时也初始化 Token ID
+            user.is_email_verified = True
             user.jwt_token_id = str(uuid.uuid4())
-            user.save()
+            user.save(update_fields=['is_email_verified', 'jwt_token_id'])
 
             # 注册成功直接签发 Token，自动登录
             refresh = RefreshToken.for_user(user)
@@ -399,3 +401,66 @@ class UserSettingsView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class ResetPasswordView(APIView):
+    """通过用户名或邮箱重置密码。"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        identifier = request.data.get('identifier', '').strip()
+        new_password = request.data.get('new_password', '').strip()
+
+        if not identifier:
+            return Response({'error': '请输入用户名或邮箱'}, status=status.HTTP_400_BAD_REQUEST)
+        if not new_password or len(new_password) < 6:
+            return Response({'error': '新密码至少6位'}, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+        user = None
+        if '@' in identifier:
+            user = User.objects.filter(email=identifier).first()
+        if not user:
+            user = User.objects.filter(username=identifier).first()
+
+        if not user:
+            return Response({'error': '未找到该用户'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.set_password(new_password)
+        user.save(update_fields=['password', 'updated_at'])
+
+        return Response({'message': '密码修改成功，请用新密码登录'}, status=status.HTTP_200_OK)
+
+
+class ChangeUsernameView(APIView):
+    """修改用户名，需消耗 10,000 AT 币。"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        new_username = request.data.get('new_username', '').strip()
+        user = request.user
+
+        if not new_username:
+            return Response({'error': '新用户名不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_username) > 30 or len(new_username) < 2:
+            return Response({'error': '用户名长度需要 2-30 个字符'}, status=status.HTTP_400_BAD_REQUEST)
+        if not new_username.replace('_', '').replace('-', '').isalnum():
+            return Response({'error': '用户名只能包含字母、数字、下划线和连字符'}, status=status.HTTP_400_BAD_REQUEST)
+        if new_username == user.username:
+            return Response({'error': '新用户名与当前用户名一致'}, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+        if User.objects.filter(username=new_username).exists():
+            return Response({'error': '该用户名已被使用'}, status=status.HTTP_400_BAD_REQUEST)
+
+        COST = 10_000
+        if user.at_balance < COST:
+            return Response({'error': f'AT 币余额不足，需要 {COST:,} AT'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.at_balance -= COST
+        user.username = new_username
+        user.save(update_fields=['username', 'at_balance', 'updated_at'])
+
+        return Response({
+            'message': f'用户名已修改为 {new_username}，消耗 {COST:,} AT 币',
+            'username': new_username,
+            'at_balance': user.at_balance,
+        })

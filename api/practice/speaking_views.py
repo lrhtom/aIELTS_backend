@@ -1,5 +1,6 @@
 import json
 import re
+import base64
 import hashlib
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
@@ -306,15 +307,142 @@ def check_scenario(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def scenario_opening(request):
+    """Generate an AI-crafted opening line for a scenario role-play, with optional file context."""
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'scenario_opening', max_calls=10, window=60)
+        if limit_resp: return limit_resp
+
+        scenario = request.data.get('scenario', '').strip()
+        if not scenario:
+            return JsonResponse({'error': 'scenario required'}, status=400)
+
+        uploaded_files = request.FILES.getlist('files') if request.FILES else []
+
+        system_msg = {
+            "role": "system",
+            "content": (
+                "You are starting a role-play speaking practice with an English learner.\n"
+                f"SCENARIO: {scenario}\n\n"
+                "Begin the conversation naturally in character. You are the counterpart in this scenario.\n"
+                "If the user uploaded reference images or files, use them as context to make your opening more relevant.\n"
+                "Output ONLY a short, natural opening line (2-3 sentences) to start the conversation.\n"
+                "Make it immersive — set the scene through your words, not by describing it.\n"
+                "Reply in English only. Output raw text only, no quotes, no JSON, no markdown."
+            )
+        }
+
+        user_content = "Please start the conversation."
+        content_parts = [{"type": "text", "text": user_content}]
+
+        for f in uploaded_files:
+            if f.size > 5 * 1024 * 1024:
+                continue
+            ct = f.content_type or ''
+            if ct.startswith('image/'):
+                img_data = base64.b64encode(f.read()).decode('utf-8')
+                content_parts.append({
+                    'type': 'image_url',
+                    'image_url': {'url': f'data:{ct};base64,{img_data}', 'detail': 'auto'}
+                })
+            else:
+                try:
+                    text_content = f.read().decode('utf-8', errors='replace')[:2000]
+                    ext = f.name.rsplit('.', 1)[-1].lower() if '.' in f.name else ''
+                    content_parts[0]['text'] = (
+                        f'[Reference file: {f.name}]\n```{ext}\n{text_content}\n```\n\n'
+                        + content_parts[0]['text']
+                    )
+                except Exception:
+                    pass
+
+        user_msg = {"role": "user", "content": content_parts if len(content_parts) > 1 else content_parts[0]['text']}
+        messages = [system_msg, user_msg]
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        from api.core.ai_client import AIClient
+        client = AIClient(provider=provider)
+
+        ai_text, at_cost = client.generate(
+            messages,
+            expect_json=False,
+            temperature=0.85,
+            user_id=request.user.id,
+        )
+
+        opening = ai_text.strip().strip('"').strip("'").strip()
+
+        return JsonResponse({
+            'opening': opening,
+            'atConsumed': at_cost,
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def scenario_chat(request):
     try:
         limit_resp = check_rate_limit(request.user.id, 'scenario_chat', max_calls=15, window=60)
         if limit_resp: return limit_resp
-        
-        messages = request.data.get('messages', [])
-        scenario = request.data.get('scenario', '').strip()
+
+        # ── Parse request: supports JSON and multipart/form-data ──
+        is_multipart = request.content_type and 'multipart' in request.content_type
+        if is_multipart:
+            scenario = request.data.get('scenario', '').strip()
+            messages_raw = request.data.get('messages', '[]')
+            messages = json.loads(messages_raw) if isinstance(messages_raw, str) else messages_raw
+            uploaded_files = request.FILES.getlist('files') if request.FILES else []
+        else:
+            messages = request.data.get('messages', [])
+            scenario = request.data.get('scenario', '').strip()
+            uploaded_files = []
+
         if not messages or not scenario:
             return JsonResponse({'error': 'messages and scenario required'}, status=400)
+
+        # ── Augment the last user message with uploaded file content ──
+        if uploaded_files:
+            last_user_msg = None
+            for msg in reversed(messages):
+                if msg.get('role') == 'user':
+                    last_user_msg = msg
+                    break
+
+            if last_user_msg:
+                content_parts = []
+                user_text = last_user_msg.get('content', '')
+                text_attachments = []
+
+                for f in uploaded_files:
+                    if f.size > 5 * 1024 * 1024:
+                        continue  # skip files > 5MB
+                    ct = f.content_type or 'application/octet-stream'
+                    if ct.startswith('image/'):
+                        img_data = base64.b64encode(f.read()).decode('utf-8')
+                        content_parts.append({
+                            'type': 'image_url',
+                            'image_url': {'url': f'data:{ct};base64,{img_data}', 'detail': 'auto'}
+                        })
+                    else:
+                        try:
+                            text_content = f.read().decode('utf-8', errors='replace')[:3000]
+                            ext = f.name.rsplit('.', 1)[-1].lower() if '.' in f.name else ''
+                            text_attachments.append(f'[Attached file: {f.name}]\n```{ext}\n{text_content}\n```')
+                        except Exception:
+                            text_attachments.append(f'[Attached file: {f.name}]')
+
+                if text_attachments:
+                    user_text = '\n\n'.join(text_attachments) + '\n\n' + user_text
+
+                if content_parts:
+                    content_parts.insert(0, {'type': 'text', 'text': user_text})
+                    last_user_msg['content'] = content_parts
+                else:
+                    last_user_msg['content'] = user_text
+
         sf_scope = _build_singleflight_scope('scenario_chat', {'scenario': scenario, 'messages': messages})
 
         system_instruction = {
@@ -342,7 +470,7 @@ def scenario_chat(request):
         provider = request.headers.get('X-AI-Provider', 'deepseek')
         from api.core.ai_client import AIClient
         client = AIClient(provider=provider)
-        
+
         ai_text, at_cost = client.generate(
             messages,
             expect_json=False,
@@ -350,7 +478,7 @@ def scenario_chat(request):
             user_id=request.user.id,
             singleflight_scope=sf_scope,
         )
-        
+
         json_match = re.search(r'\{(.*?)\}', ai_text, re.DOTALL)
         json_str = json_match.group(0) if json_match else ai_text
 
@@ -358,7 +486,7 @@ def scenario_chat(request):
             parsed = json.loads(json_str)
             reply_text = parsed.get('reply') or str(parsed)
             reply_text = str(reply_text).strip()
-            
+
             def clamp_score(val):
                 try:
                     s = float(val)
@@ -389,5 +517,108 @@ def scenario_chat(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_random_scenario(request):
+    """
+    随机生成雅思口语练习场景，并防止重复。
+    """
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'generate_scenario', max_calls=20, window=60)
+        if limit_resp: return limit_resp
+
+        from api.models import SpeakingScenarioHistory
+        
+        # 获取最近 100 条历史场景，避免传给 AI 的上下文太长
+        recent_history_qs = SpeakingScenarioHistory.objects.order_by('-created_at')[:100]
+        recent_topics = [h.topic for h in recent_history_qs]
+        
+        history_text = "None."
+        if recent_topics:
+            history_text = "\n".join(f"- {topic}" for topic in recent_topics)
+
+        system_instruction = {
+            "role": "system",
+            "content": (
+                "You are an expert IELTS instructor. "
+                "The user needs a random role-play scenario for IELTS Speaking practice. "
+                "Generate a short, concise scenario description (1-2 sentences) in Chinese. "
+                "Examples: '我在国外刚进门点汉堡，你是收银员，请引导我点餐', '我们是同学，正在讨论周末去哪里旅游'. "
+                "Also provide a 'short_scenario' (2-5 words) summarizing the theme (e.g., '餐厅点餐', '周末旅游') to save token space in future history. "
+                "Do NOT generate anything similar to the following previously used scenarios:\n"
+                f"{history_text}\n\n"
+                "CRITICAL: Output ONLY a raw JSON object with keys 'scenario' and 'short_scenario'. Do not use markdown. "
+                "Example: {\"scenario\": \"我在书店想买一本关于编程的书，你是店员，请给我推荐并结账。\", \"short_scenario\": \"书店买书\"}"
+            )
+        }
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        from api.core.ai_client import AIClient
+        client = AIClient(provider=provider)
+        
+        ai_text, at_cost = client.generate(
+            [system_instruction],
+            expect_json=True,
+            temperature=0.8,
+            user_id=request.user.id,
+        )
+
+        scenario_text = ""
+        short_scenario_text = ""
+        
+        # expect_json=True 会自动解析 JSON，成功时返回 dict
+        if isinstance(ai_text, dict):
+            scenario_text = ai_text.get('scenario', '').strip()
+            short_scenario_text = ai_text.get('short_scenario', '').strip()
+        else:
+            json_match = re.search(r'\{(.*?)\}', str(ai_text), re.DOTALL)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group(0))
+                    scenario_text = parsed.get('scenario', '').strip()
+                    short_scenario_text = parsed.get('short_scenario', '').strip()
+                except json.JSONDecodeError:
+                    pass
+
+            # Fallback if json parse fails
+            if not scenario_text:
+                scenario_text_str = str(ai_text).strip()
+                # Clean up if it returned markdown
+                scenario_text_str = re.sub(r'^```json\n|```$', '', scenario_text_str).strip()
+                # If it's still JSON string, parse it
+                if scenario_text_str.startswith('{') and scenario_text_str.endswith('}'):
+                    try:
+                        parsed = json.loads(scenario_text_str)
+                        scenario_text = parsed.get('scenario', '').strip()
+                        short_scenario_text = parsed.get('short_scenario', '').strip()
+                    except:
+                        pass
+
+        if scenario_text:
+            if not short_scenario_text:
+                short_scenario_text = scenario_text[:20]
+
+            # 存入数据库短版本
+            SpeakingScenarioHistory.objects.create(topic=short_scenario_text)
+            
+            # 检查总数是否超过 100 条
+            total_count = SpeakingScenarioHistory.objects.count()
+            if total_count > 100:
+                # 获取最新的 100 条的 ID 集合之外的旧记录 ID 并删除
+                excess_count = total_count - 100
+                oldest_ids = SpeakingScenarioHistory.objects.order_by('created_at').values_list('id', flat=True)[:excess_count]
+                SpeakingScenarioHistory.objects.filter(id__in=list(oldest_ids)).delete()
+
+        return JsonResponse({
+            'scenario': scenario_text,
+            'atConsumed': at_cost
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 

@@ -17,6 +17,16 @@ def _build_singleflight_scope(scope_prefix: str, payload) -> str:
     return f"{scope_prefix}:{digest}"
 
 
+def _clamp_score(value) -> float:
+    """Clamp to 0-9 range and round to nearest 0.5."""
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    score = max(0.0, min(9.0, score))
+    return round(score * 2) / 2
+
+
 def _clamp_multiplier(value):
     try:
         multiplier = float(value)
@@ -25,6 +35,52 @@ def _clamp_multiplier(value):
     if multiplier < 0.0 or multiplier > 1.0:
         return None
     return max(0.0, min(1.0, multiplier))
+
+
+# ── Part 1 length assessment: additive penalty + floor score ────────────
+PART1_FLOOR_SCORE = 3.0
+PART1_MAX_DEDUCTION = 2.0
+
+
+def _calculate_part1_length_penalty(duration_seconds: float, word_count: int):
+    """
+    Calculate a length-based penalty (0.0 = perfect, 1.0 = worst) for Part 1.
+    Optimal: 15-45s duration, 25-80 words.
+    Returns (penalty, feedback_string).
+    """
+    # ── Time fitness (0.0 = perfect, 1.0 = worst) ──
+    if duration_seconds <= 0:
+        time_penalty = 1.0
+    elif duration_seconds < 15:
+        time_penalty = max(0.0, 1.0 - duration_seconds / 15.0)  # 0s→1.0, 15s→0.0
+    elif duration_seconds <= 45:
+        time_penalty = 0.0  # Optimal window
+    elif duration_seconds <= 90:
+        time_penalty = min(1.0, (duration_seconds - 45.0) / 45.0)  # 45s→0.0, 90s→1.0
+    else:
+        time_penalty = 1.0
+
+    # ── Word fitness (0.0 = perfect, 1.0 = worst) ──
+    if word_count <= 0:
+        word_penalty = 1.0
+    elif word_count < 25:
+        word_penalty = max(0.0, 1.0 - word_count / 25.0)
+    elif word_count <= 80:
+        word_penalty = 0.0  # Optimal window
+    elif word_count <= 150:
+        word_penalty = min(1.0, (word_count - 80.0) / 70.0)
+    else:
+        word_penalty = 1.0
+
+    # Combined: average of both penalties
+    combined_penalty = (time_penalty + word_penalty) / 2.0
+    deduction = combined_penalty * PART1_MAX_DEDUCTION
+
+    feedback = (
+        f"({int(duration_seconds)}s, {word_count} words). "
+        f"Length deduction: -{deduction:.1f} pts (max -{PART1_MAX_DEDUCTION})."
+    )
+    return combined_penalty, feedback
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -37,11 +93,12 @@ def generate_part1_questions(request):
             "role": "system",
             "content": (
                 "You are an IELTS examiner generating a Part 1 speaking test for a candidate.\n"
-                "The test strictly consists of exactly 8 questions.\n"
+                "The test strictly consists of exactly 10 questions covering 3 distinct topics.\n"
                 "Question 1: Greetings and identity check (e.g., 'Hello. Could you tell me your full name, please?').\n"
-                "Questions 2-4: Choose ONE common topic (e.g., Hometown, Work/Study, Hobbies) and ask 3 related questions.\n"
-                "Questions 5-8: Choose a SECOND DIFFERENT common topic and ask 4 related questions.\n"
-                "CRITICAL: You MUST output a JSON object containing an array of exactly 8 items under the key 'questions'. "
+                "Questions 2-4: Choose ONE common topic (Topic A, e.g., Hometown, Work/Study, Hobbies) and ask 3 related questions.\n"
+                "Questions 5-7: Choose a SECOND DIFFERENT common topic (Topic B) and ask 3 related questions.\n"
+                "Questions 8-10: Choose a THIRD DIFFERENT common topic (Topic C) and ask 3 related questions.\n"
+                "CRITICAL: You MUST output a JSON object containing an array of exactly 10 items under the key 'questions'. "
                 "Each item must be a JSON object with two keys: 'topic' and 'question'. "
                 "Each 'question' value must be valid Markdown (GFM). "
                 "{\n"
@@ -92,40 +149,26 @@ def evaluate_part1_answer(request):
         user_answer = request.data.get('user_answer', '')
         duration_seconds = float(request.data.get('duration_seconds', 0) or 0)
         word_count = len(user_answer.split())
+        next_plan = request.data.get('next_question_plan')
 
         if not question or not user_answer:
             return JsonResponse({'error': 'Question and user_answer are required'}, status=400)
 
-        # Time and Word length weight assessment
-        tw = 1.0
-        if duration_seconds <= 0:
-            tw = 0.0
-        elif duration_seconds <= 10:
-            tw = (duration_seconds / 10.0) * 0.5
-        elif duration_seconds <= 30:
-            tw = 0.5 + ((duration_seconds - 10.0) / 20.0) * 0.5
-        elif duration_seconds <= 35:
-            tw = 1.0
-        elif duration_seconds <= 100:
-            tw = 1.0 - ((duration_seconds - 35.0) / 65.0) * 0.5
-        else:
-            tw = 0.5
+        # Additive length penalty (replaces old multiplicative tw * ww)
+        local_penalty, local_length_feedback = _calculate_part1_length_penalty(duration_seconds, word_count)
 
-        ww = 1.0
-        if word_count <= 0:
-            ww = 0.0
-        elif word_count <= 80:
-            ww = word_count / 80.0
-        elif word_count <= 100:
-            ww = 1.0
-        elif word_count <= 200:
-            ww = 1.0 - ((word_count - 100.0) / 100.0) * 0.5
-        else:
-            ww = 0.5
-
-        local_multiplier = tw * ww
-        local_percent_multiplier = int(local_multiplier * 100)
-        local_length_feedback = f"({int(duration_seconds)}s, {word_count} words). Your algorithmic length penalty multiplier is {local_percent_multiplier}%."
+        dynamic_q_instruction = ""
+        if next_plan and isinstance(next_plan, dict):
+            n_topic = next_plan.get('topic', '')
+            n_quest = next_plan.get('question', '')
+            dynamic_q_instruction = (
+                f"\n4. Dynamic Next Question: The planned next question is:\n"
+                f"   - Topic: \"{n_topic}\"\n"
+                f"   - Base Question: \"{n_quest}\"\n"
+                "   Adapt this planned next question to make it a natural, conversational follow-up to the candidate's answer. "
+                "If the topic changes, include a natural transition (e.g., 'Now let's talk about something else.'). "
+                "Return this as 'next_question_dynamic'.\n"
+            )
 
         system_instruction = {
             "role": "system",
@@ -139,7 +182,8 @@ def evaluate_part1_answer(request):
                 "3. The A.R.E. Method:\n"
                 "   - A (Answer): Did the first sentence directly answer the question? Score 1-9.\n"
                 "   - R (Reason): Did the candidate provide a reason or explanation? Score 1-9.\n"
-                "   - E (Extension/Example): Did the candidate provide specific details or an example? Score 1-9.\n\n"
+                "   - E (Extension/Example): Did the candidate provide specific details or an example? Score 1-9.\n"
+                f"{dynamic_q_instruction}\n"
                 f"Timing signal: duration_seconds={int(duration_seconds)}, word_count={word_count}.\n"
                 "Return a raw JSON object string ONLY, with these precise keys:\n"
                 "{\n"
@@ -154,7 +198,8 @@ def evaluate_part1_answer(request):
                 "  \"length_multiplier\": 0.75,\n"
                 "  \"length_feedback\": \"(Brief comment on timing and length quality)\",\n"
                 "  \"are_feedback\": \"(Brief feedback focusing purely on how well they used A, R, and E)\",\n"
-                "  \"corrected_text\": \"(A fully corrected or upgraded version of the user's answer)\"\n"
+                "  \"corrected_text\": \"(A fully corrected or upgraded version of the user's answer)\",\n"
+                "  \"next_question_dynamic\": \"(The dynamically adapted next question, if requested. Or empty string)\"\n"
                 "}"
             )
         }
@@ -181,44 +226,43 @@ def evaluate_part1_answer(request):
         json_match = re.search(r'\{.*\}', ai_text, re.DOTALL)
         json_str = json_match.group(0) if json_match else ai_text
 
-        def clamp_score(val):
-            try:
-                s = float(val)
-                return max(0.0, min(9.0, s))
-            except:
-                return 0.0
-
         try:
             parsed = json.loads(json_str)
             
             raw_scores = [
-                clamp_score(parsed.get('grammar_score', 0)),
-                clamp_score(parsed.get('vocab_score', 0)),
-                clamp_score(parsed.get('relevance_score', 0)),
-                clamp_score(parsed.get('are_a_score', 0)),
-                clamp_score(parsed.get('are_r_score', 0)),
-                clamp_score(parsed.get('are_e_score', 0)),
+                _clamp_score(parsed.get('grammar_score', 0)),
+                _clamp_score(parsed.get('vocab_score', 0)),
+                _clamp_score(parsed.get('relevance_score', 0)),
+                _clamp_score(parsed.get('are_a_score', 0)),
+                _clamp_score(parsed.get('are_r_score', 0)),
+                _clamp_score(parsed.get('are_e_score', 0)),
             ]
 
             duration_raw = parsed.get('duration_score')
             word_raw = parsed.get('word_count_score')
-            duration_score = clamp_score(duration_raw) if duration_raw is not None else 0.0
-            word_count_score = clamp_score(word_raw) if word_raw is not None else 0.0
+            duration_score = _clamp_score(duration_raw) if duration_raw is not None else 0.0
+            word_count_score = _clamp_score(word_raw) if word_raw is not None else 0.0
 
-            final_multiplier = local_multiplier
+            # Determine final penalty: prefer AI's assessment, fallback to local
+            final_penalty = local_penalty
             length_score_source = 'local'
             ai_multiplier = _clamp_multiplier(parsed.get('length_multiplier'))
             if ai_multiplier is not None:
-                final_multiplier = ai_multiplier
+                # Convert AI multiplier (1.0=best) to penalty (0.0=best)
+                final_penalty = 1.0 - ai_multiplier
                 length_score_source = 'ai'
             elif duration_raw is not None and word_raw is not None:
-                final_multiplier = max(0.0, min(1.0, (duration_score / 9.0) * (word_count_score / 9.0)))
+                ai_derived_mult = max(0.0, min(1.0, (duration_score / 9.0) * (word_count_score / 9.0)))
+                final_penalty = 1.0 - ai_derived_mult
                 length_score_source = 'ai_derived'
 
             length_feedback = str(parsed.get('length_feedback', '')).strip() or local_length_feedback
 
             average_raw = sum(raw_scores) / 6.0 if raw_scores else 0.0
-            weighted_total_score = clamp_score(average_raw * final_multiplier)
+            deduction = final_penalty * PART1_MAX_DEDUCTION
+            weighted_total_score = _clamp_score(max(PART1_FLOOR_SCORE, average_raw - deduction))
+            # Keep final_multiplier for backwards compatibility in response
+            final_multiplier = max(0.0, 1.0 - final_penalty)
 
             response_data = {
                 'grammar_score': raw_scores[0],
@@ -237,6 +281,7 @@ def evaluate_part1_answer(request):
                 'length_score_source': length_score_source,
                 'word_count': word_count,
                 'duration_seconds': int(duration_seconds),
+                'next_question_dynamic': parsed.get('next_question_dynamic', ''),
                 'atConsumed': at_cost
             }
             return JsonResponse(response_data)

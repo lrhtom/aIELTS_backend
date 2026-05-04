@@ -96,6 +96,7 @@ def _short_term_stability(s: float, rating: int) -> float:
 
 def _recall_stability(d: float, s: float, r: float, rating: int) -> float:
     """成功回忆后的稳定性增长"""
+    s = max(s, 0.1)  # 防御性：避免 s=0 导致 ZeroDivisionError
     hard_penalty = W[15] if rating == 2 else 1.0
     easy_bonus   = W[16] if rating == 4 else 1.0
     gain = (

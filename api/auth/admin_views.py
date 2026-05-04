@@ -115,3 +115,33 @@ class AdminUserDeleteView(APIView):
         return Response({'message': 'USER_DELETED'}, status=status.HTTP_200_OK)
 
 
+class AdminUserAdjustATView(APIView):
+    """管理员调整用户 AT 币余额。"""
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, pk: int):
+        try:
+            target_user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'USER_NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+
+        amount = request.data.get('amount')
+        if amount is None:
+            return Response({'error': 'MISSING_AMOUNT'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            delta = int(amount)
+        except (ValueError, TypeError):
+            return Response({'error': 'INVALID_AMOUNT'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user.at_balance += delta
+        if target_user.at_balance < 0:
+            target_user.at_balance = 0
+        target_user.save(update_fields=['at_balance', 'updated_at'])
+
+        return Response({
+            'user_id': target_user.id,
+            'username': target_user.username,
+            'at_balance': target_user.at_balance,
+            'delta': delta,
+        }, status=status.HTTP_200_OK)

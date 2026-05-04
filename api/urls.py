@@ -4,6 +4,7 @@ from .practice import listening_views
 from .practice import speaking_views
 from .practice import speaking_part1_views
 from .practice import speaking_part23_views
+from .practice import speaking_bank_views
 from .practice import writing_views
 from .practice import writing_chart_views
 from .practice import writing_task2_views
@@ -20,6 +21,7 @@ from .vocab import learning_plan_views
 from .extra import store_views
 from .extra import creative_workshop_views
 from .extra import assistant_views
+from . import checkin_views
 from .auth.auth_views import SendVerificationCodeView, CustomLoginView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -38,6 +40,12 @@ urlpatterns = [
     path('auth/delete-account', auth_views.DeleteAccountView.as_view(), name='delete_account'),
     path('auth/background', background_views.BackgroundSettingsView.as_view(), name='user_background'),
     path('auth/background/image', background_views.BackgroundImageUploadView.as_view(), name='user_background_image'),
+    path('auth/reset-password', auth_views.ResetPasswordView.as_view(), name='reset_password'),
+    path('auth/change-username', auth_views.ChangeUsernameView.as_view(), name='change_username'),
+
+    # ---- 签到 API ----
+    path('checkin', checkin_views.daily_checkin, name='daily_checkin'),
+    path('checkin/status', checkin_views.checkin_status, name='checkin_status'),
 
     # ---- AT币管理 API ----
     path('balance', balance_views.get_balance, name='get_balance'),
@@ -61,6 +69,8 @@ urlpatterns = [
     path('speaking/transcribe', speaking_views.speaking_transcribe, name='speaking_transcribe'),
     path('speaking/check-scenario', speaking_views.check_scenario, name='check_scenario'),
     path('speaking/scenario-chat', speaking_views.scenario_chat, name='scenario_chat'),
+    path('speaking/scenario-opening', speaking_views.scenario_opening, name='scenario_opening'),
+    path('speaking/scenario/random', speaking_views.generate_random_scenario, name='generate_random_scenario'),
     path('speaking/part1/generate', speaking_part1_views.generate_part1_questions, name='generate_part1_questions'),
     path('speaking/part1/evaluate', speaking_part1_views.evaluate_part1_answer, name='evaluate_part1_answer'),
     path('speaking/part1/summary', speaking_part1_views.generate_part1_summary, name='generate_part1_summary'),
@@ -70,6 +80,9 @@ urlpatterns = [
     path('speaking/part3/generate', speaking_part23_views.generate_part3_questions, name='generate_part3_questions'),
     path('speaking/part3/evaluate', speaking_part23_views.evaluate_part3_answer, name='evaluate_part3_answer'),
     path('speaking/part3/summary', speaking_part23_views.generate_part3_summary, name='generate_part3_summary'),
+    path('speaking/bank/part1/generate', speaking_bank_views.bank_generate_part1, name='bank_generate_part1'),
+    path('speaking/bank/part2/generate', speaking_bank_views.bank_generate_part2, name='bank_generate_part2'),
+    path('speaking/bank/part3/generate', speaking_bank_views.bank_generate_part3, name='bank_generate_part3'),
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
     path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
     path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
@@ -127,4 +140,5 @@ urlpatterns = [
     path('admin/users', admin_views.AdminUserListView.as_view(), name='admin_user_list'),
     path('admin/users/<int:pk>/ban', admin_views.AdminUserBanToggleView.as_view(), name='admin_user_ban_toggle'),
     path('admin/users/<int:pk>/delete', admin_views.AdminUserDeleteView.as_view(), name='admin_user_delete'),
+    path('admin/users/<int:pk>/adjust-at', admin_views.AdminUserAdjustATView.as_view(), name='admin_user_adjust_at'),
 ]

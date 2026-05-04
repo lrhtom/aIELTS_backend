@@ -126,6 +126,7 @@ def _build_today_summary(plan: LearningPlan, all_cards: list[VocabFSRS]):
 def _plan_dict(plan: LearningPlan, word_count: int | None = None, user=None, detail=False) -> dict:
     today = _user_today()
     studied_today = 0
+    studied_total = 0
     has_activity_today = False
     today_target = 0
     today_words: list[dict] = []
@@ -137,6 +138,7 @@ def _plan_dict(plan: LearningPlan, word_count: int | None = None, user=None, det
         has_activity_today = _has_activity_today(all_cards, today=today)
 
         studied_today = len(studied_cards)
+        studied_total = sum(1 for c in all_cards if c.state != 0)
         today_target = studied_today + len(session_cards)
 
         # 计划尚未初始化 FSRS 卡片时，按词表规模裁剪今日目标（不改用户 daily_count 配置）。
@@ -177,6 +179,7 @@ def _plan_dict(plan: LearningPlan, word_count: int | None = None, user=None, det
         'copy_review_days': plan.copy_review_days,
         'word_count':     word_count if word_count is not None else plan.entries.count(),
         'studied_today':  studied_today,
+        'studied_total':  studied_total,
         'today_words':    today_words,
         'created_at':     plan.created_at.isoformat(),
         'updated_at':     plan.updated_at.isoformat(),

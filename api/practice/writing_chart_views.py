@@ -1054,6 +1054,12 @@ def generate_chart(request):
             chart_instructions = """
      - MAP mode is handled by the dedicated SVG + icon placement branch below.
      - This instruction block is intentionally unused for map generation."""
+        elif chart_type == 'mixed':
+            chart_instructions = """
+   - The code MUST generate a MIXED chart (e.g., a combination of two different chart types like a bar chart and a line graph, or two side-by-side subplots such as a pie chart and a bar chart) using matplotlib.
+   - The two charts should display related but different datasets about the same topic.
+   - The code must generate its own random but plausible data arrays inline for the charts.
+   - Use ONLY standard chart functions for data visualization."""
         else:
             chart_instructions = """
    - The code must generate its own random but plausible data arrays inline for the chart.
