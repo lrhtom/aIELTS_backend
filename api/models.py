@@ -499,6 +499,35 @@ class CreativeWorkshopPage(models.Model):
     def __str__(self):
         return f'{self.title} ({self.user.username})'
 
+
+class MarkdownNote(models.Model):
+    """User-owned markdown note with tags."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='markdown_notes',
+        verbose_name='用户',
+    )
+    title = models.CharField(max_length=200, verbose_name='笔记标题')
+    tags = models.JSONField(default=list, blank=True, verbose_name='标签列表')
+    content = models.TextField(blank=True, default='', verbose_name='Markdown 内容')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'markdown_notes'
+        verbose_name = 'Markdown 笔记'
+        verbose_name_plural = 'Markdown 笔记列表'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'updated_at'], name='idx_mn_user_updated'),
+        ]
+
+    def __str__(self):
+        return f'{self.title} ({self.user.username})'
+
+
 class StoreProduct(models.Model):
     name = models.CharField(max_length=100, verbose_name="商品名称")
     description = models.TextField(blank=True, verbose_name="商品描述")

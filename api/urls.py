@@ -14,6 +14,7 @@ from .auth import balance_views
 from .auth import feedback_views
 from .auth import background_views
 from .auth import admin_views
+from .auth.admin_views import AdminRoutesView
 from .vocab import vocab_views
 from .vocab import custom_memory_views
 from .vocab import notebook_views
@@ -21,7 +22,9 @@ from .vocab import learning_plan_views
 from .extra import store_views
 from .extra import creative_workshop_views
 from .extra import assistant_views
+from .extra import markdown_notes_views
 from . import checkin_views
+from . import analytics_views
 from .auth.auth_views import SendVerificationCodeView, CustomLoginView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -84,6 +87,7 @@ urlpatterns = [
     path('speaking/bank/part2/generate', speaking_bank_views.bank_generate_part2, name='bank_generate_part2'),
     path('speaking/bank/part3/generate', speaking_bank_views.bank_generate_part3, name='bank_generate_part3'),
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
+    path('writing/chat', writing_views.writing_chat, name='writing_chat'),
     path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
     path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
     path('writing/task2/generate', writing_task2_views.generate_task2, name='generate_task2'),
@@ -109,6 +113,11 @@ urlpatterns = [
     path('creative-workshop/projects/generate/', creative_workshop_views.CreativeWorkshopProjectGenerateView.as_view(), name='creative_workshop_project_generate'),
     path('creative-workshop/projects/<int:pk>/', creative_workshop_views.CreativeWorkshopProjectDetailView.as_view(), name='creative_workshop_project_detail'),
     path('creative-workshop/projects/<int:pk>/favorite/', creative_workshop_views.CreativeWorkshopProjectFavoriteView.as_view(), name='creative_workshop_project_favorite'),
+    path('creative-workshop/projects/<int:pk>/edit/', creative_workshop_views.CreativeWorkshopProjectEditView.as_view(), name='creative_workshop_project_edit'),
+
+    # ---- Markdown 笔记 API ----
+    path('markdown-notes/', markdown_notes_views.MarkdownNoteListView.as_view(), name='markdown_note_list'),
+    path('markdown-notes/<int:pk>/', markdown_notes_views.MarkdownNoteDetailView.as_view(), name='markdown_note_detail'),
 
     # ---- 全局助手 API ----
     path('assistant/personal-chat', assistant_views.personal_agent_chat, name='assistant_personal_chat'),
@@ -134,11 +143,16 @@ urlpatterns = [
     path('vocab/books/<int:pk>/words/',             learning_plan_views.VocabBookWordsView.as_view(),    name='vocab_book_words'),
 
     # ---- 管理后台 API ----
-    path('admin/feedback', admin_views.AdminFeedbackListView.as_view(), name='admin_feedback_list'),
+    path('admin/feedback', admin_views.AdminFeedbackListView.as_view(), name='admin_feedback_list'),   # reload-trigger
     path('admin/feedback/<int:pk>', admin_views.AdminFeedbackUpdateView.as_view(), name='admin_feedback_update'),
     path('admin/feedback/<int:pk>/delete', admin_views.AdminFeedbackDeleteView.as_view(), name='admin_feedback_delete'),
     path('admin/users', admin_views.AdminUserListView.as_view(), name='admin_user_list'),
     path('admin/users/<int:pk>/ban', admin_views.AdminUserBanToggleView.as_view(), name='admin_user_ban_toggle'),
     path('admin/users/<int:pk>/delete', admin_views.AdminUserDeleteView.as_view(), name='admin_user_delete'),
     path('admin/users/<int:pk>/adjust-at', admin_views.AdminUserAdjustATView.as_view(), name='admin_user_adjust_at'),
+    path('admin/routes',                   AdminRoutesView.as_view(),                   name='admin_routes_live'),
+
+    # ---- 学习分析 API ----
+    path('analytics/vocab',                 analytics_views.VocabAnalyticsView.as_view(),     name='analytics_vocab'),
+    path('analytics/scheduled-words',       analytics_views.ScheduledWordsView.as_view(),     name='analytics_scheduled_words'),
 ]

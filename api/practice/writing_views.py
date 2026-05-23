@@ -7,50 +7,16 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from api.core.ai_client import AIClient
 from api.core.rate_limit import check_rate_limit
+from api.skills.writing.correction import (
+    SKILL_WRITING_CORRECTION as WRITING_CORRECTION_PROMPT,
+    SKILL_WRITING_TASK1_EXTRA as TASK1_EXTRA,
+    SKILL_WRITING_TASK2_EXTRA as TASK2_EXTRA,
+    SKILL_WRITING_WORD_COUNT_GUARD as WORD_COUNT_GUARD_TEMPLATE,
+    SKILL_WRITING_WORD_FREQUENCY as WORD_FREQUENCY_TEMPLATE,
+)
+from api.skills.writing.chat import skill_writing_chat_system
 
-WRITING_CORRECTION_PROMPT = """
-You are an expert IELTS Writing Examiner.
-Please evaluate the following IELTS essay (either Task 1 or Task 2) submitted by a user.
-You MUST assess the essay exactly according to the official IELTS writing band descriptors (0-9).
 
-Your evaluation MUST be returned as a raw JSON object containing EXACTLY these keys:
-{
-  "Task_Response": (float) Score for Task Response / Task Achievement,
-  "Coherence_Cohesion": (float) Score for Coherence and Cohesion,
-  "Lexical_Resource": (float) Score for Lexical Resource,
-  "Grammatical_Range": (float) Score for Grammatical Range and Accuracy,
-  "Overall_Band": (float) The overall band score (average of the 4 criteria, rounded to nearest 0.5),
-  "Feedback": (string) Detailed examiner-style commentary covering all 4 criteria with specific examples from the essay,
-  "Model_Essay": (string) A complete rewritten version of the user's essay targeting Band 8+. Keep the same topic, position and main arguments as the original. Fix ALL grammatical errors, significantly upgrade vocabulary range and accuracy, improve coherence, cohesion and task achievement. Write naturally and fluently as an expert writer would. Use \\n\\n to separate paragraphs.
-}
-
-%s
-
-LANGUAGE INSTRUCTION: %s
-The "Model_Essay" must always be written in English (it is a model English essay).
-
-CRITICAL: Return ONLY valid JSON. Do NOT wrap in ```json or any markdown. The Model_Essay value must be a single JSON string with \\n\\n for paragraph breaks.
-"""
-
-TASK1_EXTRA = """This is an IELTS Task 1 (Academic) response. The minimum requirement is 150 words.
-Evaluate "Task_Response" as Task Achievement: does the essay accurately describe and compare the KEY features and trends from the data/diagram, with no irrelevant information and no missing overview?
-The essay should NOT include personal opinions. Focus on accurate data description, clear overview, and appropriate data selection.
-"""
-
-TASK2_EXTRA = """This is an IELTS Task 2 essay. The minimum requirement is 250 words.
-Evaluate "Task_Response" as Task Response: does the essay fully address ALL parts of the question, present a clear position, and develop ideas with relevant, extended support?
-"""
-
-WORD_COUNT_GUARD_TEMPLATE = """Authoritative backend metrics (MUST be trusted):
-- Essay_Word_Count: %d
-- Minimum_Required_Words: %d
-- Meets_Minimum_Words: %s
-
-Strict rule:
-- You MUST use these backend metrics when discussing essay length.
-- If Meets_Minimum_Words is YES, do NOT claim the essay is below the minimum word requirement.
-- If Meets_Minimum_Words is NO, clearly state that the essay is below the minimum requirement.
-"""
 
 TASK1_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 TASK1_IMAGE_DATA_URL_PATTERN = re.compile(r'^data:image/(png|jpeg|jpg|webp);base64,', re.IGNORECASE)
@@ -70,6 +36,40 @@ def _count_words(text: str) -> int:
     if not stripped:
         return 0
     return len(stripped.split())
+
+
+def _word_frequencies(text: str, top_n: int = 10) -> dict:
+    """Count per-word frequency for Lexical Resource assessment.
+
+    Splits identically to _count_words, then strips leading/trailing
+    punctuation from each token and lowercases for clean grouping.
+    Internal apostrophes and hyphens are preserved (don't, well-known).
+    """
+    stripped = text.strip()
+    if not stripped:
+        return {'total_words': 0, 'unique_words': 0, 'top_words': []}
+
+    tokens = stripped.split()
+    total_words = len(tokens)
+
+    freq: dict[str, int] = {}
+    for t in tokens:
+        # strip leading/trailing punctuation but keep internal apostrophes/hyphens
+        clean = t.strip(""",.!?;:'"()[]{}“”‘’—…–-/%""")
+        if not clean:
+            continue
+        clean = clean.lower()
+        freq[clean] = freq.get(clean, 0) + 1
+
+    # Sort by count desc, then alphabetically for ties
+    sorted_freq = sorted(freq.items(), key=lambda x: (-x[1], x[0]))
+    top_words = sorted_freq[:top_n]
+
+    return {
+        'total_words': total_words,
+        'unique_words': len(freq),
+        'top_words': top_words,
+    }
 
 
 def _provider_supports_task1_image(provider: str) -> bool:
@@ -130,6 +130,18 @@ def generate_writing(request):
             min_required_words,
             'YES' if meets_minimum_words else 'NO',
         )
+
+        freq_data = _word_frequencies(essay_text, top_n=10)
+        lexical_density = (freq_data['unique_words'] / freq_data['total_words'] * 100.0) if freq_data['total_words'] > 0 else 0.0
+        top_freq_str = ', '.join(f'{w}({c})' for w, c in freq_data['top_words'])
+        word_freq_block = WORD_FREQUENCY_TEMPLATE % (
+            freq_data['total_words'],
+            freq_data['unique_words'],
+            lexical_density,
+            len(freq_data['top_words']),
+            top_freq_str,
+        )
+
         lang_instruction = (
             'Write the "Feedback" field in Simplified Chinese (中文).'
             if ui_lang == 'zh'
@@ -150,9 +162,9 @@ def generate_writing(request):
 Please evaluate the Task Response score with strict attention to whether the essay directly answers ALL parts of this specific prompt.
 
 '''
-            essay_block = f'{task_extra}{image_instruction}\n{word_count_guard}\n{context_injection}User Essay:\n"""\n{essay_text}\n"""'
+            essay_block = f'{task_extra}{image_instruction}\n{word_count_guard}\n{word_freq_block}\n{context_injection}User Essay:\n"""\n{essay_text}\n"""'
         else:
-            essay_block = f'{task_extra}{image_instruction}\n{word_count_guard}\nUser Essay:\n"""\n{essay_text}\n"""'
+            essay_block = f'{task_extra}{image_instruction}\n{word_count_guard}\n{word_freq_block}\nUser Essay:\n"""\n{essay_text}\n"""'
 
         prompt = WRITING_CORRECTION_PROMPT % (essay_block, lang_instruction)
         task1_image_digest = hashlib.sha256(task1_image_data_url.encode('utf-8')).hexdigest()[:16] if task1_image_data_url else ''
@@ -173,8 +185,8 @@ Please evaluate the Task Response score with strict attention to whether the ess
             messages = [{
                 'role': 'user',
                 'content': [
-                    {'type': 'input_text', 'text': prompt},
-                    {'type': 'input_image', 'image_url': task1_image_data_url},
+                    {'type': 'text', 'text': prompt},
+                    {'type': 'image_url', 'image_url': {'url': task1_image_data_url}},
                 ],
             }]
         else:
@@ -207,3 +219,131 @@ Please evaluate the Task Response score with strict attention to whether the ess
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def writing_chat(request):
+    """
+    Writing chat endpoint — multi-turn conversation with AI writing partner.
+    Supports JSON body or multipart/form-data with optional file attachments.
+    """
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'writing_chat', max_calls=15, window=60)
+        if limit_resp:
+            return limit_resp
+
+        # ── Parse request: supports JSON and multipart/form-data ──
+        is_multipart = request.content_type and 'multipart' in request.content_type
+        if is_multipart:
+            messages_raw = request.data.get('messages', '[]')
+            messages = json.loads(messages_raw) if isinstance(messages_raw, str) else messages_raw
+            uploaded_files = request.FILES.getlist('files') if request.FILES else []
+        else:
+            messages = request.data.get('messages', [])
+            uploaded_files = []
+
+        if not messages:
+            return JsonResponse({'error': 'messages required'}, status=400)
+
+        # ── Augment the last user message with uploaded file content ──
+        if uploaded_files:
+            last_user_msg = None
+            for msg in reversed(messages):
+                if msg.get('role') == 'user':
+                    last_user_msg = msg
+                    break
+
+            if last_user_msg:
+                content_parts = []
+                user_text = last_user_msg.get('content', '')
+                text_attachments = []
+
+                for f in uploaded_files:
+                    if f.size > 5 * 1024 * 1024:
+                        continue
+                    ct = f.content_type or 'application/octet-stream'
+                    if ct.startswith('image/'):
+                        img_data = base64.b64encode(f.read()).decode('utf-8')
+                        content_parts.append({
+                            'type': 'image_url',
+                            'image_url': {'url': f'data:{ct};base64,{img_data}', 'detail': 'auto'}
+                        })
+                    else:
+                        try:
+                            text_content = f.read().decode('utf-8', errors='replace')[:3000]
+                            ext = f.name.rsplit('.', 1)[-1].lower() if '.' in f.name else ''
+                            text_attachments.append(f'[Attached file: {f.name}]\n```{ext}\n{text_content}\n```')
+                        except Exception:
+                            text_attachments.append(f'[Attached file: {f.name}]')
+
+                if text_attachments:
+                    user_text = '\n\n'.join(text_attachments) + '\n\n' + user_text
+
+                if content_parts:
+                    content_parts.insert(0, {'type': 'text', 'text': user_text})
+                    last_user_msg['content'] = content_parts
+                else:
+                    last_user_msg['content'] = user_text
+
+        sf_scope = _build_singleflight_scope('writing_chat', {'messages': messages})
+
+        system_instruction = {
+            "role": "system",
+            "content": skill_writing_chat_system()
+        }
+        messages.insert(0, system_instruction)
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        client = AIClient(provider=provider)
+
+        ai_text, at_cost = client.generate(
+            messages,
+            expect_json=False,
+            temperature=0.75,
+            user_id=request.user.id,
+            singleflight_scope=sf_scope,
+        )
+
+        json_match = re.search(r'\{(.*?)\}', ai_text, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+        else:
+            json_str = ai_text
+
+        try:
+            parsed = json.loads(json_str)
+            reply_text = parsed.get('reply') or parsed.get('response') or parsed.get('text') or parsed.get('message') or parsed.get('content')
+            if not reply_text:
+                reply_text = str(parsed)
+
+            reply_text = str(reply_text).strip()
+
+            def clamp_score(val):
+                try:
+                    s = float(val)
+                except (ValueError, TypeError):
+                    return 0.0
+                s = max(0.0, min(9.0, s))
+                return round(s * 2) / 2
+
+            grammar_score = clamp_score(parsed.get('grammar_score', 0))
+            vocab_score = clamp_score(parsed.get('vocab_score', 0))
+            relevance_score = clamp_score(parsed.get('relevance_score', 0))
+            corrected_text = str(parsed.get('corrected_text', '')).strip()
+        except json.JSONDecodeError:
+            reply_text = ai_text.strip()
+            grammar_score = 0.0
+            vocab_score = 0.0
+            relevance_score = 0.0
+            corrected_text = ''
+
+        return JsonResponse({
+            'reply': reply_text,
+            'grammar_score': grammar_score,
+            'vocab_score': vocab_score,
+            'relevance_score': relevance_score,
+            'corrected_text': corrected_text,
+            'atConsumed': at_cost
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

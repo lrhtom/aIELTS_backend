@@ -8,6 +8,7 @@ from api.serializers import FeedbackSerializer, AdminUserManageSerializer
 
 User = get_user_model()
 
+
 class AdminFeedbackPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
@@ -145,3 +146,82 @@ class AdminUserAdjustATView(APIView):
             'at_balance': target_user.at_balance,
             'delta': delta,
         }, status=status.HTTP_200_OK)
+
+
+class AdminRoutesView(APIView):
+    """
+    管理员专用：实时返回后端所有 URL 路由（通过 Django URL resolver 自省）。
+    前端路由可视化页面用此接口替代手写的静态数据文件。
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from django.urls import get_resolver
+        import re
+
+        def _method_label(callback) -> str:
+            """从 View 类猜测支持的 HTTP 方法。"""
+            http_methods = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
+            if hasattr(callback, 'view_class'):
+                cls = callback.view_class
+                supported = [m.upper() for m in http_methods if hasattr(cls, m)]
+                return '|'.join(supported) if supported else 'GET'
+            if hasattr(callback, 'actions'):
+                # ViewSet
+                return '|'.join(v.upper() for v in callback.actions.values())
+            return 'GET'
+
+        def _handler_name(callback) -> str:
+            if hasattr(callback, 'view_class'):
+                return callback.view_class.__name__
+            return getattr(callback, '__name__', str(callback))
+
+        def _walk(resolver, prefix=''):
+            endpoints = []
+            for pattern in resolver.url_patterns:
+                try:
+                    raw = str(pattern.pattern)
+                    # Strip regex anchors from older-style patterns
+                    raw = re.sub(r'^\^', '', raw).rstrip('$')
+                    path = prefix + raw
+                except Exception:
+                    continue
+
+                if hasattr(pattern, 'url_patterns'):
+                    # URLResolver — recurse
+                    endpoints.extend(_walk(pattern, prefix=path))
+                else:
+                    # URLPattern — leaf endpoint
+                    cb = pattern.callback
+                    endpoints.append({
+                        'method':  _method_label(cb),
+                        'path':    '/' + path.lstrip('/'),
+                        'handler': _handler_name(cb),
+                        'name':    pattern.name or '',
+                    })
+            return endpoints
+
+        resolver = get_resolver()
+        # Only expose routes under /api/
+        all_routes = _walk(resolver)
+        api_routes = [r for r in all_routes if r['path'].startswith('/api/')]
+
+        # Group by second segment (e.g. /api/auth/…  → "auth")
+        groups: dict[str, list] = {}
+        for r in api_routes:
+            parts = r['path'].lstrip('/').split('/')
+            # parts[0] = 'api', parts[1] = module name
+            module = parts[1] if len(parts) > 1 else 'root'
+            groups.setdefault(module, []).append(r)
+
+        return Response({
+            'total': len(api_routes),
+            'groups': [
+                {
+                    'module': mod,
+                    'count': len(routes),
+                    'endpoints': routes,
+                }
+                for mod, routes in sorted(groups.items())
+            ],
+        })

@@ -11,6 +11,10 @@ from api.core.rate_limit import check_rate_limit
 
 from api.core.ai_client import AIClient
 from api.models import CreativeWorkshopPage
+from api.skills.creative.workshop import (
+    skill_creative_generate,
+    skill_creative_edit,
+)
 
 
 def _strip_code_fence(content: str) -> str:
@@ -52,26 +56,7 @@ def _normalize_html(content: str, fallback_title: str) -> str:
     )
 
 
-def _build_prompt(method_prompt: str, preferred_title: str) -> str:
-    title_instruction = (
-        f'Use this page title if appropriate: "{preferred_title}".' if preferred_title else
-        'Create a concise and clear page title for this learning method.'
-    )
-    return (
-        'You are an elite education product designer and front-end engineer.\n'
-        'Generate a complete, standalone HTML learning page that helps a student practice based on their custom method.\n'
-        'Output ONLY raw HTML, no markdown fences and no extra explanation.\n\n'
-        'Hard requirements:\n'
-        '1) Return a full HTML document with <!doctype html>, <html>, <head>, <body>.\n'
-        '2) Include inline CSS and JavaScript in the same file (no external CDN or external assets).\n'
-        '3) The page must be responsive for mobile and desktop.\n'
-        '4) The page should be practical for studying: include clear sections, one interactive exercise area, and progress feedback.\n'
-        '5) Keep wording in Chinese by default unless the method explicitly asks another language.\n'
-        '6) Avoid offensive or unsafe content.\n'
-        f'7) {title_instruction}\n\n'
-        'User custom learning method:\n'
-        f'{method_prompt}'
-    )
+
 
 
 def _serialize_project(project: CreativeWorkshopPage, include_html: bool = False) -> dict:
@@ -138,7 +123,7 @@ class CreativeWorkshopProjectGenerateView(APIView):
             preferred_title = preferred_title[:120]
 
         provider = request.headers.get('X-AI-Provider', 'deepseek')
-        prompt = _build_prompt(method_prompt, preferred_title)
+        prompt = skill_creative_generate(method_prompt, preferred_title)
         scope_hash = hashlib.md5(method_prompt.encode('utf-8')).hexdigest()[:12]
 
         client = AIClient(provider=provider)
@@ -189,6 +174,60 @@ class CreativeWorkshopProjectFavoriteView(APIView):
                 'is_favorited': project.is_favorited,
                 'project': _serialize_project(project),
             }
+        )
+
+class CreativeWorkshopProjectEditView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        limit_resp = check_rate_limit(request.user.id, 'creative_workshop_edit', max_calls=10, window=300)
+        if limit_resp:
+            return limit_resp
+
+        project = get_object_or_404(CreativeWorkshopPage, pk=pk, user=request.user)
+        instruction = str(request.data.get('instruction', '')).strip()
+
+        if not instruction:
+            return Response({'error': 'instruction is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(instruction) > 2000:
+            return Response({'error': 'instruction is too long (max 2000 chars)'}, status=status.HTTP_400_BAD_REQUEST)
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        
+        prompt = skill_creative_edit(instruction, project.generated_html)
+
+        scope_hash = hashlib.md5(instruction.encode('utf-8')).hexdigest()[:12]
+
+        client = AIClient(provider=provider)
+        html_content, at_cost = client.generate(
+            [{'role': 'user', 'content': prompt}],
+            expect_json=False,
+            temperature=0.7,
+            user_id=request.user.id,
+            singleflight_scope=f'creative_workshop_edit_{pk}_{scope_hash}',
+        )
+
+        normalized_html = _normalize_html(html_content, project.title)
+        
+        # FORK: Create a new project
+        new_title = f"{project.title} (Edited)" if not project.title.endswith("(Edited)") else project.title
+        
+        new_project = CreativeWorkshopPage.objects.create(
+            user=request.user,
+            title=new_title[:120],
+            method_prompt=f"{project.method_prompt}\n\n[Edit]: {instruction}", 
+            generated_html=normalized_html,
+            ai_provider=provider,
+            is_favorited=False,
+        )
+
+        return Response(
+            {
+                'project': _serialize_project(new_project, include_html=True),
+                'atConsumed': at_cost,
+            },
+            status=status.HTTP_201_CREATED,
         )
 
 

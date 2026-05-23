@@ -7,6 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from api.core.ai_client import AIClient
 from api.core.rate_limit import check_rate_limit
+from api.skills.writing.task2 import (
+    skill_writing_task2_generate,
+    skill_writing_task2_evaluate,
+    skill_writing_task2_opinion_generate,
+    skill_writing_task2_opinion_evaluate,
+)
 
 TASK2_TOPIC_AREAS = [
     "education and learning",
@@ -253,16 +259,7 @@ def generate_task2(request):
         else:
             topic_instruction = f'The topic area must be: {topic_area}.'
 
-        system_prompt = f'''You are a senior IELTS examiner.
-You need to generate a creative, authentic IELTS Task 2 writing prompt.
-The requested type is: {selected_desc}.
-{topic_instruction}
-
-Return a JSON with EXACTLY this structure:
-{{
-  "prompt": "The full IELTS Task 2 question prompt. Make it look exactly like a real exam question (e.g., 'Some people think that... To what extent do you agree or disagree?')."
-}}
-'''
+        system_prompt = skill_writing_task2_generate(selected_desc, topic_instruction)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate the Task 2 prompt."}
@@ -315,20 +312,7 @@ def evaluate_task2(request):
             else 'Write the "feedback" field in English.'
         )
 
-        system_prompt = f'''You are an expert IELTS examiner evaluator.
-Evaluate the user's Task 2 Writing based on the provided Prompt.
-Return a JSON with EXACTLY this structure:
-{{
-  "scores": {{
-    "ta": <0-9 float for Task Response>,
-    "cc": <0-9 float for Coherence & Cohesion>,
-    "lr": <0-9 float for Lexical Resource>,
-    "gra": <0-9 float for Grammatical Range & Accuracy>
-  }},
-  "overall": <0-9 float for overall band score>,
-  "feedback": "Detailed feedback..."
-}}
-LANGUAGE INSTRUCTION: {lang_instruction}'''
+        system_prompt = skill_writing_task2_evaluate(lang_instruction)
         user_msg = f"Prompt:\n{prompt_text}\n\nUser Answer:\n{user_answer}"
         messages = [
             {"role": "system", "content": system_prompt},
@@ -393,28 +377,9 @@ def generate_opinion_drill_questions(request):
         style_desc = '; '.join([f"{k}) {v}" for k, v in OPINION_DRILL_QUESTION_STYLES.items()])
         generation_plan_json = json.dumps(generation_plan, ensure_ascii=False)
 
-        system_prompt = f'''You are a senior IELTS Task 2 examiner and test designer.
-Generate IELTS Task 2 opinion-style prompts according to a fixed generation plan.
-
-Hard constraints:
-1) Return valid JSON only.
-2) Use this exact shape:
-{{
-  "questions": [
-        {{"id": 1, "category": "...", "styleId": 1, "prompt": "..."}}
-  ]
-}}
-3) The array length MUST be exactly {count}.
-4) category must be one of: {allowed_cats}
-5) Topic scope guidance: {topic_scope}
-6) styleId must follow this style map exactly: {style_desc}
-7) Use the exact id/category/styleId for each row from the generation plan provided by the user.
-8) If category is "random", choose any suitable IELTS topic area.
-9) The prompt must end with the selected style's required ask.
-10) Prompts should look like real IELTS Task 2 questions, 1-2 sentences each.
-11) Keep prompts diverse and avoid near-duplicates.
-12) This drill is for viewpoint-thinking practice, so prompts should require clear stance and reasoning rather than factual listing.
-'''
+        system_prompt = skill_writing_task2_opinion_generate(
+            count, allowed_cats, topic_scope, style_desc
+        )
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -477,30 +442,7 @@ def evaluate_opinion_drill_answer(request):
             else 'Write the feedback in English.'
         )
 
-        system_prompt = f'''You are an IELTS Task 2 examiner.
-Evaluate the candidate answer ONLY on these three dimensions:
-1) grammar
-2) relevance (task response / staying on topic)
-3) vocabulary
-
-Return JSON only with this exact structure:
-{{
-  "scores": {{
-    "grammar": <0-9 float>,
-    "relevance": <0-9 float>,
-    "vocabulary": <0-9 float>
-  }},
-  "overall": <0-9 float>,
-    "feedback": "...",
-    "referenceAnswer": "Band 7.5-8.0 model answer in English"
-}}
-
-{lang_instruction}
-Keep feedback concise and actionable.
-The drill goal is viewpoint-thinking practice, so prioritize clear stance and reasoning.
-The referenceAnswer must be in English, exactly one paragraph, and no more than 100 words.
-The referenceAnswer should include: clear position + 1-2 reasons + short concluding sentence.
-'''
+        system_prompt = skill_writing_task2_opinion_evaluate(lang_instruction)
 
         user_msg = f"Question:\n{prompt_text}\n\nCandidate Answer:\n{user_answer}"
         messages = [

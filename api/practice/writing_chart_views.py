@@ -13,6 +13,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from api.core.ai_client import AIClient, refund_at
 from api.core.rate_limit import check_rate_limit
+from api.skills.writing.chart import (
+    skill_writing_chart_map,
+    skill_writing_chart_flowchart,
+    skill_writing_chart_standard,
+    skill_writing_chart_evaluate,
+)
 
 CHART_SUBJECT_AREAS = [
     "internet usage and social media trends",
@@ -844,86 +850,12 @@ def _build_map_prompt_payload(
     environment_desc = 'indoor floor-plan style' if environment == 'indoor' else 'outdoor town/area style'
     location_catalog = _scene_catalog_prompt_text(max_items=90)
 
-    map_prompt = f'''You are an IELTS Task 1 examiner and a map-layout planner.
-Generate ONE high-quality map question as JSON with EXACTLY these fields:
-{{
-  "prompt": "IELTS Task 1 prompt sentence",
-  "mapSvg": "Complete SVG string with root <svg ... viewBox=\"0 0 1000 620\">...</svg>",
-  "iconPlacements": [
-    {{
-      "iconKey": "one icon key",
-      "x": <number>,
-      "y": <number>,
-      "w": <number>,
-      "h": <number>,
-      "rotation": <number>,
-      "label": "optional short label"
-    }}
-  ],
-  "layoutSummary": "2-4 concise lines about spatial logic",
-  "mapScenarioType": "geographical_change or site_selection",
-  "environmentType": "indoor or outdoor",
-  "locationName": "selected location name"
-}}
-
-MANDATORY RANDOMIZATION PROFILE (must follow exactly for this request):
-- mapScenarioType must be: {scenario}
-- environmentType must be: {environment}
-- locationName must be: {scene_name}
-- This scenario means: {scenario_desc}
-- This environment style means: {environment_desc}
-
-Possible IELTS map locations (indoor/outdoor mixed, for global consistency reference):
-{location_catalog}
-
-CAN DO:
-- Design a natural and readable map with clear areas, roads, and orientation cues.
-- Use visual hierarchy: major roads thicker, minor roads thinner, and areas clearly separated.
-- Place landmarks/icons in semantically plausible places (e.g., transport near routes, benches in parks, hospitals near main access).
-- Use controlled asymmetry so the map looks realistic, not artificially mirrored.
-
-CANNOT DO:
-- Do NOT output any field other than prompt/mapSvg/iconPlacements/layoutSummary/mapScenarioType/environmentType/locationName.
-- Do NOT use script/foreignObject/external image URLs/CSS imports/event handlers.
-- Do NOT output markdown fences or any extra commentary.
-- Do NOT invent icon keys outside this whitelist: {', '.join(icon_keys)}
-
-AREA GENERATION LOGIC (strict):
-1) Create at least 4 named areas (zones/districts/functional blocks).
-2) Areas must be visibly separated and not heavily overlapping.
-3) Area labels must be short and readable.
-
-ROAD GENERATION LOGIC (strict):
-1) Include at least one major horizontal or vertical road/corridor.
-2) Include at least two additional roads/paths/connectors.
-3) Named roads must be visible and logically connect important areas.
-
-SCENARIO-SPECIFIC RULES:
-- If mapScenarioType is geographical_change:
-  1) show clear "before" and "after" structure,
-  2) each side should have at least 3 area blocks,
-  3) at least one road/path must be clearly changed or newly added.
-- If mapScenarioType is site_selection:
-  1) include candidate Site A/B/C,
-  2) keep at least 4 context areas and 3 roads,
-  3) candidate sites should have different trade-offs by location.
-
-QUALITY TARGETS:
-1) mapSvg must be valid standalone SVG using safe primitives only: rect, circle, ellipse, polygon, polyline, line, path, text, g.
-2) Coordinates in iconPlacements are top-left based and in the SAME viewBox coordinate system.
-3) Use 9-14 icons; spread across at least 3 quadrants.
-4) Avoid heavy overlap; icons must remain readable at normal zoom.
-5) Topic should relate to: {subject_area}
-
-SUCCESS REFERENCE (for calibration only, NOT a template to copy):
-- Good: clear area zoning + hierarchical road network + landmarks placed in sensible context + balanced icon spacing.
-
-FAILURE REFERENCE (must avoid):
-- Bad: random blocks without hierarchy, roads disconnected from areas, icons clustered in one corner, or rigid copying of any sample composition.
-
-IMPORTANT ANTI-TEMPLATE RULE:
-- Examples above are constraints calibration only. Produce a NEW layout; do not mirror or clone fixed coordinates/structures.
-'''
+    map_prompt = skill_writing_chart_map(
+        scenario=scenario, environment=environment, scene_name=scene_name,
+        scenario_desc=scenario_desc, environment_desc=environment_desc,
+        location_catalog=location_catalog, icon_keys=icon_keys,
+        subject_area=subject_area,
+    )
 
     messages = [
         {'role': 'system', 'content': map_prompt},
@@ -1090,13 +1022,7 @@ def generate_chart(request):
 
         # 鈹€鈹€ FLOWCHART: plain-text mode avoids JSON-escaping issues with Mermaid { } " 鈹€鈹€
         if chart_type == 'flowchart':
-            fc_system = (
-                "You are an IELTS Task 1 examiner generating a process diagram practice question.\n"
-                "Return your response in EXACTLY this two-part format - no other text:\n\n"
-                "IELTS_PROMPT: <one sentence IELTS question, e.g. 'The diagram below shows the process of...'>\n"
-                "MERMAID_CODE:\n<valid mermaid flowchart code starting with 'flowchart TD' or 'flowchart LR'>\n\n"
-                "Flowchart constraints:\n" + chart_instructions.strip()
-            )
+            fc_system = skill_writing_chart_flowchart(chart_instructions)
             fc_messages = [
                 {"role": "system", "content": fc_system},
                 {"role": "user", "content": "Generate an IELTS Task 1 process diagram practice question now."},
@@ -1141,11 +1067,9 @@ def generate_chart(request):
                 'atConsumed':  at_cost,
             })
 
-        # ── MAP: generate SVG + icon placement JSON (no matplotlib execution) ──
+        # ── MAP: generate HTML + SVG (no matplotlib execution) ──
         if chart_type == 'map':
             subject_area = random.choice(CHART_SUBJECT_AREAS)
-            icon_assets = _build_map_icon_assets()
-            allowed_keys = set(icon_assets.keys())
             map_profile = _pick_map_generation_profile()
 
             chosen_question_type = map_profile['questionType']
@@ -1170,61 +1094,17 @@ def generate_chart(request):
                 location_name = chosen_scene_name
 
             prompt_text = str(map_data.get('prompt', '') or '').strip()
-            map_svg = _sanitize_svg(str(map_data.get('mapSvg', '') or ''))
-            if not map_svg:
-                map_svg = _fallback_map_svg(question_type, environment_type, location_name)
-
-            svg_quality = _evaluate_map_svg_structure(map_svg, question_type)
-
-            view_w, view_h = _extract_svg_viewport(map_svg)
-            placements = _normalize_map_icon_placements(
-                map_data.get('iconPlacements', []),
-                allowed_keys,
-                view_w,
-                view_h,
-            )
-
-            if placements:
-                placements = _improve_map_icon_placements(placements, view_w, view_h)
-            quality = _evaluate_map_placement_quality(placements, view_w, view_h)
-
-            need_fallback = (
-                len(placements) < MAP_MIN_ICON_COUNT or
-                quality['score'] < 62 or
-                quality['severeConflicts'] > 0 or
-                quality['quadrantCoverage'] < 3 or
-                svg_quality['score'] < 64 or
-                (question_type == 'geographical_change' and svg_quality['beforeAfterTerms'] < 2) or
-                (question_type == 'site_selection' and svg_quality['candidateTerms'] < 2)
-            )
-
-            if need_fallback:
-                map_svg = _fallback_map_svg(question_type, environment_type, location_name)
-                view_w, view_h = _extract_svg_viewport(map_svg)
-                placements = _scaled_fallback_placements(view_w, view_h, question_type)
-                placements = _improve_map_icon_placements(placements, view_w, view_h)
-                quality = _evaluate_map_placement_quality(placements, view_w, view_h)
-                svg_quality = _evaluate_map_svg_structure(map_svg, question_type)
-                quality['fallbackApplied'] = True
-                svg_quality['fallbackApplied'] = True
-
-            used_icon_keys = {
-                str(item.get('iconKey', '')).strip()
-                for item in placements
-                if isinstance(item, dict)
-            }
-            used_icon_keys.discard('')
-            icon_data_urls = _build_map_icon_data_urls(used_icon_keys)
+            html_content = str(map_data.get('htmlContent', '') or '').strip()
 
             layout_summary = str(map_data.get('layoutSummary', '') or '').strip()
             if not layout_summary:
                 if question_type == 'geographical_change':
                     layout_summary = (
-                        f'The map compares before-and-after changes in {location_name}, with clearer functional zones and upgraded road access.'
+                        f'The map compares before-and-after changes in {location_name}.'
                     )
                 else:
                     layout_summary = (
-                        f'The map presents three candidate sites in {location_name}, with contrasting access, surrounding land use, and service convenience.'
+                        f'The map presents candidate sites in {location_name}.'
                     )
 
             if not prompt_text:
@@ -1240,52 +1120,30 @@ def generate_chart(request):
                     )
 
             reference_payload = {
-                'type': 'map-svg',
+                'type': 'map-html',
                 'questionType': question_type,
                 'environmentType': environment_type,
                 'locationName': location_name,
-                'viewport': {'width': round(view_w, 2), 'height': round(view_h, 2)},
-                'iconPlacements': placements,
                 'layoutSummary': layout_summary,
-                'placementQuality': quality,
-                'svgQuality': svg_quality,
             }
 
             return Response({
                 'imageUrl': None,
                 'mermaidCode': None,
                 'prompt': prompt_text,
+                'htmlContent': html_content,
                 'pythonCode': json.dumps(reference_payload, ensure_ascii=False),
-                'mapSvg': map_svg,
                 'mapScenarioType': question_type,
                 'mapEnvironmentType': environment_type,
                 'mapLocationName': location_name,
-                'mapViewport': {
-                    'width': round(view_w, 2),
-                    'height': round(view_h, 2),
-                },
-                'mapIconPlacements': placements,
-                'mapIconAssets': icon_assets,
-                'mapIconDataUrls': icon_data_urls,
-                'mapPlacementQuality': quality,
-                'mapSvgQuality': svg_quality,
                 'atConsumed': at_cost,
             })
 
         # 鈹€鈹€ OTHER CHART TYPES: JSON mode + Matplotlib sandbox ┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢
         subject_area = random.choice(CHART_SUBJECT_AREAS)
-        system_prompt = f'''You are an IELTS Task 1 examiner.
-You need to provide a new chart practice question.
-The requested chart type is: {chart_type}.
-The subject area for the data must relate to: {subject_area}.
-
-You MUST return a JSON with EXACTLY these two fields:
-1. "prompt": The IELTS Task 1 question description (e.g., "The graph below shows the population of three cities...").
-2. "code": {code_requirement}
-
-Additional chart constraints:
-{chart_instructions}
-'''
+        system_prompt = skill_writing_chart_standard(
+            chart_type, subject_area, code_requirement, chart_instructions
+        )
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate the chart prompt and code for the requested chart type."}
@@ -1386,20 +1244,7 @@ def evaluate_chart(request):
             else 'Write the "feedback" field in English.'
         )
 
-        system_prompt = f'''You are an expert IELTS examiner evaluator.
-    Evaluate the user's Task 1 Writing based on the provided Prompt and the Reference Data Code (Python / Mermaid / Map JSON) which represents the exact figures, map layout, or process steps to describe.
-Return a JSON with EXACTLY this structure:
-{{
-  "scores": {{
-    "ta": <0-9 float for Task Achievement>,
-    "cc": <0-9 float for Coherence & Cohesion>,
-    "lr": <0-9 float for Lexical Resource>,
-    "gra": <0-9 float for Grammatical Range & Accuracy>
-  }},
-  "overall": <0-9 float for overall band score>,
-  "feedback": "Detailed feedback..."
-}}
-LANGUAGE INSTRUCTION: {lang_instruction}'''
+        system_prompt = skill_writing_chart_evaluate(lang_instruction)
         user_msg = f"Prompt:\n{prompt_text}\n\nReference Data (Python/Mermaid/Map JSON):\n{python_code}\n\nUser Answer:\n{user_answer}"
         messages = [
             {"role": "system", "content": system_prompt},

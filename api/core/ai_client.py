@@ -38,6 +38,16 @@ class AIClient:
             if normalized_base_url.rstrip('/').lower().endswith('/openai/v1'):
                 # Allow v1 base endpoint; default to Responses API path.
                 base_url = normalized_base_url.rstrip('/') + '/responses'
+            elif '/chat/completions' in normalized_base_url.lower():
+                # Azure legacy deployment URL: keep chat/completions but upgrade api-version.
+                # Old api-version (2024-02-01) doesn't support response_format for GPT-5.x.
+                import re as _re
+                base_url = _re.sub(
+                    r'api-version=[^&]+',
+                    'api-version=2025-04-01-preview',
+                    normalized_base_url,
+                    flags=_re.IGNORECASE,
+                )
             self.base_url = base_url
             self.api_key = api_key
             self.model = model
@@ -206,8 +216,29 @@ class AIClient:
             # Azure Responses API 和标准 Chat Completions 的格式区分
             is_responses_api = '/responses' in self.base_url.lower()
             if self.is_gpt5 and is_responses_api:
-                # Responses API 格式：input 数组，每条 message 包含 role 和 content
-                gpt5_input = [{'role': msg['role'], 'content': msg['content']} for msg in messages]
+                # Responses API 格式：input 数组
+                # 自动将标准 Chat Completions 多模态格式转为 Responses API 格式
+                gpt5_input = []
+                for msg in messages:
+                    content = msg['content']
+                    if isinstance(content, list):
+                        # 多模态消息：转换 text→input_text, image_url→input_image
+                        converted_parts = []
+                        for part in content:
+                            ptype = part.get('type', '')
+                            if ptype == 'text':
+                                converted_parts.append({'type': 'input_text', 'text': part['text']})
+                            elif ptype == 'image_url':
+                                img = part.get('image_url', {})
+                                url_str = img.get('url', '') if isinstance(img, dict) else str(img)
+                                converted_parts.append({'type': 'input_image', 'image_url': url_str})
+                            elif ptype in ('input_text', 'input_image'):
+                                converted_parts.append(part)
+                            else:
+                                converted_parts.append(part)
+                        gpt5_input.append({'role': msg['role'], 'content': converted_parts})
+                    else:
+                        gpt5_input.append({'role': msg['role'], 'content': content})
                 # gpt5 不支持 response_format，用 system 消息强制 JSON 输出
                 if expect_json:
                     gpt5_input.insert(0, {
@@ -223,12 +254,24 @@ class AIClient:
                     'input': gpt5_input,
                 }
             else:
+                msgs = list(messages)
+                if self.is_gpt5 and expect_json:
+                    # GPT-5 on legacy Azure chat/completions: response_format may
+                    # not be supported; use system message to enforce JSON output.
+                    msgs.insert(0, {
+                        'role': 'system',
+                        'content': (
+                            'You MUST respond with ONLY a valid JSON object. '
+                            'Do NOT include any markdown, code fences, or extra text. '
+                            'Output raw JSON only.'
+                        )
+                    })
                 payload = {
                     'model': self.model,
-                    'messages': messages,
+                    'messages': msgs,
                     'temperature': temperature,
                 }
-                if expect_json:
+                if expect_json and not self.is_gpt5:
                     payload['response_format'] = {'type': 'json_object'}
 
             try:
@@ -388,8 +431,27 @@ class AIClient:
 
         is_responses_api = '/responses' in self.base_url.lower()
         if self.is_gpt5 and is_responses_api:
-            # Azure / Custom GPT-5 Responses API 结构
-            input_msgs = [{'role': msg['role'], 'content': msg['content']} for msg in messages]
+            # Azure / Custom GPT-5 Responses API: auto-convert multimodal format
+            input_msgs = []
+            for msg in messages:
+                content = msg['content']
+                if isinstance(content, list):
+                    converted_parts = []
+                    for part in content:
+                        ptype = part.get('type', '')
+                        if ptype == 'text':
+                            converted_parts.append({'type': 'input_text', 'text': part['text']})
+                        elif ptype == 'image_url':
+                            img = part.get('image_url', {})
+                            url_str = img.get('url', '') if isinstance(img, dict) else str(img)
+                            converted_parts.append({'type': 'input_image', 'image_url': url_str})
+                        elif ptype in ('input_text', 'input_image'):
+                            converted_parts.append(part)
+                        else:
+                            converted_parts.append(part)
+                    input_msgs.append({'role': msg['role'], 'content': converted_parts})
+                else:
+                    input_msgs.append({'role': msg['role'], 'content': content})
             payload = {
                 'model': self.model,
                 'input': input_msgs,

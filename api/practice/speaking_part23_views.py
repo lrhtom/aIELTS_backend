@@ -9,6 +9,14 @@ from rest_framework.permissions import IsAuthenticated
 from api.core.rate_limit import check_rate_limit
 
 from api.core.ai_client import AIClient
+from api.skills.speaking.part23 import (
+    skill_speaking_part2_generate,
+    skill_speaking_part3_generate,
+    skill_speaking_part23_evaluate_system,
+    skill_speaking_part23_evaluate_user_msg,
+    skill_speaking_part23_summary_system,
+    skill_speaking_part23_summary_user_msg,
+)
 
 
 def _build_singleflight_scope(scope_prefix: str, payload) -> str:
@@ -149,20 +157,7 @@ def _generate_questions(request, part_kind: str):
 
         system_prompt = {
             'role': 'system',
-            'content': (
-                'You are an IELTS speaking examiner. Generate a Part 2 practice set. '\
-                'Return strict raw JSON only with key "questions". '\
-                'questions must be an array of exactly 1 object. '\
-                'The object must have keys "topic" and "question". '\
-                'The "question" value MUST exactly follow this official IELTS Cue Card format using Markdown:\n'\
-                'Describe a/an [topic].\n'\
-                'You should say:\n'\
-                '- [point 1]\n'\
-                '- [point 2]\n'\
-                '- [point 3]\n'\
-                'and explain [reason/feeling].\n'\
-                'Example: {"questions":[{"topic":"A place","question":"Describe a place you visited..."}]}'
-            ),
+            'content': skill_speaking_part2_generate(),
         }
         scope = 'speaking_part2_generate'
     else:
@@ -175,16 +170,7 @@ def _generate_questions(request, part_kind: str):
 
         system_prompt = {
             'role': 'system',
-            'content': (
-                'You are an IELTS speaking examiner. Generate a Part 3 discussion set. '\
-                f'{topic_instruction}'\
-                'Return strict raw JSON only with key "questions". '\
-                'questions must be an array of exactly 6 objects. '\
-                'Each object must have keys "topic" and "question". '\
-                'Each "question" value must be valid Markdown (GFM). '\
-                'Use abstract, society-level discussion style questions with increasing depth. '\
-                'Example: {"questions":[{"topic":"...","question":"..."}]}'
-            ),
+            'content': skill_speaking_part3_generate(topic_instruction),
         }
         scope = 'speaking_part3_generate'
 
@@ -243,20 +229,7 @@ def _evaluate_answer(request, part_kind: str):
 
     system_instruction = {
         'role': 'system',
-        'content': (
-            f'You are an expert IELTS examiner evaluating a {label} answer. '\
-            f'Duration seconds: {int(duration_seconds)}. Word count: {word_count}. '\
-            'Return raw JSON only with these keys: '\
-            '{"grammar_score":6.5,"vocab_score":6.5,"relevance_score":6.5,'
-            '"coherence_score":6.5,"depth_score":6.5,'
-            '"duration_score":6.5,"word_count_score":6.5,'
-            '"length_multiplier":0.75,"length_feedback":"...",'
-            '"feedback":"...","corrected_text":"..."}. '\
-            'Scoring range: 0-9 with 0.5 step. '\
-            'length_multiplier range: 0.0-1.0. '\
-            'Prioritize realistic timing/length judgement using provided duration and word count. '\
-            'feedback should be concise and actionable.'
-        ),
+        'content': skill_speaking_part23_evaluate_system(label, duration_seconds, word_count),
     }
 
     provider = request.headers.get('X-AI-Provider', 'deepseek')
@@ -275,11 +248,8 @@ def _evaluate_answer(request, part_kind: str):
             system_instruction,
             {
                 'role': 'user',
-                'content': (
-                    f'Question:\n{question}\n\n'
-                    f'Candidate Answer:\n{user_answer}\n\n'
-                    f'Duration seconds: {int(duration_seconds)}\n'
-                    f'Word count: {word_count}'
+                'content': skill_speaking_part23_evaluate_user_msg(
+                    question, user_answer, duration_seconds, word_count
                 ),
             },
         ],
@@ -374,12 +344,7 @@ def _generate_summary(request, part_kind: str):
 
     system_instruction = {
         'role': 'system',
-        'content': (
-            f'You are an IELTS examiner. Provide a final summary for speaking {part_label}. '\
-            'Return raw JSON only with keys: '\
-            '{"overall_band_estimate":6.5,"strengths":"...","weaknesses":"...",'
-            '"analysis":"...","advice":"..."}'
-        ),
+        'content': skill_speaking_part23_summary_system(part_label),
     }
 
     provider = request.headers.get('X-AI-Provider', 'deepseek')
@@ -391,7 +356,7 @@ def _generate_summary(request, part_kind: str):
             system_instruction,
             {
                 'role': 'user',
-                'content': f'History:\n{history_text}',
+                'content': skill_speaking_part23_summary_user_msg(history_text),
             },
         ],
         expect_json=False,
