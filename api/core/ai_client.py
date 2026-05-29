@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import re
 import hashlib
@@ -82,10 +82,10 @@ class AIClient:
                 cache_key = f"ai_cache:{self.model}:{hashlib.md5(raw.encode()).hexdigest()}"
                 cached = get_redis().get(cache_key)
                 if cached:
-                    print(f"[AIClient] ⚡ 缓存命中: {cache_key}")
+                    print(f"[AIClient] [FAST] 缓存命中: {cache_key}")
                     return json.loads(cached), 0
             except Exception as ce:
-                print(f"[AIClient] ⚠️ 缓存读取失败（跳过）: {ce}")
+                print(f"[AIClient] [WARN] 缓存读取失败（跳过）: {ce}")
 
         # 0.5 单飞任务锁：同一用户同一 scope 在完成前只跑一次。
         sf_enabled = bool(singleflight_scope and user_id)
@@ -107,24 +107,27 @@ class AIClient:
                 sf_error_key = f"ai_sf:error:{safe_scope}:{user_id}"
                 sf_lock_token = str(uuid.uuid4())
 
-                acquired = sf_redis.set(sf_lock_key, sf_lock_token, ex=240, nx=True)
+                acquired = sf_redis.set(sf_lock_key, sf_lock_token, ex=150, nx=True)
                 sf_is_leader = bool(acquired)
 
                 if not sf_is_leader:
-                    print(f"[AIClient] ⏳ singleflight 等待已有任务: scope={safe_scope}, user={user_id}")
-                    for _ in range(240):
+                    print(f"[AIClient] [WAIT] singleflight 等待已有任务: scope={safe_scope}, user={user_id}")
+                    for _ in range(150):
                         cached_result = sf_redis.get(sf_result_key)
                         if cached_result:
-                            payload = json.loads(cached_result) if isinstance(cached_result, str) else cached_result
+                            # Redis get() returns bytes; decode to str before json.loads
+                            raw = cached_result.decode('utf-8') if isinstance(cached_result, bytes) else str(cached_result)
+                            payload = json.loads(raw)
                             content = payload.get('content') if isinstance(payload, dict) else None
                             payload_expect_json = bool(payload.get('expect_json')) if isinstance(payload, dict) else False
                             if payload_expect_json == expect_json:
-                                print(f"[AIClient] ✅ singleflight 复用完成结果: scope={safe_scope}, user={user_id}")
+                                print(f"[AIClient] [OK] singleflight 复用完成结果: scope={safe_scope}, user={user_id}")
                                 return content, 0
 
                         err_msg = sf_redis.get(sf_error_key)
                         if err_msg:
-                            raise ValueError(str(err_msg))
+                            err_str = err_msg.decode('utf-8') if isinstance(err_msg, bytes) else str(err_msg)
+                            raise ValueError(err_str)
 
                         time.sleep(1)
 
@@ -136,7 +139,7 @@ class AIClient:
 
             except Exception as sf_err:
                 # 单飞失败时降级为原逻辑，避免阻塞主流程。
-                print(f"[AIClient] ⚠️ singleflight 初始化失败（降级执行）: {sf_err}")
+                print(f"[AIClient] [WARN] singleflight 初始化失败（降级执行）: {sf_err}")
                 sf_enabled = False
                 sf_redis = None
                 sf_is_leader = True
@@ -159,7 +162,7 @@ class AIClient:
                 )
                 sf_redis.delete(sf_error_key)
             except Exception as sf_store_err:
-                print(f"[AIClient] ⚠️ singleflight 结果写入失败: {sf_store_err}")
+                print(f"[AIClient] [WARN] singleflight 结果写入失败: {sf_store_err}")
 
         def _sf_write_error(message: str):
             if not (sf_enabled and sf_redis and sf_is_leader and sf_error_key):
@@ -167,10 +170,10 @@ class AIClient:
             try:
                 sf_redis.set(sf_error_key, str(message), ex=30)
             except Exception as sf_store_err:
-                print(f"[AIClient] ⚠️ singleflight 错误写入失败: {sf_store_err}")
+                print(f"[AIClient] [WARN] singleflight 错误写入失败: {sf_store_err}")
 
         try:
-            print(f"[AIClient] 🚀 准备发送请求")
+            print(f"[AIClient] [START] 准备发送请求")
             print(f"[AIClient]   提供商: {self.provider}")
             print(f"[AIClient]   模  型: {self.model}")
             print(f"[AIClient]   地  址: {self.base_url}")
@@ -198,12 +201,12 @@ class AIClient:
                         except Exception:
                             pass
                     if balance < 0:
-                        print(f"[AIClient] 🚨 拦截负余额用户 id={user_id}, 余额: {balance}")
+                        print(f"[AIClient] [ALERT] 拦截负余额用户 id={user_id}, 余额: {balance}")
                         raise ValueError(f"您的AT币余额不足({balance})，请充值后重试。")
                 except ValueError:
                     raise
                 except Exception as e:
-                    print(f"[AIClient] ⚠️ 预检失败: {e}")
+                    print(f"[AIClient] [WARN] 预检失败: {e}")
                     raise e
 
             # 构建请求头
@@ -283,7 +286,7 @@ class AIClient:
                 )
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
-                print(f"[AIClient] ❌ HTTP Error: {e.response.status_code}")
+                print(f"[AIClient] [ERR] HTTP Error: {e.response.status_code}")
                 print(f"[AIClient]   Response: {e.response.text}")
                 _sf_write_error(str(e))
                 raise e
@@ -300,7 +303,7 @@ class AIClient:
                     )
                     ai_content = msg_block['content'][0]['text']
                 except (StopIteration, KeyError, IndexError, TypeError) as parse_err:
-                    print(f"[AIClient] ❌ GPT-5 响应解析失败，output: {str(data.get('output', ''))[:800]}")
+                    print(f"[AIClient] [ERR] GPT-5 响应解析失败，output: {str(data.get('output', ''))[:800]}")
                     _sf_write_error(f"GPT-5 响应格式异常，无法提取内容: {parse_err}")
                     raise ValueError(f"GPT-5 响应格式异常，无法提取内容: {parse_err}") from parse_err
             else:
@@ -333,7 +336,7 @@ class AIClient:
                         get_redis().delete(f"balance:{user_id}")
                     except Exception:
                         pass
-                    print(f"[AIClient] ✅ Token 计费成功: 消耗{total_tokens}T -> {at_cost}AT, 最终余额{u.at_balance}")
+                    print(f"[AIClient] [OK] Token 计费成功: 消耗{total_tokens}T -> {at_cost}AT, 最终余额{u.at_balance}")
 
             if not expect_json:
                 _deduct()
@@ -354,25 +357,25 @@ class AIClient:
             try:
                 parsed = json.loads(json_str)
                 _deduct()
-                print(f"[AIClient] ✅ JSON 解析成功")
+                print(f"[AIClient] [OK] JSON 解析成功")
                 if cache_key:
                     try:
                         from api.core.redis_client import get_redis
                         get_redis().setex(cache_key, 86400, json.dumps(parsed, ensure_ascii=False))
-                        print(f"[AIClient] 💾 已写入缓存: {cache_key}")
+                        print(f"[AIClient] [SAVE] 已写入缓存: {cache_key}")
                     except Exception as se:
-                        print(f"[AIClient] ⚠️ 缓存写入失败（跳过）: {se}")
+                        print(f"[AIClient] [WARN] 缓存写入失败（跳过）: {se}")
                 _sf_write_result(parsed, expect_json_value=True)
                 return parsed, at_cost
             except json.JSONDecodeError as e:
-                print(f"[AIClient] ❌ JSON 解析崩溃: {e}")
+                print(f"[AIClient] [ERR] JSON 解析崩溃: {e}")
                 # 尝试修复常见 AI 格式错误：未关闭的数组（用 } 代替了 ]）
                 repaired = _repair_json(json_str)
                 if repaired != json_str:
                     try:
                         parsed = json.loads(repaired)
                         _deduct()
-                        print(f"[AIClient] ✅ JSON 修复后解析成功")
+                        print(f"[AIClient] [OK] JSON 修复后解析成功")
                         if cache_key:
                             try:
                                 from api.core.redis_client import get_redis
@@ -383,7 +386,7 @@ class AIClient:
                         return parsed, at_cost
                     except json.JSONDecodeError:
                         pass
-                print(f"[AIClient] ⚠️ 失效的原始字符串: {repr(ai_content[:200])}")
+                print(f"[AIClient] [WARN] 失效的原始字符串: {repr(ai_content[:200])}")
                 _sf_write_error("AI Client Failed to parse response as JSON.")
                 # JSON 解析彻底失败 → 不扣费，抛出异常让上层处理
                 raise ValueError("AI Client Failed to parse response as JSON. Raw: " + ai_content)
@@ -394,10 +397,14 @@ class AIClient:
             if sf_enabled and sf_redis and sf_is_leader and sf_lock_key and sf_lock_token:
                 try:
                     current_lock = sf_redis.get(sf_lock_key)
-                    if current_lock == sf_lock_token:
+                    # Redis get() returns bytes; decode before comparing with str token
+                    lock_str = current_lock.decode('utf-8') if isinstance(current_lock, bytes) else current_lock
+                    if lock_str == sf_lock_token:
                         sf_redis.delete(sf_lock_key)
+                    else:
+                        print(f"[AIClient] [WARN] singleflight 锁 token 不匹配，跳过释放")
                 except Exception as sf_release_err:
-                    print(f"[AIClient] ⚠️ singleflight 解锁失败: {sf_release_err}")
+                    print(f"[AIClient] [WARN] singleflight 解锁失败: {sf_release_err}")
 
 
 
@@ -417,10 +424,10 @@ class AIClient:
             try:
                 user_obj = User.objects.get(id=user_id)
                 if user_obj.at_balance < 0:
-                    yield f"🚨 拦截：您的AT币余额不足({user_obj.at_balance})，请充值后重试。"
+                    yield f"[ALERT] 拦截：您的AT币余额不足({user_obj.at_balance})，请充值后重试。"
                     return
             except Exception as e:
-                yield f"🚨 账号预检异常: {e}"
+                yield f"[ALERT] 账号预检异常: {e}"
                 return
 
         headers = {'Content-Type': 'application/json'}
@@ -469,10 +476,10 @@ class AIClient:
             response = requests.post(self.base_url, headers=headers, json=payload, stream=True, timeout=120)
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            yield f"❌ HTTP Error: {e.response.status_code}\n{e.response.text}"
+            yield f"[ERR] HTTP Error: {e.response.status_code}\n{e.response.text}"
             return
         except Exception as e:
-            yield f"❌ API 请求失败 ({str(e)})"
+            yield f"[ERR] API 请求失败 ({str(e)})"
             return
 
         full_content = []
@@ -530,7 +537,7 @@ class AIClient:
                     except Exception:
                         pass
                 except Exception as e:
-                    print(f"[AIClient Stream] 💸 流式扣费失败: {e}")
+                    print(f"[AIClient Stream] [COST] 流式扣费失败: {e}")
 
 
 def _repair_json(json_str: str) -> str:
@@ -580,8 +587,8 @@ def refund_at(user_id: int, at_cost: int) -> None:
         user = User.objects.get(id=user_id)
         user.at_balance += at_cost
         user.save()
-        print(f"[AIClient] ↩️ 退款成功: +{at_cost}AT → 用户 {user_id}，余额 {user.at_balance}")
+        print(f"[AIClient] [REFUND] 退款成功: +{at_cost}AT → 用户 {user_id}，余额 {user.at_balance}")
     except Exception as e:
-        print(f"[AIClient] ⚠️ 退款失败: {e}")
+        print(f"[AIClient] [WARN] 退款失败: {e}")
 
 

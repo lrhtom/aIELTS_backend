@@ -13,7 +13,11 @@ from api.models import (
     Notebook, NotebookWord,
     VocabBook, Word, WordBookMembership,
     VocabFSRS, UserDailyLearningTime,
+    ArticleCopyCache, StoryModeCache,
 )
+from api.core.ai_client import AIClient
+from api.core.rate_limit import check_rate_limit
+import json
 from api.vocab.vocab_views import (
     _card_to_dict,
     _sync_notebook_mastery,
@@ -177,6 +181,7 @@ def _plan_dict(plan: LearningPlan, word_count: int | None = None, user=None, det
         'mastery_target': plan.mastery_target,
         'copy_repetitions': plan.copy_repetitions,
         'copy_review_days': plan.copy_review_days,
+        'article_review_days': plan.article_review_days,
         'word_count':     word_count if word_count is not None else plan.entries.count(),
         'studied_today':  studied_today,
         'studied_total':  studied_total,
@@ -362,8 +367,8 @@ class PlanDetailView(APIView):
                 plan.daily_count = daily_count
         if 'default_mode' in request.data:
             default_mode = str(request.data['default_mode']).strip().lower()
-            if default_mode not in {'flashcard', 'choice', 'write', 'copy'}:
-                return Response({'error': 'default_mode 必须是 flashcard/choice/write/copy 之一'}, status=status.HTTP_400_BAD_REQUEST)
+            if default_mode not in {'flashcard', 'choice', 'write', 'copy', 'article_copy', 'story_mode'}:
+                return Response({'error': 'default_mode 必须是 flashcard/choice/write/copy/article_copy/story_mode 之一'}, status=status.HTTP_400_BAD_REQUEST)
             plan.default_mode = default_mode
         if 'mastery_target' in request.data:
             try:
@@ -400,6 +405,15 @@ class PlanDetailView(APIView):
                     )
                 plan.copy_review_days = review_days
 
+        if 'article_review_days' in request.data:
+            try:
+                article_days = int(request.data['article_review_days'])
+                if not (0 <= article_days <= 365):
+                    raise ValueError
+            except (TypeError, ValueError):
+                return Response({'error': '文章抄写复习间隔天数必须在 0-365 之间'}, status=status.HTTP_400_BAD_REQUEST)
+            plan.article_review_days = article_days
+
         # bypass full_clean (no new-plan limit check on update)
         LearningPlan.objects.filter(pk=plan.pk).update(
             name=plan.name, daily_count=plan.daily_count,
@@ -407,6 +421,7 @@ class PlanDetailView(APIView):
             mastery_target=plan.mastery_target,
             copy_repetitions=plan.copy_repetitions,
             copy_review_days=plan.copy_review_days,
+            article_review_days=plan.article_review_days,
         )
         plan.refresh_from_db()
         return Response({'plan': _plan_dict(plan, user=request.user)})
@@ -826,3 +841,591 @@ class VocabBookWordsView(APIView):
         return Response({'words': words, 'total': total, 'page': page, 'page_size': page_size})
 
 
+# ─────────────────────────────────────────────────────────────────
+# Article Copy — AI-generated article for copying study mode
+# ─────────────────────────────────────────────────────────────────
+
+STORY_MODE_PROMPT = """
+You are a creative writer. Write an entertaining, highly dramatic, and slightly silly Chinese web novel excerpt (e.g., "霸道总裁" CEO romance, or dog-blood drama) (300-500 words).
+You MUST naturally embed ALL of the following IELTS target vocabulary words into the Chinese story: {words}
+
+Rules:
+1. The main narrative MUST be in Chinese.
+2. Every target English word MUST appear exactly once.
+3. When embedding a target word, you MUST wrap it in exact double brackets using the format [[English Word|Chinese Meaning]].
+   For example, instead of writing "提案", write: "陆氏集团的 [[proposition|提案]] 放在桌上..."
+4. Make the story highly engaging, exaggerated, and funny to help the student remember the words through dramatic context.
+5. Do NOT use markdown formatting in the article text.
+
+Return ONLY a JSON object (no markdown code block, no extra text) with these fields:
+{{
+    "story_title": "A funny dramatic title for the story in Chinese",
+    "story_text": "the full Chinese story with embedded English words using the [[word|meaning]] syntax"
+}}
+"""
+
+
+ARTICLE_COPY_PROMPT = """
+You are an IELTS English teacher. Write a natural, cohesive short article (200-400 words)
+that incorporates ALL of the following target vocabulary words: {words}
+
+Requirements:
+- The article must be natural English at IELTS Band 6-7 reading level
+- Every target word MUST appear exactly once in the article
+- The article should flow naturally as a coherent piece of writing on a single topic
+- Do NOT use markdown formatting in the article text
+
+Return ONLY a JSON object (no markdown code block, no extra text) with these three fields:
+{{
+    "article_title": "article title in English",
+    "article_text": "the full article text in English",
+    "article_translation": "Chinese translation of the full article"
+}}
+"""
+
+
+ARTICLE_SEPARATOR = '\n\n\n\n'  # 4 blank lines between articles
+
+def _build_boundaries(text: str, translations: str = '') -> list[dict]:
+    """从拼接文本中重建 article_boundaries（含翻译）。"""
+    boundaries = []
+    parts = text.split(ARTICLE_SEPARATOR)
+    trans_parts = translations.split(ARTICLE_SEPARATOR) if translations else []
+    offset = 0
+    sep_len = len(ARTICLE_SEPARATOR)
+    for i, part in enumerate(parts):
+        start = offset
+        end = offset + len(part)
+        translation = trans_parts[i] if i < len(trans_parts) else ''
+        boundaries.append({'start': start, 'end': end, 'title': f'Article {i + 1}', 'translation': translation})
+        offset = end + sep_len
+    return boundaries
+
+
+class ArticleCopyGenerateView(APIView):
+    """GET /plans/:id/article-copy/ — generate or retrieve today's article(s)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        plan = get_object_or_404(LearningPlan, pk=pk, user=request.user)
+        today = _user_today()
+        force_refresh = str(request.query_params.get('refresh', '')).strip().lower() in {'1', 'true', 'yes'}
+
+        entries = list(plan.entries.all())
+        word_zh_map = {e.word.lower(): e.zh for e in entries}
+
+        # Check cache first
+        if not force_refresh:
+            cached = ArticleCopyCache.objects.filter(
+                user=request.user, plan=plan, date=today,
+            ).first()
+            if cached:
+                meanings = {w: word_zh_map.get(w.lower(), '') for w in cached.word_positions.keys()}
+                boundaries = _build_boundaries(cached.article_text, cached.article_translation)
+                # Fill in titles from cached article_title
+                titles = cached.article_title.split('\n')
+                for i, b in enumerate(boundaries):
+                    if i < len(titles):
+                        b['title'] = titles[i]
+                return Response({
+                    'article_title': cached.article_title,
+                    'article_text': cached.article_text,
+                    'article_translation': cached.article_translation,
+                    'typed_text': cached.typed_text,
+                    'word_positions': cached.word_positions,
+                    'word_meanings': meanings,
+                    'article_boundaries': boundaries,
+                    'cached': True,
+                    'atConsumed': 0,
+                })
+
+        # Rate limit for generation
+        limit_resp = check_rate_limit(request.user.id, 'article_copy_generate', max_calls=5, window=300)
+        if limit_resp:
+            return limit_resp
+
+        if not entries:
+            return Response({'error': '计划中没有单词，请先添加单词'}, status=400)
+
+        word_zh_map = {e.word: e.zh for e in entries}
+        all_cards = list(
+            VocabFSRS.objects.filter(user=request.user, word__in=word_zh_map.keys(), plan_id=plan.pk).order_by('due')
+        )
+        _, session_cards, _ = _build_today_summary(plan, all_cards)
+        target_words = [c.word for c in session_cards]
+
+        if not target_words:
+            # 复习模式：今日额度已满，使用今日已复习的卡片生成
+            today_cards = list(
+                VocabFSRS.objects.filter(
+                    user=request.user,
+                    plan_id=plan.pk,
+                    last_review__date=today,
+                ).order_by('-last_review')
+            )
+            target_words = [c.word for c in today_cards]
+
+        if not target_words:
+            return Response({'error': '今天没有需要学习的单词'}, status=400)
+
+        # ── 分组算法：1-200→1篇, 200-300→2篇, 300-400→3篇, ... ────────────
+        word_count = len(target_words)
+        num_groups = max(1, (word_count - 1) // 100)
+        group_size = (word_count + num_groups - 1) // num_groups  # ceil division
+        word_groups = [target_words[i:i + group_size] for i in range(0, word_count, group_size)]
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        client = AIClient(provider=provider)
+
+        import re
+        all_titles = []
+        all_texts = []
+        all_translations = []
+        merged_positions = {}
+        total_at_cost = 0
+
+        for gi, group_words in enumerate(word_groups):
+            words_str = ', '.join(group_words)
+            prompt = ARTICLE_COPY_PROMPT.format(words=words_str)
+            scope = f'article_copy_{plan.pk}_{today.isoformat()}_g{gi}'
+
+            try:
+                response_data, at_cost = client.generate(
+                    [{'role': 'user', 'content': prompt}],
+                    expect_json=True,
+                    temperature=0.7,
+                    user_id=request.user.id,
+                    singleflight_scope=scope,
+                )
+                total_at_cost += at_cost
+            except Exception as e:
+                return Response({'error': f'AI 生成第{gi + 1}组失败: {str(e)}'}, status=500)
+
+            if not isinstance(response_data, dict):
+                return Response({'error': f'AI 第{gi + 1}组返回的不是合法的 JSON 对象'}, status=500)
+
+            title = str(response_data.get('article_title', f'Article {gi + 1}')).strip()
+            text = str(response_data.get('article_text', '')).strip()
+            translation = str(response_data.get('article_translation', '')).strip()
+
+            if not text:
+                print(f'[ArticleCopy] 第{gi + 1}组 article_text 为空。响应: {json.dumps(response_data, ensure_ascii=False)[:300]}')
+                return Response({'error': f'AI 第{gi + 1}组返回内容不完整（缺少 article_text）'}, status=500)
+
+            # Normalize line endings
+            text = text.replace('\r\n', '\n').replace('\r', '\n')
+
+            all_titles.append(title)
+            all_texts.append(text)
+            all_translations.append(translation)
+
+            # Calculate word_positions for this group (local to this sub-article)
+            for word in group_words:
+                pattern = re.compile(r'\b' + re.escape(word) + r'\b', re.IGNORECASE)
+                matches = [{'start': m.start(), 'end': m.end()} for m in pattern.finditer(text)]
+                if matches:
+                    merged_positions[word.lower()] = matches
+
+            # Append missing words to this sub-article
+            missing = [w for w in group_words if w.lower() not in merged_positions]
+            if missing:
+                text += "\n\nAdditional vocabulary: "
+                for w in missing:
+                    start_idx = len(text)
+                    text += w
+                    merged_positions[w.lower()] = [{'start': start_idx, 'end': len(text)}]
+                    text += ", "
+                text = text.rstrip(", ")
+                all_texts[-1] = text  # update the stored text
+
+        # ── 拼接所有文章 ───────────────────────────────────────────────────
+        concatenated_text = ARTICLE_SEPARATOR.join(all_texts)
+        concatenated_titles = '\n'.join(all_titles)
+        concatenated_translations = ARTICLE_SEPARATOR.join(all_translations)
+
+        # ── Offset word_positions for articles after the first ─────────────
+        sep_len = len(ARTICLE_SEPARATOR)
+        offset = 0
+        for gi, text in enumerate(all_texts):
+            if gi == 0:
+                offset = len(text) + sep_len
+                continue
+            # Shift all positions in this group by offset
+            for word in word_groups[gi]:
+                key = word.lower()
+                if key in merged_positions and merged_positions[key]:
+                    merged_positions[key] = [
+                        {'start': p['start'] + offset, 'end': p['end'] + offset}
+                        for p in merged_positions[key]
+                    ]
+            offset += len(text) + sep_len
+
+        # ── Build article_boundaries ───────────────────────────────────────
+        boundaries = []
+        pos = 0
+        for gi, text in enumerate(all_texts):
+            boundaries.append({
+                'start': pos,
+                'end': pos + len(text),
+                'title': all_titles[gi],
+                'translation': all_translations[gi],
+            })
+            pos += len(text) + sep_len
+
+        # ── Persist to cache ───────────────────────────────────────────────
+        ArticleCopyCache.objects.update_or_create(
+            user=request.user,
+            plan=plan,
+            date=today,
+            defaults={
+                'article_title': concatenated_titles[:200],
+                'article_text': concatenated_text,
+                'article_translation': concatenated_translations,
+                'word_positions': merged_positions,
+                'ai_provider': provider,
+            },
+        )
+
+        meanings = {w: word_zh_map.get(w.lower(), '') for w in merged_positions.keys()}
+
+        return Response({
+            'article_title': concatenated_titles,
+            'article_text': concatenated_text,
+            'article_translation': concatenated_translations,
+            'word_positions': merged_positions,
+            'word_meanings': meanings,
+            'article_boundaries': boundaries,
+            'cached': False,
+            'atConsumed': total_at_cost,
+        })
+
+
+class ArticleCopyProgressView(APIView):
+    """POST /plans/:id/article-copy/progress/ — save typed_text progress."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        plan = get_object_or_404(LearningPlan, pk=pk, user=request.user)
+        today = _user_today()
+        typed_text = str(request.data.get('typed_text', '') or '')
+        ArticleCopyCache.objects.filter(user=request.user, plan=plan, date=today).update(
+            typed_text=typed_text,
+        )
+        return Response({'ok': True})
+
+
+class ArticleCopyCompleteView(APIView):
+    """POST /plans/:id/article-copy/complete/ — mark all today's words as reviewed."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        plan = get_object_or_404(LearningPlan, pk=pk, user=request.user)
+        user = request.user
+
+        try:
+            review_days = int(request.data.get('review_days', 7))
+            if not (0 <= review_days <= 365):
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response({'error': 'review_days 必须在 0-365 之间'}, status=400)
+
+        today = _user_today()
+
+        # 修复问题3：从当日文章缓存的 word_positions 中读取实际目标单词
+        # 而非重新计算当前队列，避免中途使用其他模式导致队列变化，结算错误。
+        cached = ArticleCopyCache.objects.filter(
+            user=user, plan=plan, date=today,
+        ).first()
+
+        if not cached:
+            return Response({'error': '未找到今日文章，请先进入文章抄写模式'}, status=400)
+
+        target_words = list(cached.word_positions.keys()) if isinstance(cached.word_positions, dict) else []
+
+        if not target_words:
+            return Response({'error': '文章中没有有效的目标单词'}, status=400)
+
+        # 获取这些单词在本计划中对应的中文释义
+        entries_map = {e.word: e.zh for e in plan.entries.filter(word__in=target_words)}
+
+        now = timezone.now()
+        due_map = {}
+        marked_count = 0
+
+        for word in target_words:
+            zh = entries_map.get(word, '')
+            fsrs, _ = VocabFSRS.objects.get_or_create(
+                user=user,
+                word=word,
+                plan_id=plan.pk,
+                defaults={'zh': zh, 'due': now},
+            )
+
+            fsrs.scheduled_days = review_days
+            if review_days > 0:
+                fsrs.due = _next_day_midnight(now, review_days)
+                fsrs.state = 2  # Review
+            else:
+                fsrs.due = now
+                fsrs.state = 2
+
+            update_fields = ['due', 'scheduled_days', 'state']
+
+            if fsrs.state == 2:
+                if fsrs.stability <= 0:
+                    fsrs.stability = 1.0
+                    update_fields.append('stability')
+                if fsrs.difficulty <= 0:
+                    fsrs.difficulty = 5.0
+                    update_fields.append('difficulty')
+
+            fsrs.last_review = now
+            fsrs.reps = max(1, int(fsrs.reps or 0) + 1)
+            update_fields.extend(['last_review', 'reps'])
+
+            fsrs.save(update_fields=update_fields)
+
+            _sync_notebook_mastery(user, word, fsrs)
+            due_map[word] = fsrs.due.isoformat()
+            marked_count += 1
+
+        return Response({
+            'marked_count': marked_count,
+            'due_map': due_map,
+        })
+
+
+# ─────────────────────────────────────────────────────────────────
+# Story Mode — Click-to-learn story reading mode
+# ─────────────────────────────────────────────────────────────────
+
+class StoryModeGenerateView(APIView):
+    """GET /plans/:id/story-mode/ — generate or retrieve today's story."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        plan = get_object_or_404(LearningPlan, pk=pk, user=request.user)
+        today = _user_today()
+        force_refresh = str(request.query_params.get('refresh', '')).strip().lower() in {'1', 'true', 'yes'}
+
+        entries = list(plan.entries.all())
+        word_zh_map = {e.word.lower(): e.zh for e in entries}
+
+        if not force_refresh:
+            cached = StoryModeCache.objects.filter(
+                user=request.user, plan=plan, date=today,
+            ).first()
+            if cached:
+                boundaries = _build_boundaries(cached.story_text)
+                titles = cached.story_title.split('\n')
+                for i, b in enumerate(boundaries):
+                    if i < len(titles):
+                        b['title'] = titles[i]
+                return Response({
+                    'story_title': cached.story_title,
+                    'story_text': cached.story_text,
+                    'clicked_words': cached.clicked_words,
+                    'target_words': cached.target_words,
+                    'article_boundaries': boundaries,
+                    'cached': True,
+                    'atConsumed': 0,
+                })
+
+        limit_resp = check_rate_limit(request.user.id, 'story_mode_generate', max_calls=5, window=300)
+        if limit_resp:
+            return limit_resp
+
+        if not entries:
+            return Response({'error': '计划中没有单词，请先添加单词'}, status=400)
+
+        all_cards = list(
+            VocabFSRS.objects.filter(user=request.user, word__in=[e.word for e in entries], plan_id=plan.pk).order_by('due')
+        )
+        _, session_cards, _ = _build_today_summary(plan, all_cards)
+        target_words = [c.word for c in session_cards]
+
+        if not target_words:
+            # 复习模式：今日额度已满，使用今日已复习的卡片生成
+            today_cards = list(
+                VocabFSRS.objects.filter(
+                    user=request.user,
+                    plan_id=plan.pk,
+                    last_review__date=today,
+                ).order_by('-last_review')
+            )
+            target_words = [c.word for c in today_cards]
+
+        if not target_words:
+            return Response({'error': '今天没有需要学习的单词'}, status=400)
+
+        word_count = len(target_words)
+        num_groups = max(1, (word_count - 1) // 100)
+        group_size = (word_count + num_groups - 1) // num_groups
+        word_groups = [target_words[i:i + group_size] for i in range(0, word_count, group_size)]
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        client = AIClient(provider=provider)
+
+        all_titles = []
+        all_texts = []
+        total_at_cost = 0
+
+        for gi, group_words in enumerate(word_groups):
+            words_str = ', '.join(group_words)
+            prompt = STORY_MODE_PROMPT.format(words=words_str)
+            scope = f'story_mode_{plan.pk}_{today.isoformat()}_g{gi}'
+
+            try:
+                response_data, at_cost = client.generate(
+                    [{'role': 'user', 'content': prompt}],
+                    expect_json=True,
+                    temperature=0.8,
+                    user_id=request.user.id,
+                    singleflight_scope=scope,
+                )
+                total_at_cost += at_cost
+            except Exception as e:
+                return Response({'error': f'AI 生成第{gi + 1}组失败: {str(e)}'}, status=500)
+
+            if not isinstance(response_data, dict):
+                return Response({'error': f'AI 第{gi + 1}组返回的不是合法的 JSON 对象'}, status=500)
+
+            title = str(response_data.get('story_title', f'Story {gi + 1}')).strip()
+            text = str(response_data.get('story_text', '')).strip()
+
+            if not text:
+                return Response({'error': f'AI 第{gi + 1}组返回内容不完整（缺少 story_text）'}, status=500)
+
+            text = text.replace('\r\n', '\n').replace('\r', '\n')
+
+            # Validate missing words
+            text_lower = text.lower()
+            missing = [w for w in group_words if w.lower() not in text_lower]
+            if missing:
+                text += "\n\n[附加] "
+                for w in missing:
+                    text += f"[[{w}|{word_zh_map.get(w.lower(), '')}]], "
+                text = text.rstrip(", ")
+
+            all_titles.append(title)
+            all_texts.append(text)
+
+        concatenated_text = ARTICLE_SEPARATOR.join(all_texts)
+        concatenated_titles = '\n'.join(all_titles)
+
+        StoryModeCache.objects.update_or_create(
+            user=request.user,
+            plan=plan,
+            date=today,
+            defaults={
+                'story_title': concatenated_titles,
+                'story_text': concatenated_text,
+                'target_words': target_words,
+                'ai_provider': provider,
+            }
+        )
+        
+        boundaries = _build_boundaries(concatenated_text)
+        titles = concatenated_titles.split('\n')
+        for i, b in enumerate(boundaries):
+            if i < len(titles):
+                b['title'] = titles[i]
+
+        return Response({
+            'story_title': concatenated_titles,
+            'story_text': concatenated_text,
+            'clicked_words': [],
+            'target_words': target_words,
+            'article_boundaries': boundaries,
+            'cached': False,
+            'atConsumed': total_at_cost,
+        })
+
+
+class StoryModeSaveProgressView(APIView):
+    """POST /plans/:id/story-mode/save/"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        plan = get_object_or_404(LearningPlan, pk=pk, user=request.user)
+        clicked_words = request.data.get('clicked_words', [])
+        
+        if not isinstance(clicked_words, list):
+            return Response({'error': 'clicked_words must be a list'}, status=400)
+
+        today = _user_today()
+        cache = StoryModeCache.objects.filter(user=request.user, plan=plan, date=today).first()
+        if cache:
+            cache.clicked_words = clicked_words
+            cache.save(update_fields=['clicked_words', 'updated_at'])
+            return Response({'status': 'ok'})
+        return Response({'error': 'No story generated today'}, status=404)
+
+
+class StoryModeCompleteView(APIView):
+    """POST /plans/:id/story-mode/complete/"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        plan = get_object_or_404(LearningPlan, pk=pk, user=request.user)
+        today = _user_today()
+        review_days = int(request.data.get('reviewDays', 0))
+
+        cache = StoryModeCache.objects.filter(user=request.user, plan=plan, date=today).first()
+        if not cache:
+            return Response({'error': 'No story cache found for today'}, status=400)
+
+        target_words = cache.target_words
+        if not target_words:
+            return Response({'error': 'No target words found'}, status=400)
+
+        user = request.user
+        entries = {e.word.lower(): e.zh for e in plan.entries.all()}
+        
+        now = timezone.now()
+        marked_count = 0
+        due_map = {}
+
+        for w in target_words:
+            w_low = w.lower()
+            zh = entries.get(w_low, '')
+            
+            fsrs, _ = VocabFSRS.objects.get_or_create(
+                user=user,
+                plan=plan,
+                word=w_low,
+                defaults={'zh': zh, 'due': now},
+            )
+
+            fsrs.scheduled_days = review_days
+            if review_days > 0:
+                fsrs.due = _next_day_midnight(now, review_days)
+                fsrs.state = 2  # Review
+            else:
+                fsrs.due = now
+                fsrs.state = 2
+
+            update_fields = ['due', 'scheduled_days', 'state']
+
+            if fsrs.state == 2:
+                if fsrs.stability <= 0:
+                    fsrs.stability = 1.0
+                    update_fields.append('stability')
+                if fsrs.difficulty <= 0:
+                    fsrs.difficulty = 5.0
+                    update_fields.append('difficulty')
+
+            fsrs.last_review = now
+            fsrs.reps = max(1, int(fsrs.reps or 0) + 1)
+            update_fields.extend(['last_review', 'reps'])
+
+            fsrs.save(update_fields=update_fields)
+
+            _sync_notebook_mastery(user, w_low, fsrs)
+            due_map[w_low] = fsrs.due.isoformat()
+            marked_count += 1
+
+        return Response({
+            'marked_count': marked_count,
+            'due_map': due_map,
+        })

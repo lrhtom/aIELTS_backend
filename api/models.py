@@ -333,6 +333,7 @@ class LearningPlan(models.Model):
     mastery_target = models.IntegerField(default=2, verbose_name='连续答对目标次数')
     copy_repetitions = models.PositiveSmallIntegerField(default=3, verbose_name='抄写模式每词次数')
     copy_review_days = models.PositiveIntegerField(default=2, verbose_name='抄写完成后复习间隔天数')
+    article_review_days = models.PositiveIntegerField(default=7, verbose_name='文章抄写完成后复习间隔天数')
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
@@ -376,6 +377,78 @@ class LearningPlanEntry(models.Model):
     def __str__(self):
         return f'{self.word} → {self.plan.name}'
 
+
+class ArticleCopyCache(models.Model):
+    """Per-user per-plan per-day AI-generated article for the article-copy study mode."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='article_copy_caches',
+        verbose_name='用户',
+    )
+    plan = models.ForeignKey(
+        LearningPlan,
+        on_delete=models.CASCADE,
+        related_name='article_copy_caches',
+        verbose_name='学习计划',
+    )
+    date = models.DateField(verbose_name='学习日期')
+    article_title = models.CharField(max_length=200, blank=True, verbose_name='文章标题')
+    article_text = models.TextField(verbose_name='文章全文')
+    article_translation = models.TextField(blank=True, default='', verbose_name='文章中文翻译')
+    typed_text = models.TextField(blank=True, default='', verbose_name='用户已输入的内容')
+    word_positions = models.JSONField(default=dict, verbose_name='目标词位置映射')
+    ai_provider = models.CharField(max_length=30, default='deepseek', verbose_name='生成模型')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'vocab_article_copy_cache'
+        verbose_name = '文章抄写缓存'
+        verbose_name_plural = '文章抄写缓存列表'
+        unique_together = ('user', 'plan', 'date')
+        indexes = [
+            models.Index(fields=['user', 'plan', 'date'], name='idx_acc_user_plan_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} plan={self.plan_id} {self.date}'
+
+
+class StoryModeCache(models.Model):
+    """Per-user per-plan per-day AI-generated story for the story click-to-learn mode."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='story_mode_caches',
+        verbose_name='用户',
+    )
+    plan = models.ForeignKey(
+        LearningPlan,
+        on_delete=models.CASCADE,
+        related_name='story_mode_caches',
+        verbose_name='学习计划',
+    )
+    date = models.DateField(verbose_name='学习日期')
+    story_title = models.CharField(max_length=200, blank=True, verbose_name='故事标题')
+    story_text = models.TextField(verbose_name='故事全文')
+    clicked_words = models.JSONField(default=list, verbose_name='已点击的单词列表')
+    target_words = models.JSONField(default=list, verbose_name='目标单词列表')
+    ai_provider = models.CharField(max_length=30, default='deepseek', verbose_name='生成模型')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'vocab_story_mode_cache'
+        verbose_name = '剧情模式缓存'
+        verbose_name_plural = '剧情模式缓存列表'
+        unique_together = ('user', 'plan', 'date')
+        indexes = [
+            models.Index(fields=['user', 'plan', 'date'], name='idx_smc_user_plan_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} plan={self.plan_id} {self.date}'
 
 class UserDailyLearningTime(models.Model):
     """Per-user daily accumulated learning time shared across all plans."""

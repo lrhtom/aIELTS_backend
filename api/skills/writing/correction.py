@@ -23,6 +23,7 @@ Your evaluation MUST be returned as a raw JSON object containing EXACTLY these k
       "original": (string) The exact original sentence from the user's essay that contains errors or awkward phrasing,
       "improved": (string) The corrected and polished version of the sentence,
       "error_type": (string) Categorize the main issue (e.g., "Grammar", "Vocabulary", "Coherence", "Punctuation"),
+      "severity": (string) Set to "warning" for hard errors (grammar, spelling, punctuation) or "suggestion" for soft improvements (better vocab, phrasing),
       "explanation": (string) A brief explanation of why it was wrong and why the improvement is better
     }
   ],
@@ -33,13 +34,21 @@ Your evaluation MUST be returned as a raw JSON object containing EXACTLY these k
       "context": (string) A short example phrase showing how to use the upgraded word in the context of the essay
     }
   ],
+  "Topic_Vocabulary": [
+    {
+      "word": (string) A highly relevant, band 8+ vocabulary word or collocation related to the essay topic that the user could have used,
+      "meaning": (string) The meaning/translation of the word,
+      "example": (string) An example sentence using this word in the context of the essay topic
+    }
+  ],
+  "Revised_Essay": (string) A corrected version of the user's original essay. Fix all grammatical errors and awkward phrasing (applying your Sentence_Corrections and Vocabulary_Upgrades) but keep the original sentence structure, tone, and level as much as possible. Do not completely rewrite it into a Band 8+ essay. Use \\n\\n to separate paragraphs.,
   "Model_Essay": (string) A complete rewritten version of the user's essay targeting Band 8+. Keep the same topic, position and main arguments as the original. Fix ALL grammatical errors, significantly upgrade vocabulary range and accuracy, improve coherence, cohesion and task achievement. Write naturally and fluently as an expert writer would. Use \\\\n\\\\n to separate paragraphs.
 }
 
 %s
 
 LANGUAGE INSTRUCTION: %s
-The "Model_Essay" must always be written in English. The "original" fields must match the user's text exactly. The "improved", "upgrades", and "context" must be in English. The "error_type" should be short and in English. The "Feedback", "Actionable_Advice", and "explanation" fields MUST be written in the language specified in the LANGUAGE INSTRUCTION.
+The "Model_Essay" must always be written in English. The "original" fields must match the user's text exactly. The "improved", "upgrades", "context", "word", and "example" must be in English. The "error_type" and "severity" should be short and in English. The "Feedback", "Actionable_Advice", "meaning" and "explanation" fields MUST be written in the language specified in the LANGUAGE INSTRUCTION.
 
 CRITICAL: Return ONLY valid JSON. Do NOT wrap in ```json or any markdown. The Model_Essay value must be a single JSON string with \\\\n\\\\n for paragraph breaks.
 """

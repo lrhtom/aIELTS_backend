@@ -15,11 +15,16 @@ pymysql.install_as_MySQLdb()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-soqv)xa)9&6+x534k&r=!%3i)8btzj@y-3u5w%q8+do1&!wr_p')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-dev-only-change-in-production-xxxxxxxxxx'
+    else:
+        raise RuntimeError('DJANGO_SECRET_KEY environment variable is required in production')
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -46,8 +51,7 @@ MIDDLEWARE = [
 ]
 
 # CORS — 允许前端开发服务器跨域
-CORS_ALLOW_ALL_ORIGINS = True
-# 在开发环境中允许所有来源；生产环境可按需关闭 allow-all 并使用白名单。
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # 仅在开发模式下允许所有来源
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
@@ -82,6 +86,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+ASGI_APPLICATION = 'backend.asgi.application'
 
 
 def _get_database_host() -> str:

@@ -32,8 +32,12 @@ EXPOSE 3000 22
 # SSH_PASSWORD 通过 ClawCloud 环境变量注入（必填）
 # SSH_USER / SSH_USER_PASSWORD 可选：创建普通用户（更安全）
 CMD ["sh", "-c", \
-     "echo \"root:${SSH_PASSWORD:-changeme}\" | chpasswd && \
-      service ssh start && \
+     if [ -n \"$SSH_PASSWORD\" ]; then echo \"root:${SSH_PASSWORD}\" | chpasswd && service ssh start; fi && \
       python manage.py migrate --noinput && \
       python manage.py collectstatic --noinput --verbosity 0 && \
-      gunicorn --bind 0.0.0.0:3000 --workers 2 --timeout 120 --access-logfile - backend.wsgi:application"]
+      gunicorn backend.asgi:application \
+        --bind 0.0.0.0:3000 \
+        --workers 4 \
+        --worker-class uvicorn.workers.UvicornWorker \
+        --timeout 120 \
+        --access-logfile -"]

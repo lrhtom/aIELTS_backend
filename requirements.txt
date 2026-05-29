@@ -9,3 +9,7 @@ matplotlib
 upstash-redis
 pymysql
 gunicorn
+uvicorn
+httpx
+edge-tts
+Pillow
