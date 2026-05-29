@@ -16,7 +16,14 @@ Your evaluation MUST be returned as a raw JSON object containing EXACTLY these k
   "Lexical_Resource": (float) Score for Lexical Resource,
   "Grammatical_Range": (float) Score for Grammatical Range and Accuracy,
   "Overall_Band": (float) The overall band score (average of the 4 criteria, rounded to nearest 0.5),
-  "Feedback": (string) Detailed examiner-style commentary covering all 4 criteria with specific examples from the essay,
+  "Feedback_Strengths": [(string)] An array of 2-3 specific strengths of the essay,
+  "Feedback_Improvements": [(string)] An array of 2-3 specific areas that need improvement,
+  "Feedback_Tasks": [(string)] An array of 1-2 specific practice tasks the user should do next,
+  "Feedback_Path": [(string)] An array of 1-2 strategic paths to reach a higher band score,
+  "Feedback_TR": (string) Detailed examiner-style commentary evaluating Task Response / Task Achievement,
+  "Feedback_CC": (string) Detailed examiner-style commentary evaluating Coherence and Cohesion,
+  "Feedback_LR": (string) Detailed examiner-style commentary evaluating Lexical Resource,
+  "Feedback_GRA": (string) Detailed examiner-style commentary evaluating Grammatical Range and Accuracy,
   "Actionable_Advice": [(string)] An array of 2-4 highly specific, actionable steps the user must take to improve their next essay (e.g. "Focus on subject-verb agreement", "Use more cohesive devices in the body paragraphs"),
   "Sentence_Corrections": [
     {
