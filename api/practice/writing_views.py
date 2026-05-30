@@ -15,6 +15,10 @@ from api.skills.writing.correction import (
     SKILL_WRITING_WORD_FREQUENCY as WORD_FREQUENCY_TEMPLATE,
 )
 from api.skills.writing.chat import skill_writing_chat_system
+from api.skills.writing.perspective import (
+    SKILL_WRITING_PERSPECTIVE,
+    SKILL_WRITING_PERSPECTIVE_USER,
+)
 
 
 
@@ -345,5 +349,58 @@ def writing_chat(request):
             'atConsumed': at_cost
         })
 
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def perspective_train(request):
+    """
+    POST /api/writing/perspective/train：接收用户输入的雅思写作题目，返回高分观点和常见错误观点。
+    """
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'writing_perspective', max_calls=10, window=60)
+        if limit_resp:
+            return limit_resp
+
+        user_topic = request.data.get('topic', '').strip()
+        if not user_topic:
+            return JsonResponse({'error': 'Topic is required.'}, status=400)
+
+        ui_lang = request.data.get('lang', 'en')
+        lang_instruction = (
+            'Write the "bad_reason" field in Simplified Chinese (中文).'
+            if ui_lang == 'zh'
+            else 'Write the "bad_reason" field in English.'
+        )
+
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+        client = AIClient(provider=provider)
+
+        system_prompt = SKILL_WRITING_PERSPECTIVE % lang_instruction
+        user_prompt = SKILL_WRITING_PERSPECTIVE_USER % user_topic
+
+        messages = [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_prompt},
+        ]
+
+        sf_scope = _build_singleflight_scope('writing_perspective_train', {'topic': user_topic, 'lang': ui_lang})
+
+        result_data, at_cost = client.generate(
+            messages,
+            expect_json=True,
+            user_id=request.user.id,
+            singleflight_scope=sf_scope,
+        )
+
+        result_data['atConsumed'] = at_cost
+        return JsonResponse(result_data)
+
+    except json.JSONDecodeError as e:
+        return JsonResponse({'error': f'Failed to parse AI response: {str(e)}'}, status=500)
+    except ValueError as ve:
+        return JsonResponse({'error': str(ve)}, status=500)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
