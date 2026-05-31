@@ -90,7 +90,6 @@ urlpatterns = [
     path('speaking/bank/part3/generate', speaking_bank_views.bank_generate_part3, name='bank_generate_part3'),
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
     path('writing/chat', writing_views.writing_chat, name='writing_chat'),
-    path('writing/perspective/train', writing_views.perspective_train, name='perspective_train'),
     path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
     path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
     path('writing/task2/generate', writing_task2_views.generate_task2, name='generate_task2'),

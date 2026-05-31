@@ -70,7 +70,10 @@ Write 2-3 sentences forming a proper introduction:
 Provide 2 body paragraph arguments:
 - `body1` and `body2`: Each has:
   - `main_idea_en` / `main_idea_zh`: One clear topic sentence. CRITICAL RULE FOR ALL TOPIC TYPES: Each paragraph MUST focus on exactly ONE central idea (One idea per paragraph principle) to ensure depth of explanation. NEVER list multiple points in one paragraph under ANY circumstances. If the prompt asks for plural things, group them under a single thematic umbrella or focus entirely on the most critical one.
-  - `explanation_en` / `explanation_zh`: 2-4 sentences explaining the reasoning
+  - `explanation_en` / `explanation_zh`: Exactly 3 sentences explaining the reasoning. MUST strictly follow a 3-step logical chain: (1) Background/Premise (2) Logical Expectation/Consequence (3) Hypothetical consequence if not done.
+  - `explanation_steps`: Array of exactly 3 objects breaking down the explanation above. Each object has:
+    - `step_name`: The logical label (must be "背景", "顺推", or "反推")
+    - `en` / `zh`: The exact sentence from explanation_en/zh corresponding to this step.
   - `example_en` / `example_zh`: A concrete real-world example
   - `bad_examples`: Array of exactly 6 flawed versions demonstrating different error types: "wordy", "absolute", "superficial", "illogical", "colloquial", "example_dump". Each object has:
     - `type`: The error type string
@@ -105,6 +108,9 @@ Return ONLY valid JSON. No markdown fences:
     "body1": {
       "main_idea_en": "...", "main_idea_zh": "...",
       "explanation_en": "...", "explanation_zh": "...",
+      "explanation_steps": [
+        {"step_name": "...", "en": "...", "zh": "..."}
+      ],
       "example_en": "...", "example_zh": "...",
       "bad_examples": [
         {"type": "wordy", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
@@ -113,6 +119,9 @@ Return ONLY valid JSON. No markdown fences:
     "body2": {
       "main_idea_en": "...", "main_idea_zh": "...",
       "explanation_en": "...", "explanation_zh": "...",
+      "explanation_steps": [
+        {"step_name": "...", "en": "...", "zh": "..."}
+      ],
       "example_en": "...", "example_zh": "...",
       "bad_examples": [
         {"type": "wordy", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
