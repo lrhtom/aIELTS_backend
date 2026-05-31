@@ -8,6 +8,8 @@ from .practice import speaking_bank_views
 from .practice import writing_views
 from .practice import writing_chart_views
 from .practice import writing_task2_views
+from .practice import writing_ai_teacher_views
+from .practice import writing_task1_ai_teacher_views
 from .extra import prompt_views
 from .auth import auth_views
 from .auth import balance_views
@@ -95,6 +97,8 @@ urlpatterns = [
     path('writing/task2/evaluate', writing_task2_views.evaluate_task2, name='evaluate_task2'),
     path('writing/task2/opinion-drill/generate', writing_task2_views.generate_opinion_drill_questions, name='generate_opinion_drill_questions'),
     path('writing/task2/opinion-drill/evaluate', writing_task2_views.evaluate_opinion_drill_answer, name='evaluate_opinion_drill_answer'),
+    path('writing/ai-teacher/generate', writing_ai_teacher_views.generate_ai_teacher_lesson, name='generate_ai_teacher_lesson'),
+    path('writing/task1-ai-teacher/generate', writing_task1_ai_teacher_views.generate_task1_ai_teacher_lesson, name='generate_task1_ai_teacher_lesson'),
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
     path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),
     path('prompts/<int:pk>/favorite/', prompt_views.prompt_favorite, name='prompt_favorite'),
