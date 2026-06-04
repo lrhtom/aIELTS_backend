@@ -455,9 +455,10 @@ class ChangeUsernameView(APIView):
         if user.at_balance < COST:
             return Response({'error': f'AT 币余额不足，需要 {COST:,} AT'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user.at_balance -= COST
+        from api.models import TransactionRecord
+        TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, -COST, '修改用户名')
         user.username = new_username
-        user.save(update_fields=['username', 'at_balance', 'updated_at'])
+        user.save(update_fields=['username', 'updated_at'])
 
         return Response({
             'message': f'用户名已修改为 {new_username}，消耗 {COST:,} AT 币',

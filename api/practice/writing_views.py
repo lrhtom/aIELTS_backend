@@ -350,4 +350,29 @@ def writing_chat(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def get_writing_synonyms(request):
+    words = request.data.get('words', [])
+    context_text = request.data.get('context', '')
+    if not words or not isinstance(words, list):
+        return JsonResponse({'error': 'invalid words list'}, status=400)
 
+    prompt = f"""For the following English words, provide exactly 3 simple, easy-to-understand synonym replacements for each.
+The synonyms MUST fit well within the context of the essay provided below. Ensure they preserve the original meaning but add variety to the vocabulary.
+Format the response strictly as a JSON object where the keys are the original words and the values are arrays of 3 synonym strings.
+
+Words to replace: {', '.join(words)}
+
+Essay Context:
+{context_text}"""
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'writing_synonyms', max_calls=30, window=60)
+        if limit_resp:
+            return limit_resp
+        ai = AIClient()
+        result_dict, at_cost = ai.generate([{'role': 'user', 'content': prompt}], expect_json=True, user_id=request.user.id)
+        
+        return JsonResponse({'synonyms': result_dict, 'atConsumed': at_cost})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

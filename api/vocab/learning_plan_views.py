@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Count
+from django.db.models import Count, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -256,8 +256,13 @@ class LearningTimeTodayView(APIView):
         )
 
         if elapsed_seconds > 0:
-            row.total_seconds += elapsed_seconds
+            # Check for 24h limit before updating
+            if row.total_seconds + elapsed_seconds <= 86400:
+                row.total_seconds = F('total_seconds') + elapsed_seconds
+            else:
+                row.total_seconds = 86400
             row.save(update_fields=['total_seconds', 'updated_at'])
+            row.refresh_from_db(fields=['total_seconds'])
 
         return Response({
             'study_date': today.isoformat(),
@@ -429,9 +434,13 @@ class PlanDetailView(APIView):
     def delete(self, request, pk):
         plan = self._get_plan(pk, request.user)
         plan_pk = plan.pk
-        plan.delete()
-        # Cards are plan-scoped; delete them all when plan is deleted
-        VocabFSRS.objects.filter(user=request.user, plan_id=plan_pk).delete()
+        
+        from django.db import transaction
+        with transaction.atomic():
+            plan.delete()
+            # Cards are plan-scoped; delete them all when plan is deleted
+            VocabFSRS.objects.filter(user=request.user, plan_id=plan_pk).delete()
+            
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1152,42 +1161,44 @@ class ArticleCopyCompleteView(APIView):
         due_map = {}
         marked_count = 0
 
-        for word in target_words:
-            zh = entries_map.get(word, '')
-            fsrs, _ = VocabFSRS.objects.get_or_create(
-                user=user,
-                word=word,
-                plan_id=plan.pk,
-                defaults={'zh': zh, 'due': now},
-            )
+        from django.db import transaction
+        with transaction.atomic():
+            for word in target_words:
+                zh = entries_map.get(word, '')
+                fsrs, _ = VocabFSRS.objects.get_or_create(
+                    user=user,
+                    word=word,
+                    plan_id=plan.pk,
+                    defaults={'zh': zh, 'due': now},
+                )
 
-            fsrs.scheduled_days = review_days
-            if review_days > 0:
-                fsrs.due = _next_day_midnight(now, review_days)
-                fsrs.state = 2  # Review
-            else:
-                fsrs.due = now
-                fsrs.state = 2
+                fsrs.scheduled_days = review_days
+                if review_days > 0:
+                    fsrs.due = _next_day_midnight(now, review_days)
+                    fsrs.state = 2  # Review
+                else:
+                    fsrs.due = now
+                    fsrs.state = 2
 
-            update_fields = ['due', 'scheduled_days', 'state']
+                update_fields = ['due', 'scheduled_days', 'state']
 
-            if fsrs.state == 2:
-                if fsrs.stability <= 0:
-                    fsrs.stability = 1.0
-                    update_fields.append('stability')
-                if fsrs.difficulty <= 0:
-                    fsrs.difficulty = 5.0
-                    update_fields.append('difficulty')
+                if fsrs.state == 2:
+                    if fsrs.stability <= 0:
+                        fsrs.stability = 1.0
+                        update_fields.append('stability')
+                    if fsrs.difficulty <= 0:
+                        fsrs.difficulty = 5.0
+                        update_fields.append('difficulty')
 
-            fsrs.last_review = now
-            fsrs.reps = max(1, int(fsrs.reps or 0) + 1)
-            update_fields.extend(['last_review', 'reps'])
+                fsrs.last_review = now
+                fsrs.reps = max(1, int(fsrs.reps or 0) + 1)
+                update_fields.extend(['last_review', 'reps'])
 
-            fsrs.save(update_fields=update_fields)
+                fsrs.save(update_fields=update_fields)
 
-            _sync_notebook_mastery(user, word, fsrs)
-            due_map[word] = fsrs.due.isoformat()
-            marked_count += 1
+                _sync_notebook_mastery(user, word, fsrs)
+                due_map[word] = fsrs.due.isoformat()
+                marked_count += 1
 
         return Response({
             'marked_count': marked_count,
@@ -1386,44 +1397,46 @@ class StoryModeCompleteView(APIView):
         marked_count = 0
         due_map = {}
 
-        for w in target_words:
-            w_low = w.lower()
-            zh = entries.get(w_low, '')
-            
-            fsrs, _ = VocabFSRS.objects.get_or_create(
-                user=user,
-                plan=plan,
-                word=w_low,
-                defaults={'zh': zh, 'due': now},
-            )
+        from django.db import transaction
+        with transaction.atomic():
+            for w in target_words:
+                w_low = w.lower()
+                zh = entries.get(w_low, '')
+                
+                fsrs, _ = VocabFSRS.objects.get_or_create(
+                    user=user,
+                    plan_id=plan.pk,
+                    word=w_low,
+                    defaults={'zh': zh, 'due': now},
+                )
 
-            fsrs.scheduled_days = review_days
-            if review_days > 0:
-                fsrs.due = _next_day_midnight(now, review_days)
-                fsrs.state = 2  # Review
-            else:
-                fsrs.due = now
-                fsrs.state = 2
+                fsrs.scheduled_days = review_days
+                if review_days > 0:
+                    fsrs.due = _next_day_midnight(now, review_days)
+                    fsrs.state = 2  # Review
+                else:
+                    fsrs.due = now
+                    fsrs.state = 2
 
-            update_fields = ['due', 'scheduled_days', 'state']
+                update_fields = ['due', 'scheduled_days', 'state']
 
-            if fsrs.state == 2:
-                if fsrs.stability <= 0:
-                    fsrs.stability = 1.0
-                    update_fields.append('stability')
-                if fsrs.difficulty <= 0:
-                    fsrs.difficulty = 5.0
-                    update_fields.append('difficulty')
+                if fsrs.state == 2:
+                    if fsrs.stability <= 0:
+                        fsrs.stability = 1.0
+                        update_fields.append('stability')
+                    if fsrs.difficulty <= 0:
+                        fsrs.difficulty = 5.0
+                        update_fields.append('difficulty')
 
-            fsrs.last_review = now
-            fsrs.reps = max(1, int(fsrs.reps or 0) + 1)
-            update_fields.extend(['last_review', 'reps'])
+                fsrs.last_review = now
+                fsrs.reps = max(1, int(fsrs.reps or 0) + 1)
+                update_fields.extend(['last_review', 'reps'])
 
-            fsrs.save(update_fields=update_fields)
+                fsrs.save(update_fields=update_fields)
 
-            _sync_notebook_mastery(user, w_low, fsrs)
-            due_map[w_low] = fsrs.due.isoformat()
-            marked_count += 1
+                _sync_notebook_mastery(user, w_low, fsrs)
+                due_map[w_low] = fsrs.due.isoformat()
+                marked_count += 1
 
         return Response({
             'marked_count': marked_count,

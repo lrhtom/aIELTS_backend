@@ -64,8 +64,8 @@ def daily_checkin(request):
         stats.save()
 
         # Award AT coins
-        user.at_balance += bonus
-        user.save(update_fields=['at_balance'])
+        from api.models import TransactionRecord
+        TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, bonus, f'每日签到奖励 (累计 {new_count} 天)')
 
     return JsonResponse({
         'ok': True,

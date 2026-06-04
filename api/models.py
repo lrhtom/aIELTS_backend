@@ -714,3 +714,77 @@ class UserDailyStats(models.Model):
     def __str__(self):
         return f'{self.user.username} — {self.date}'
 
+
+
+class WritingServiceRecord(models.Model):
+    SERVICE_CHOICES = [
+        ('correction', '作文批改'),
+        ('task1_teacher', '小作文老师'),
+        ('task2_teacher', '大作文老师'),
+        ('opinion_drill', '观点题特训'),
+        ('typing_chat', '打字聊天'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='writing_records')
+    service_type = models.CharField(max_length=50, choices=SERVICE_CHOICES, verbose_name='服务类型')
+    title = models.CharField(max_length=255, verbose_name='记录标题')
+    content = models.JSONField(verbose_name='生成内容')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        db_table = 'writing_service_records'
+        verbose_name = '写作服务记录'
+        verbose_name_plural = '写作服务记录'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.get_service_type_display()} - {self.title}'
+
+class TransactionRecord(models.Model):
+    class Currency(models.TextChoices):
+        AT_COIN = 'AT_COIN', _('AT币')
+        CNY = 'CNY', _('现金(CNY)')
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
+    currency = models.CharField(max_length=20, choices=Currency.choices, default=Currency.AT_COIN, verbose_name="货币类型")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="交易金额", help_text="正数表示增加，负数表示扣除")
+    balance_after = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="交易后余额")
+    description = models.CharField(max_length=255, verbose_name="交易描述")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        db_table = 'finance_transaction_records'
+        verbose_name = '交易记录'
+        verbose_name_plural = '交易记录'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'currency', 'created_at'], name='idx_txn_user_cur_date'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} {self.amount} {self.currency} - {self.description}'
+
+    @classmethod
+    def record(cls, user, currency, amount, description):
+        from django.db import transaction
+        with transaction.atomic():
+            # Using select_for_update on the user to prevent race conditions for AT_COIN
+            from .models import User
+            db_user = User.objects.select_for_update().get(pk=user.pk)
+            
+            if currency == cls.Currency.AT_COIN:
+                db_user.at_balance += amount
+                db_user.save(update_fields=['at_balance'])
+                balance_after = db_user.at_balance
+                # Update the passed user instance so the caller sees the new balance
+                user.at_balance = db_user.at_balance
+            else:
+                last_tx = cls.objects.filter(user=db_user, currency=currency).order_by('-created_at').first()
+                balance_after = (last_tx.balance_after if last_tx else 0) + amount
+
+            return cls.objects.create(
+                user=db_user,
+                currency=currency,
+                amount=amount,
+                balance_after=balance_after,
+                description=description
+            )

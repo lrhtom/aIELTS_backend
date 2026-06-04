@@ -10,6 +10,7 @@ from .practice import writing_chart_views
 from .practice import writing_task2_views
 from .practice import writing_ai_teacher_views
 from .practice import writing_task1_ai_teacher_views
+from .practice import writing_record_views
 from .extra import prompt_views
 from .auth import auth_views
 from .auth import balance_views
@@ -27,6 +28,7 @@ from .extra import assistant_views
 from .extra import markdown_notes_views
 from . import checkin_views
 from . import analytics_views
+from . import finance_views
 from .auth.auth_views import SendVerificationCodeView, CustomLoginView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -57,6 +59,10 @@ urlpatterns = [
     path('balance/check', balance_views.check_balance, name='check_balance'),
     path('balance/consume', balance_views.consume_at, name='consume_at'),
     path('balance/add', balance_views.add_at, name='add_at'),
+
+    # ---- 财政分析 API ----
+    path('finance/stats', finance_views.finance_stats, name='finance_stats'),
+    path('finance/transactions', finance_views.TransactionListView.as_view(), name='finance_transactions'),
 
     # ---- 商店 API ----
     path('store/products', store_views.list_products, name='list_products'),
@@ -89,6 +95,7 @@ urlpatterns = [
     path('speaking/bank/part2/generate', speaking_bank_views.bank_generate_part2, name='bank_generate_part2'),
     path('speaking/bank/part3/generate', speaking_bank_views.bank_generate_part3, name='bank_generate_part3'),
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
+    path('writing/synonyms', writing_views.get_writing_synonyms, name='writing_synonyms'),
     path('writing/chat', writing_views.writing_chat, name='writing_chat'),
     path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
     path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
@@ -98,6 +105,11 @@ urlpatterns = [
     path('writing/task2/opinion-drill/evaluate', writing_task2_views.evaluate_opinion_drill_answer, name='evaluate_opinion_drill_answer'),
     path('writing/ai-teacher/generate', writing_ai_teacher_views.generate_ai_teacher_lesson, name='generate_ai_teacher_lesson'),
     path('writing/task1-ai-teacher/generate', writing_task1_ai_teacher_views.generate_task1_ai_teacher_lesson, name='generate_task1_ai_teacher_lesson'),
+    
+    # Writing Records
+    path('writing/records', writing_record_views.writing_records_list, name='writing_records_list'),
+    path('writing/records/<int:record_id>', writing_record_views.writing_record_detail, name='writing_record_detail'),
+
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
     path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),
     path('prompts/<int:pk>/favorite/', prompt_views.prompt_favorite, name='prompt_favorite'),

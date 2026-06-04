@@ -135,10 +135,13 @@ class AdminUserAdjustATView(APIView):
         except (ValueError, TypeError):
             return Response({'error': 'INVALID_AMOUNT'}, status=status.HTTP_400_BAD_REQUEST)
 
-        target_user.at_balance += delta
-        if target_user.at_balance < 0:
-            target_user.at_balance = 0
-        target_user.save(update_fields=['at_balance', 'updated_at'])
+        actual_delta = delta
+        if target_user.at_balance + delta < 0:
+            actual_delta = -target_user.at_balance
+            
+        from api.models import TransactionRecord
+        TransactionRecord.record(target_user, TransactionRecord.Currency.AT_COIN, actual_delta, '管理员手动调整')
+        target_user.save(update_fields=['updated_at'])
 
         return Response({
             'user_id': target_user.id,

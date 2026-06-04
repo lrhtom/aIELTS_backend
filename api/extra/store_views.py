@@ -40,8 +40,8 @@ def purchase_product(request):
         # 管理员结账特权，直接发货
         if product.reward_type == 'AT_COIN':
             with transaction.atomic():
-                user.at_balance += product.reward_amount
-                user.save(update_fields=['at_balance'])
+                from api.models import TransactionRecord
+                TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, product.reward_amount, f'购买商品: {product.name} (管理员发货)')
             return Response({
                 'message': '你是管理员，已为你免单并成功发货。',
                 'new_balance': user.at_balance
@@ -58,10 +58,10 @@ def purchase_product(request):
             if user.at_balance < product.price_amount:
                 return Response({'error': 'AT币余额不足'}, status=402)
             with transaction.atomic():
-                user.at_balance -= int(product.price_amount)
+                from api.models import TransactionRecord
+                TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, -int(product.price_amount), f'购买商品: {product.name}')
                 if product.reward_type == 'VIP':
                     pass  # handle VIP
-                user.save()
             return Response({'message': '购买成功', 'new_balance': user.at_balance})
         else:
             return Response({'error': '未知的货币类型'}, status=400)
@@ -155,8 +155,8 @@ def cart_checkout(request):
                 if item.product.reward_type == 'AT_COIN':
                     total_at_reward += item.product.reward_amount * item.quantity
                 
-            user.at_balance += total_at_reward
-            user.save(update_fields=['at_balance'])
+            from api.models import TransactionRecord
+            TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, total_at_reward, '购物车结账: 管理员发货')
             items.delete()
             
         return Response({
@@ -175,12 +175,12 @@ def cart_checkout(request):
             return Response({'error': 'AT币余额不足以支付纯 AT 币商品'}, status=402)
             
         with transaction.atomic():
-            user.at_balance -= int(total_at_cost)
+            from api.models import TransactionRecord
+            TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, -int(total_at_cost), '购物车结账')
             # handle rewards
             for item in items:
                 if item.product.reward_type == 'VIP':
                     pass
-            user.save(update_fields=['at_balance'])
             items.delete()
             
         return Response({'message': '结账成功', 'new_balance': user.at_balance})

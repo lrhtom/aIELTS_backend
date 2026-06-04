@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import re
 import hashlib
@@ -328,8 +328,8 @@ class AIClient:
                 if user_id:
                     User = get_user_model()
                     u = User.objects.get(id=user_id)
-                    u.at_balance -= at_cost
-                    u.save()
+                    from api.models import TransactionRecord
+                    TransactionRecord.record(u, TransactionRecord.Currency.AT_COIN, -at_cost, f"AI生成消耗 ({self.model})")
                     # 余额变化后失效余额缓存
                     try:
                         from api.core.redis_client import get_redis
@@ -529,8 +529,8 @@ class AIClient:
                 try:
                     User = get_user_model()
                     u = User.objects.get(id=user_id)
-                    u.at_balance -= at_cost
-                    u.save()
+                    from api.models import TransactionRecord
+                    TransactionRecord.record(u, TransactionRecord.Currency.AT_COIN, -at_cost, f"AI流式生成消耗 ({self.model})")
                     try:
                         from api.core.redis_client import get_redis
                         get_redis().delete(f"balance:{user_id}")
@@ -585,8 +585,8 @@ def refund_at(user_id: int, at_cost: int) -> None:
         from django.contrib.auth import get_user_model
         User = get_user_model()
         user = User.objects.get(id=user_id)
-        user.at_balance += at_cost
-        user.save()
+        from api.models import TransactionRecord
+        TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, at_cost, "AI生成失败退款")
         print(f"[AIClient] [REFUND] 退款成功: +{at_cost}AT → 用户 {user_id}，余额 {user.at_balance}")
     except Exception as e:
         print(f"[AIClient] [WARN] 退款失败: {e}")

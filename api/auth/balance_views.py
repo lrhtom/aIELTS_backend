@@ -59,8 +59,8 @@ def consume_at(request):
         }, status=402)
 
     # 扣除 AT 币
-    user.at_balance -= amount
-    user.save()
+    from api.models import TransactionRecord
+    TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, -amount, description or f"{service_type} 消费")
 
     return Response({
         'ok': True,
@@ -83,8 +83,8 @@ def add_at(request):
         return Response({'error': '金额必须大于 0'}, status=400)
 
     # 增加 AT 币
-    user.at_balance += amount
-    user.save()
+    from api.models import TransactionRecord
+    TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, amount, description or f"{transaction_type} 增加")
 
     return Response({
         'ok': True,

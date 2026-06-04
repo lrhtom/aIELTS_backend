@@ -244,10 +244,10 @@ class VocabReviewView(APIView):
                 'scheduled_days', 'reps', 'lapses', 'state', 'last_review',
             ])
 
-        word_obj = Word.objects.filter(word=word).first()
+            # #9 联动更新用户笔记本中该单词的 mastery_level
+            _sync_notebook_mastery(request.user, word, card)
 
-        # #9 联动更新用户笔记本中该单词的 mastery_level
-        _sync_notebook_mastery(request.user, word, card)
+        word_obj = Word.objects.filter(word=word).first()
 
         return Response({'card': _card_to_dict(card, word_obj)})
 
