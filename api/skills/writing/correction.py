@@ -27,8 +27,8 @@ Your evaluation MUST be returned as a raw JSON object containing EXACTLY these k
   "Actionable_Advice": [(string)] An array of 2-4 highly specific, actionable steps the user must take to improve their next essay (e.g. "Focus on subject-verb agreement", "Use more cohesive devices in the body paragraphs"),
   "Sentence_Corrections": [
     {
-      "original": (string) The exact original sentence from the user's essay that contains errors or awkward phrasing,
-      "improved": (string) The corrected and polished version of the sentence,
+      "original": (string) The exact text snippet from the user's essay containing the error. IMPORTANT: Keep this snippet as SHORT as possible to precisely pinpoint the error. For minor issues like punctuation or missing spaces, extract only the immediate surrounding words (e.g., "word,word"). For grammar errors, extract the relevant phrase. Do NOT extract the entire sentence unless the whole sentence is flawed,
+      "improved": (string) The corrected version of ONLY the snippet extracted in 'original',
       "error_type": (string) Categorize the main issue (e.g., "Grammar", "Vocabulary", "Coherence", "Punctuation"),
       "severity": (string) Set to "warning" for hard errors (grammar, spelling, punctuation) or "suggestion" for soft improvements (better vocab, phrasing),
       "explanation": (string) A brief explanation of why it was wrong and why the improvement is better

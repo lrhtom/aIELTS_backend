@@ -129,8 +129,8 @@ You will receive an IELTS Task 2 essay topic. Produce THREE sections. ALL conten
 
 Write 2-3 sentences forming a proper introduction (Preferably 2 sentences: Paraphrase + Thesis, unless a bridging sentence is required for coherence):
 - `sentences`: Array of objects, each with:
-  - `purpose_en` / `purpose_zh`: "paraphrase_topic"/"改写题目" or "background_bridge"/"背景衔接" (only if needed) or "thesis_statement"/"主旨定调"
-  - `text_en`: The sentence in English (Band 6.0-6.5 level). CRITICAL FOR PARAPHRASE: The paraphrase_topic sentence MUST be 100% faithful to the original prompt. Do NOT add extra rationalizations, "because/since" clauses, or self-expanded background that was not in the prompt.
+    - `purpose_en` / `purpose_zh`: "paraphrase_topic"/"改写题目" or "background_bridge"/"背景衔接" (only if needed) or "thesis_statement"/"主旨定调"
+    - `text_en`: The sentence in English (Band 6.0-6.5 level). CRITICAL FOR PARAPHRASE: The paraphrase_topic sentence MUST be 100% faithful to the original prompt. Do NOT add extra rationalizations, "because/since" clauses, or self-expanded background that was not in the prompt. CRITICAL FOR THESIS: You MUST explicitly state your stance right away. If you agree/disagree, say 'I completely agree/disagree that...' directly. Do NOT beat around the bush with concessive 'Although I agree..., I believe...'. Use a direct, clear, and unambiguous declaration of your opinion unless you are writing a balanced two-sided response.
   - `text_zh`: Chinese translation of the sentence
 - `bad_examples`: Array of exactly 4 flawed versions demonstrating different error types: "memorized_template", "copy_prompt", "unclear_position", "too_broad". Each object has:
   - `type`: The error type string
@@ -140,13 +140,24 @@ Write 2-3 sentences forming a proper introduction (Preferably 2 sentences: Parap
 
 ## Section 2: Writing Arguments (写作观点)
 
-Provide 2 body paragraph arguments:
-- `body1` and `body2`: Each has:
-  - `main_idea_en` / `main_idea_zh`: One clear topic sentence. CRITICAL RULE: The paragraph should present a clear stance. If the prompt asks for plural items (e.g., advantages), you may introduce two distinct points (e.g., First... Furthermore...), but keep explanations simple and logical. Do not dump too many ideas.
-  - `explanation_en` / `explanation_zh`: 2-3 sentences explaining the reasoning. MUST follow a logical chain: (1) Background/Premise (2) Logical Expectation/Consequence (3) Hypothetical consequence if not done (only if applicable and natural). Keep it clear and safe for Band 6.0+.
-  - `explanation_steps`: Array of 2-3 objects breaking down the explanation above. Each object has:
-    - `step_name`: The logical label (must be "背景", "顺推", or "反推")
-    - `en` / `zh`: The exact sentence from explanation_en/zh corresponding to this step.
+  Provide 2 body paragraph arguments:
+  - `body1` and `body2`: Each has:
+    - `main_idea_en` / `main_idea_zh`: One clear topic sentence. CRITICAL RULE: The paragraph should present a clear stance. If the prompt asks for plural items (e.g., advantages), you may introduce two distinct points (e.g., First... Furthermore...), but keep explanations simple and logical. Do not dump too many ideas.
+    - `explanation_en` / `explanation_zh`: 2-3 sentences explaining the reasoning. MUST follow ONE of these 4 logical frameworks best suited for the context. Choose smartly:
+      1. Logic A (Standard Argument): (1) Background/Premise -> (2) Forward Consequence -> (3) Reverse Consequence (if applicable)
+      2. Logic B (Cause & Effect): (1) Cause -> (2) Direct Effect -> (3) Ultimate Consequence
+      3. Logic C (Contrast): (1) Current State / Side A -> (2) Contrast / Side B -> (3) Conclusion
+      4. Logic D (Problem Solving): (1) Problem -> (2) Action -> (3) Benefit
+    - `explanation_steps`: Array of 2-3 objects breaking down the explanation above. Each object has:
+      - `step_name`: The logical label depending on the chosen framework above. 
+        - For Logic A: MUST be "背景", "顺推", or "反推".
+        - For Logic B: MUST be "起因", "影响", or "后果".
+        - For Logic C: MUST be "现状", "对比", or "结论".
+        - For Logic D: MUST be "痛点", "对策", or "成效".
+      - `en` / `zh`: The exact sentence from explanation_en/zh corresponding to this step.
+      - `clauses`: Array of 2-3 smaller segments breaking down this exact sentence. Each object has:
+        - `label`: A micro-logic label for this segment (e.g. "因" (Cause), "果" (Effect), "条件" (Condition), "转折" (Contrast), "并列" (And), "主干" (Main)).
+        - `en` / `zh`: The exact substring of the sentence for this segment.
   - `example_en` / `example_zh`: A concrete real-world example
   - `bad_examples`: Array of exactly 6 flawed versions demonstrating different error types: "wordy", "absolute", "superficial", "illogical", "colloquial", "example_dump". Each object has:
     - `type`: The error type string
@@ -183,7 +194,12 @@ Return ONLY valid JSON. No markdown fences:
       "main_idea_en": "...", "main_idea_zh": "...",
       "explanation_en": "...", "explanation_zh": "...",
       "explanation_steps": [
-        {"step_name": "...", "en": "...", "zh": "..."}
+        {
+          "step_name": "...", "en": "...", "zh": "...",
+          "clauses": [
+            {"label": "...", "en": "...", "zh": "..."}
+          ]
+        }
       ],
       "example_en": "...", "example_zh": "...",
       "bad_examples": [
@@ -194,7 +210,12 @@ Return ONLY valid JSON. No markdown fences:
       "main_idea_en": "...", "main_idea_zh": "...",
       "explanation_en": "...", "explanation_zh": "...",
       "explanation_steps": [
-        {"step_name": "...", "en": "...", "zh": "..."}
+        {
+          "step_name": "...", "en": "...", "zh": "...",
+          "clauses": [
+            {"label": "...", "en": "...", "zh": "..."}
+          ]
+        }
       ],
       "example_en": "...", "example_zh": "...",
       "bad_examples": [
