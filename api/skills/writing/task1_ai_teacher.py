@@ -209,7 +209,14 @@ Extract 4-6 key vocabulary words or phrases useful for this specific chart.
 
 ## Section 2: Full Essay (完整范文)
 Provide a complete Band 6.0-6.5 essay combining the parts perfectly. Use simple vocabulary and clear grammar — no overly advanced expressions.
-- `essay_en` / `essay_zh`: The full essay (180-220 words) broken into paragraphs separated by \n\n.
+- `essay_en` / `essay_zh`: The full essay (150-170 words, MUST be greater than 150 words) broken into paragraphs separated by \n\n.
+
+## Section 3: Template Analysis (作文模板解析)
+- `template_analysis`: A unified template analysis JSON array based on the generated essay. Extract the essay structure into an array of paragraphs. Each paragraph has `paragraph_en` and `paragraph_zh`, and an array of `segments`.
+  A segment is EITHER fixed English text (`{"type": "text", "content": "..."}`) 
+  OR a placeholder (`{"type": "placeholder", "instruction_en": "State the general trend", "instruction_zh": "概括主要趋势", "actual_content_en": "the specific English sentence from the essay", "actual_content_zh": "对应的中文翻译句子"}`).
+  CRITICAL RULE 1: You MUST extract the FIXED transitional English phrases (e.g., "The chart illustrates ", "Overall, it is clear that ", "In terms of ") as `{"type": "text"}` segments. DO NOT make the entire paragraph a list of placeholders. A proper template MUST interleave fixed transitional English text with placeholders.
+  CRITICAL RULE 2: The `instruction_en` and `instruction_zh` in placeholders MUST be broad, reusable structural instructions (e.g., "Describe the overall trend", "Provide specific data for X", "Compare category A and B") rather than being overly specific to the current essay data.
 
 Return ONLY valid JSON.
 
@@ -221,7 +228,24 @@ Format:
   "full_essay": {
     "essay_en": "...",
     "essay_zh": "..."
-  }
+  },
+  "template_analysis": [
+    {
+      "paragraph_en": "Paragraph 1: Introduction",
+      "paragraph_zh": "第一段：引言",
+      "segments": [
+        {"type": "text", "content": "The chart illustrates "},
+        {
+          "type": "placeholder", 
+          "instruction_en": "State the main topic", 
+          "instruction_zh": "概括主要话题", 
+          "actual_content_en": "the number of people using the internet",
+          "actual_content_zh": "使用互联网的人数"
+        },
+        {"type": "text", "content": "."}
+      ]
+    }
+  ]
 }
 """ + SKILL_TASK1_VOCAB_GUIDE
 

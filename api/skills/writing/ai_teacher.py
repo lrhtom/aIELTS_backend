@@ -1,11 +1,11 @@
 SKILL_TASK2_VOCAB_GUIDE = """
 === PREFERRED VOCABULARY & SENTENCE STRUCTURES (BAND 6.0-6.5) ===
-CRITICAL INSTRUCTION: When generating sentences and the full essay, you MUST STRICTLY use the following sentence structures and vocabulary replacements. This is crucial for maintaining a safe Band 6.0-6.5 level while avoiding repetition. 
+CRITICAL INSTRUCTION: When generating sentences and the full essay, IF you naturally need to express these concepts, you MUST prioritize using the following specified vocabulary words. However, do NOT forcefully insert them if they are not naturally required by the topic or context. This is crucial for maintaining a safe Band 6.0-6.5 level naturally.
 
-1. INTRODUCTION (Use one of these depending on the topic)
-- Opinion: It is sometimes argued that... I disagree with this view, because...
-- Phenomenon: There is a common phenomenon that... From my perspective, this trend may...
-- Causes & Attitude: Currently, [phenomenon]. This is mainly due to... I perceive it as a positive/negative development, because...
+1. INTRODUCTION (Write 2-3 sentences. Preferably 2 sentences: Paraphrase + Thesis, unless a bridging sentence is absolutely necessary for natural flow)
+- Paraphrase/Phenomenon: It is sometimes argued that... / There is a common phenomenon that...
+- Bridging sentence (Use ONLY if the transition is too abrupt without it): For example, people often... / This trend usually involves... / This is particularly common in...
+- Opinion/Thesis (Keep it direct and concise): Although [concession], I believe [position], because [reason]. / I believe this is a positive development, since...
 
 2. BODY PARAGRAPHS - TOPIC SENTENCES
 - Support: ...may serve as a strong incentive to promote..., thereby...
@@ -39,7 +39,7 @@ CRITICAL INSTRUCTION: When generating sentences and the full essay, you MUST STR
 - DO NOT USE "for example" repeatedly -> USE: for instance, such as, particularly, notably
 - DO NOT USE "cause" -> USE: lead to, result in, contribute to, give rise to, incur
 
-7. HIGH-FREQUENCY VOCABULARY REPLACEMENTS (MUST USE)
+7. HIGH-FREQUENCY VOCABULARY REPLACEMENTS (USE IF NEEDED)
 - important -> vital, essential, crucial, significant, fundamental
 - solve -> address, tackle, alleviate, mitigate, cope with, resolve
 - think -> argue, believe, perceive, maintain, hold the view
@@ -127,10 +127,10 @@ You will receive an IELTS Task 2 essay topic. Produce THREE sections. ALL conten
 
 ## Section 1: Opening Paragraph (起始段)
 
-Write 2-3 sentences forming a proper introduction:
+Write 2-3 sentences forming a proper introduction (Preferably 2 sentences: Paraphrase + Thesis, unless a bridging sentence is required for coherence):
 - `sentences`: Array of objects, each with:
-  - `purpose_en` / `purpose_zh`: "paraphrase_topic"/"改写题目" or "thesis_statement"/"主旨定调"
-  - `text_en`: The sentence in English (Band 6.0-6.5 level)
+  - `purpose_en` / `purpose_zh`: "paraphrase_topic"/"改写题目" or "background_bridge"/"背景衔接" (only if needed) or "thesis_statement"/"主旨定调"
+  - `text_en`: The sentence in English (Band 6.0-6.5 level). CRITICAL FOR PARAPHRASE: The paraphrase_topic sentence MUST be 100% faithful to the original prompt. Do NOT add extra rationalizations, "because/since" clauses, or self-expanded background that was not in the prompt.
   - `text_zh`: Chinese translation of the sentence
 - `bad_examples`: Array of exactly 4 flawed versions demonstrating different error types: "memorized_template", "copy_prompt", "unclear_position", "too_broad". Each object has:
   - `type`: The error type string
@@ -153,12 +153,12 @@ Provide 2 body paragraph arguments:
     - `en` / `zh`: A one-sentence bad opinion
     - `expanded_en` / `expanded_zh`: An expanded bad paragraph
     - `reason`: Brief explanation of why it's weak (in Chinese if lang is zh, else en)
+
 ## Section 3: Closing Paragraph (结尾段)
 
-Write exactly 2 sentences:
-- `sentences`: Array of 2 objects:
-  - First: `purpose`: "restate_position"/"重申立场" — restate core position
-  - Second: `purpose`: "summarize_logic"/"概括逻辑" — summarize underlying logic
+Write 1-2 sentences:
+- `sentences`: Array of 1-2 objects. You can combine the position and logic into a single sentence, or split them:
+  - `purpose_en` / `purpose_zh`: "restate_position"/"重申立场" or "summarize_logic"/"概括逻辑" or "restate_position_and_logic"/"重申立场与逻辑"
   - Each has `text_en` and `text_zh`
 - `bad_closing_en` / `bad_closing_zh`: A BAD closing with common mistakes and explanation
 
@@ -171,6 +171,7 @@ Return ONLY valid JSON. No markdown fences:
   "opening": {
     "sentences": [
       {"purpose_en": "paraphrase_topic", "purpose_zh": "改写题目", "text_en": "...", "text_zh": "..."},
+      {"purpose_en": "background_bridge", "purpose_zh": "背景衔接", "text_en": "...", "text_zh": "..."},
       {"purpose_en": "thesis_statement", "purpose_zh": "主旨定调", "text_en": "...", "text_zh": "..."}
     ],
     "bad_examples": [
@@ -229,11 +230,16 @@ IMPORTANT LANGUAGE LEVEL RULE: Use simple, clear vocabulary and straightforward 
 Now write the COMPLETE MODEL ESSAY combining everything. Output must be bilingual.
 
 Output:
-- `full_essay_en`: The complete essay in English (4 paragraphs). Band 6.0-6.5 level, 270-320 words.
+- `full_essay_en`: The complete essay in English (4 paragraphs). Band 6.0-6.5 level, 250-270 words (MUST be greater than 250 words).
 - `full_essay_zh`: Chinese translation of the full essay
 - `section_summary`: Array of 4 objects:
   - `section_en` / `section_zh`: "Introduction"/"引言段", "Body 1"/"主体段一", "Body 2"/"主体段二", "Conclusion"/"结论段"
   - `key_points_en` / `key_points_zh`: What this section achieves (1-2 sentences)
+- `template_analysis`: A unified template analysis JSON array based on the generated essay. Extract the essay structure into an array of paragraphs. Each paragraph has `paragraph_en` and `paragraph_zh`, and an array of `segments`.
+  A segment is EITHER fixed English text (`{"type": "text", "content": "..."}`) 
+  OR a placeholder (`{"type": "placeholder", "instruction_en": "Summarize core topic", "instruction_zh": "概括核心话题", "actual_content_en": "the specific English sentence from the essay", "actual_content_zh": "对应的中文翻译句子"}`).
+  CRITICAL RULE 1: You MUST extract the FIXED transitional English phrases (e.g., "It is sometimes argued that ", "On the one hand, ", "In conclusion, ") as `{"type": "text"}` segments. DO NOT make the entire paragraph a list of placeholders. A proper template MUST interleave fixed transitional English text with placeholders.
+  CRITICAL RULE 2: The `instruction_en` and `instruction_zh` in placeholders MUST be broad, reusable structural instructions (e.g., "State your opinion", "Give a real-world example", "Explain the primary consequence", "Provide background context") rather than being overly specific to the current essay topic.
 
 IMPORTANT: Band 6.0-6.5 level. No Band 8+ vocabulary or complex grammar.
 
@@ -242,6 +248,23 @@ Return ONLY valid JSON. No markdown fences:
   "full_essay_en": "...", "full_essay_zh": "...",
   "section_summary": [
     {"section_en": "Introduction", "section_zh": "引言段", "key_points_en": "...", "key_points_zh": "..."}
+  ],
+  "template_analysis": [
+    {
+      "paragraph_en": "Paragraph 1: Introduction",
+      "paragraph_zh": "第一段：引言",
+      "segments": [
+        {"type": "text", "content": "There is a common belief that "},
+        {
+          "type": "placeholder", 
+          "instruction_en": "Summarize core topic", 
+          "instruction_zh": "概括核心话题", 
+          "actual_content_en": "the increasing prevalence of remote work", 
+          "actual_content_zh": "远程工作的日益普及"
+        },
+        {"type": "text", "content": ". "}
+      ]
+    }
   ]
 }""" + SKILL_TASK2_VOCAB_GUIDE
 
