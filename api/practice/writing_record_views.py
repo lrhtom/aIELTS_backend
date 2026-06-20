@@ -23,12 +23,31 @@ def writing_records_list(request):
         
         data = []
         for r in records:
-            data.append({
+            item = {
                 'id': r.id,
                 'service_type': r.service_type,
                 'title': r.title,
                 'created_at': r.created_at.isoformat(),
-            })
+            }
+            if r.service_type == 'task2_teacher' and isinstance(r.content, dict):
+                try:
+                    qa = r.content.get('part1', {}).get('question_analysis', {})
+                    if qa.get('subject_category_zh'):
+                        item['subject_category_zh'] = qa['subject_category_zh']
+                    if qa.get('question_type_zh'):
+                        item['question_type_zh'] = qa['question_type_zh']
+                except Exception:
+                    pass
+            elif r.service_type == 'task1_teacher' and isinstance(r.content, dict):
+                try:
+                    qa = r.content.get('part1', {}).get('question_analysis', {})
+                    if qa.get('dynamism_zh'):
+                        item['dynamism_zh'] = qa['dynamism_zh']
+                    if qa.get('chart_category_zh'):
+                        item['chart_category_zh'] = qa['chart_category_zh']
+                except Exception:
+                    pass
+            data.append(item)
             
         return JsonResponse({'status': 'success', 'data': data})
         
@@ -53,7 +72,7 @@ def writing_records_list(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'DELETE', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def writing_record_detail(request, record_id):
     try:
@@ -72,6 +91,20 @@ def writing_record_detail(request, record_id):
                 'created_at': record.created_at.isoformat(),
             }
         })
+        
+    elif request.method == 'PATCH':
+        if 'content' in request.data:
+            # Merge existing content with new content
+            new_content = request.data['content']
+            if isinstance(record.content, dict) and isinstance(new_content, dict):
+                record.content.update(new_content)
+            else:
+                record.content = new_content
+            record.save()
+        if 'title' in request.data:
+            record.title = request.data['title']
+            record.save()
+        return JsonResponse({'status': 'success', 'message': 'Updated successfully'})
         
     elif request.method == 'DELETE':
         record.delete()

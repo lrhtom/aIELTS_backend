@@ -140,7 +140,7 @@ CRITICAL INSTRUCTION: When generating sentences, vocabulary suggestions, and the
 
 SKILL_TASK1_AI_TEACHER_PART1_USER = """Analyze this IELTS Task 1 topic (and image if provided):
 
-%s"""
+{topic}"""
 
 
 SKILL_TASK1_AI_TEACHER_PART2 = """You are a UK IELTS writing teacher helping Chinese-speaking students achieve Band 6.0-6.5 for Task 1 (Academic). Produce TWO sections for a Task 1 essay. ALL content must be bilingual.
@@ -188,7 +188,7 @@ Format:
 """ + SKILL_TASK1_VOCAB_GUIDE
 
 SKILL_TASK1_AI_TEACHER_PART2_USER = """Topic (and image if provided):
-%s
+{topic}
 
 Generate the Intro, Overview, and Body paragraphs guide."""
 
@@ -250,12 +250,12 @@ Format:
 """ + SKILL_TASK1_VOCAB_GUIDE
 
 SKILL_TASK1_AI_TEACHER_PART3_USER = """Topic:
-%s
+{topic}
 
 Context:
-Analysis: %s
-Structure: %s
-Intro/Overview: %s
-Body: %s
+Analysis: {analysis}
+Structure: {structure}
+Intro/Overview: {intro_overview}
+Body: {body}
 
 Generate Vocabulary and Full Essay."""

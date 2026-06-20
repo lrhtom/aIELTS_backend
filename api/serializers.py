@@ -50,7 +50,8 @@ class UserSerializer(serializers.ModelSerializer):
         # 除去了密码等敏感字段
         fields = (
             'id', 'username', 'email', 'nickname', 'avatar_url',
-            'target_score', 'current_score', 'exam_date',
+            'target_score', 'target_listening', 'target_reading', 'target_writing', 'target_speaking',
+            'current_score', 'exam_date',
             'membership_tier', 'vip_expires_at', 'daily_ai_quota',
             'at_balance', 'atBalance', 'is_email_verified', 'last_login', 'date_joined',
             'createdAt', 'updatedAt',
@@ -81,3 +82,17 @@ class AdminUserManageSerializer(serializers.ModelSerializer):
             'date_joined', 'last_login', 'at_balance', 'atBalance',
         )
         read_only_fields = fields
+
+from .models import UserTodoItem, UserShortcut
+
+class UserTodoItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserTodoItem
+        fields = ['id', 'text', 'done', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+class UserShortcutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserShortcut
+        fields = ['id', 'title', 'url', 'open_in_new_tab', 'created_at']
+        read_only_fields = ['id', 'created_at']

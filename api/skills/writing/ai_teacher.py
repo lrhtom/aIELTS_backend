@@ -76,6 +76,8 @@ You will receive an IELTS Task 2 essay topic. Your job is to produce TWO section
 ## Section 1: Question Analysis (审题)
 
 Analyze the essay question and output:
+- `subject_category_zh`: MUST be exactly one of: ["教育", "科技", "社会", "政府", "媒体", "国际", "犯罪", "文化", "旅游", "环境", "健康", "工作", "其他"]
+- `question_type_zh`: MUST be exactly one of: ["同意与否类 (Agree / Disagree)", "双边讨论类 (Discuss both views)", "优缺点类 (Advantages & Disadvantages)", "利弊权衡类 (Do advantages outweigh disadvantages)", "积极消极类 (Positive or negative development)", "报告类 (Cause / Effect / Solution)", "混合提问类 (Mixed questions)", "其他 (Other)"]
 - `topic_type_en`: one of "Opinion (Agree/Disagree)", "Advantages vs Disadvantages", "Discuss Both Views", "Report (Causes & Solutions)", "Mixed"
 - `topic_type_zh`: Chinese translation of the topic type
 - `focus_points_en`: 3 key focus areas (array of English strings)
@@ -91,7 +93,7 @@ Teach a 4-paragraph structure:
 - `paragraphs`: Array of 4 objects, each with:
   - `name_en` / `name_zh`: "Introduction"/"引言段", "Body 1"/"主体段一", "Body 2"/"主体段二", "Conclusion"/"结论段"
   - `purpose_en` / `purpose_zh`: What this paragraph does
-  - `content_guide_en` / `content_guide_zh`: What to include. CRITICAL RULE FOR ALL TOPIC TYPES: Teach the student to focus on clear, well-developed ideas. If the prompt asks for plural items (like 'advantages', 'problems', 'reasons'), they may list two related points and explain them simply, or focus deeply on one major point. The priority is clear, logical explanation rather than a superficial list of many points.
+  - `content_guide_en` / `content_guide_zh`: What to include. CRITICAL RULE FOR ALL TOPIC TYPES: Teach the student to focus on clear, well-developed ideas. If the prompt asks for plural items (like 'advantages', 'problems', 'reasons'), they may list two related points and explain them simply, or focus deeply on one major point. The priority is clear, logical explanation rather than a superficial list of many points. CRITICAL RULE 2: For Opinion/Agree-Disagree topics, you MUST default to teaching a strong, one-sided argument (一边倒) WITHOUT a concession paragraph (让步段), unless the user explicitly asks for it. CRITICAL RULE 3: For 'Discuss both views' topics, you MUST teach the standard balanced approach: Intro (objective thesis), Body 1 (purely defend Side A, no personal opinion), Body 2 (purely defend Side B, no personal opinion), Conclusion (give clear final stance).
 - `wrong_structure_en`: A common WRONG structure example in English, explain WHY it would score poorly
 - `wrong_structure_zh`: Chinese translation
 
@@ -117,7 +119,7 @@ Return ONLY valid JSON. No markdown fences:
 
 SKILL_AI_TEACHER_PART1_USER = """Analyze this IELTS Task 2 essay topic:
 
-%s"""
+{topic}"""
 
 SKILL_AI_TEACHER_PART2 = """You are a UK IELTS writing teacher helping Chinese-speaking students achieve Band 6.0-6.5 for Task 2 (Essay).
 
@@ -130,7 +132,7 @@ You will receive an IELTS Task 2 essay topic. Produce THREE sections. ALL conten
 Write 2-3 sentences forming a proper introduction (Preferably 2 sentences: Paraphrase + Thesis, unless a bridging sentence is required for coherence):
 - `sentences`: Array of objects, each with:
     - `purpose_en` / `purpose_zh`: "paraphrase_topic"/"改写题目" or "background_bridge"/"背景衔接" (only if needed) or "thesis_statement"/"主旨定调"
-    - `text_en`: The sentence in English (Band 6.0-6.5 level). CRITICAL FOR PARAPHRASE: The paraphrase_topic sentence MUST be 100% faithful to the original prompt. Do NOT add extra rationalizations, "because/since" clauses, or self-expanded background that was not in the prompt. CRITICAL FOR THESIS: You MUST explicitly state your stance right away. If you agree/disagree, say 'I completely agree/disagree that...' directly. Do NOT beat around the bush with concessive 'Although I agree..., I believe...'. Use a direct, clear, and unambiguous declaration of your opinion unless you are writing a balanced two-sided response.
+    - `text_en`: The sentence in English (Band 6.0-6.5 level). CRITICAL FOR PARAPHRASE: The paraphrase_topic sentence MUST be 100% faithful to the original prompt. Do NOT add extra rationalizations, "because/since" clauses, or self-expanded background that was not in the prompt. CRITICAL FOR THESIS: You MUST explicitly state your stance right away. If you agree/disagree, say 'I completely agree/disagree that...' directly. Do NOT beat around the bush with concessive 'Although I agree..., I believe...'. Use a direct, clear, and unambiguous declaration of your opinion. For Opinion/Agree-Disagree questions, default to a strong one-sided stance WITHOUT concession. For 'Discuss both views' questions, the thesis MUST be purely objective (e.g., 'This essay will discuss both sides before my own conclusion is reached.'); DO NOT reveal your personal opinion in the thesis.
   - `text_zh`: Chinese translation of the sentence
 - `bad_examples`: Array of exactly 4 flawed versions demonstrating different error types: "memorized_template", "copy_prompt", "unclear_position", "too_broad". Each object has:
   - `type`: The error type string
@@ -142,36 +144,32 @@ Write 2-3 sentences forming a proper introduction (Preferably 2 sentences: Parap
 
   Provide 2 body paragraph arguments:
   - `body1` and `body2`: Each has:
-    - `main_idea_en` / `main_idea_zh`: One clear topic sentence. CRITICAL RULE: The paragraph should present a clear stance. If the prompt asks for plural items (e.g., advantages), you may introduce two distinct points (e.g., First... Furthermore...), but keep explanations simple and logical. Do not dump too many ideas.
-    - `explanation_en` / `explanation_zh`: 2-3 sentences explaining the reasoning. MUST follow ONE of these 4 logical frameworks best suited for the context. Choose smartly:
-      1. Logic A (Standard Argument): (1) Background/Premise -> (2) Forward Consequence -> (3) Reverse Consequence (if applicable)
-      2. Logic B (Cause & Effect): (1) Cause -> (2) Direct Effect -> (3) Ultimate Consequence
-      3. Logic C (Contrast): (1) Current State / Side A -> (2) Contrast / Side B -> (3) Conclusion
-      4. Logic D (Problem Solving): (1) Problem -> (2) Action -> (3) Benefit
+    - `main_idea_en` / `main_idea_zh`: One clear topic sentence. CRITICAL RULE: The paragraph should present a clear stance. If the prompt asks for plural items (e.g., advantages), you may introduce two distinct points (e.g., First... Furthermore...), but keep explanations simple and logical. Do not dump too many ideas. For Opinion/Agree-Disagree questions, both body paragraphs MUST strongly support the same one-sided stance without concession, unless explicitly required otherwise. For 'Discuss both views' questions, Body 1 MUST objectively defend Side A ("On the one hand, supporters argue..."), and Body 2 MUST objectively defend Side B ("On the other hand, opponents believe..."); DO NOT use "I believe" or "In my opinion" in these body paragraphs.
+    - `explanation_en` / `explanation_zh`: 2-3 sentences explaining the reasoning. MUST follow ONE of these 5 logical frameworks best suited for the context. Choose smartly:
+      1. Logic A (Standard Argument / 辩证让步链): (1) Background/Premise -> (2) Forward Consequence -> (3) Reverse Consequence (if applicable)
+      2. Logic B (Cause-Effect-Impact / 递进深挖链): (1) Initial Cause -> (2) Immediate Effect -> (3) Ultimate Impact
+      3. Logic C (Hypothesis-Reaction-Consequence / 假设推演链): (1) Hypothesis (Depriving a condition) -> (2) Chain Reaction -> (3) Disastrous Consequence
+      4. Logic D (Concession-Contrast-Verdict / 让步对比链): (1) Concession -> (2) Contrast -> (3) Final Verdict
+      5. Logic E (Measure-Execution-Limitation / 方案评估链): (1) Proposed Measure -> (2) Execution -> (3) Expected Outcome / Limitation
     - `explanation_steps`: Array of 2-3 objects breaking down the explanation above. Each object has:
       - `step_name`: The logical label depending on the chosen framework above. 
         - For Logic A: MUST be "背景", "顺推", or "反推".
-        - For Logic B: MUST be "起因", "影响", or "后果".
-        - For Logic C: MUST be "现状", "对比", or "结论".
-        - For Logic D: MUST be "痛点", "对策", or "成效".
+        - For Logic B: MUST be "起因", "直接结果", or "深层影响".
+        - For Logic C: MUST be "假设", "连锁反应", or "灾难后果".
+        - For Logic D: MUST be "让步", "转折", or "结论".
+        - For Logic E: MUST be "提出方案", "落地执行", or "预期成效" (or "局限").
       - `en` / `zh`: The exact sentence from explanation_en/zh corresponding to this step.
       - `clauses`: Array of 2-3 smaller segments breaking down this exact sentence. Each object has:
         - `label`: A micro-logic label for this segment (e.g. "因" (Cause), "果" (Effect), "条件" (Condition), "转折" (Contrast), "并列" (And), "主干" (Main)).
         - `en` / `zh`: The exact substring of the sentence for this segment.
   - `example_en` / `example_zh`: A concrete real-world example
-  - `bad_examples`: Array of exactly 6 flawed versions demonstrating different error types: "wordy", "absolute", "superficial", "illogical", "colloquial", "example_dump". Each object has:
-    - `type`: The error type string
-    - `en` / `zh`: A one-sentence bad opinion
-    - `expanded_en` / `expanded_zh`: An expanded bad paragraph
-    - `reason`: Brief explanation of why it's weak (in Chinese if lang is zh, else en)
 
 ## Section 3: Closing Paragraph (结尾段)
 
 Write 1-2 sentences:
 - `sentences`: Array of 1-2 objects. You can combine the position and logic into a single sentence, or split them:
   - `purpose_en` / `purpose_zh`: "restate_position"/"重申立场" or "summarize_logic"/"概括逻辑" or "restate_position_and_logic"/"重申立场与逻辑"
-  - Each has `text_en` and `text_zh`
-- `bad_closing_en` / `bad_closing_zh`: A BAD closing with common mistakes and explanation
+  - Each has `text_en` and `text_zh`. CRITICAL RULE: For 'Discuss both views', the conclusion MUST make a clear final choice/stance (e.g., "In conclusion, although both views have merits, I personally lean towards...").
 
 IMPORTANT:
 - Band 6.0-6.5 level English. No Band 8+ vocabulary.
@@ -184,9 +182,6 @@ Return ONLY valid JSON. No markdown fences:
       {"purpose_en": "paraphrase_topic", "purpose_zh": "改写题目", "text_en": "...", "text_zh": "..."},
       {"purpose_en": "background_bridge", "purpose_zh": "背景衔接", "text_en": "...", "text_zh": "..."},
       {"purpose_en": "thesis_statement", "purpose_zh": "主旨定调", "text_en": "...", "text_zh": "..."}
-    ],
-    "bad_examples": [
-      {"type": "memorized_template", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
     ]
   },
   "arguments": {
@@ -201,10 +196,7 @@ Return ONLY valid JSON. No markdown fences:
           ]
         }
       ],
-      "example_en": "...", "example_zh": "...",
-      "bad_examples": [
-        {"type": "wordy", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
-      ]
+      "example_en": "...", "example_zh": "..."
     },
     "body2": {
       "main_idea_en": "...", "main_idea_zh": "...",
@@ -217,18 +209,14 @@ Return ONLY valid JSON. No markdown fences:
           ]
         }
       ],
-      "example_en": "...", "example_zh": "...",
-      "bad_examples": [
-        {"type": "wordy", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
-      ]
+      "example_en": "...", "example_zh": "..."
     }
   },
   "closing": {
     "sentences": [
       {"purpose_en": "restate_position", "purpose_zh": "重申立场", "text_en": "...", "text_zh": "..."},
       {"purpose_en": "summarize_logic", "purpose_zh": "概括逻辑", "text_en": "...", "text_zh": "..."}
-    ],
-    "bad_closing_en": "...", "bad_closing_zh": "..."
+    ]
   }
 }""" + SKILL_TASK2_VOCAB_GUIDE
 
@@ -239,10 +227,67 @@ Return ONLY valid JSON. No markdown fences:
 SKILL_AI_TEACHER_PART2_USER = """Write the opening, arguments, and closing for this IELTS Task 2 topic:
 
 TOPIC:
-%s
+{topic}
 
 QUESTION ANALYSIS & STRUCTURE (Use this as your strict guide):
-%s"""
+{part1_context}"""
+
+
+SKILL_AI_TEACHER_PART2_ERRORS = """You are a UK IELTS writing teacher helping Chinese-speaking students achieve Band 6.0-6.5 for Task 2 (Essay). You have already planned the essay structure and written the correct paragraphs (Opening, Body 1, Body 2, Closing).
+
+Your task now is to generate COMMON MISTAKES (bad_examples) for each of these paragraphs to teach the student what NOT to do.
+
+## Section 1: Opening Paragraph (引言段)
+- `opening_bad`: Array of exactly 2 flawed versions demonstrating common mistakes: "wordy_background", "copied_prompt". Each object has:
+  - `type`: The error type string
+  - `en` / `zh`: A one-sentence bad opening excerpt
+  - `expanded_en` / `expanded_zh`: An expanded bad paragraph
+  - `reason`: Brief explanation of why it's weak (in Chinese if lang is zh, else en)
+
+## Section 2: Body Paragraphs (主体段)
+- `body1_bad` and `body2_bad`: Array of exactly 6 flawed versions demonstrating different error types: "wordy", "absolute", "superficial", "illogical", "colloquial", "example_dump". Each object has:
+  - `type`: The error type string
+  - `en` / `zh`: A one-sentence bad opinion
+  - `expanded_en` / `expanded_zh`: An expanded bad paragraph
+  - `reason`: Brief explanation of why it's weak (in Chinese if lang is zh, else en)
+
+## Section 3: Closing Paragraph (结尾段)
+- `closing_bad`: Array of 1-2 flawed versions demonstrating common mistakes (e.g., "new_idea_in_conclusion", "vague_summary", "memorized_template"). Each object has:
+  - `type`: The error type string
+  - `en` / `zh`: A brief bad closing excerpt
+  - `expanded_en` / `expanded_zh`: The full bad paragraph
+  - `reason`: Brief explanation of why it's weak (in Chinese if lang is zh, else en)
+
+IMPORTANT:
+- Band 6.0-6.5 level English. No Band 8+ vocabulary.
+- All negative examples must explain what makes them weak.
+
+Return ONLY valid JSON. No markdown fences:
+{
+  "opening_bad": [
+    {"type": "copied_prompt", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
+  ],
+  "body1_bad": [
+    {"type": "wordy", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
+  ],
+  "body2_bad": [
+    {"type": "wordy", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
+  ],
+  "closing_bad": [
+    {"type": "new_idea_in_conclusion", "en": "...", "zh": "...", "expanded_en": "...", "expanded_zh": "...", "reason": "..."}
+  ]
+}""" + SKILL_TASK2_VOCAB_GUIDE
+
+SKILL_AI_TEACHER_PART2_ERRORS_USER = """Write the common mistakes for the paragraphs generated for this IELTS Task 2 topic:
+
+TOPIC:
+{topic}
+
+QUESTION ANALYSIS & STRUCTURE:
+{part1_context}
+
+CORRECT PARAGRAPHS GENERATED:
+{part2_context}"""
 
 SKILL_AI_TEACHER_PART3 = """You are a UK IELTS writing teacher helping Chinese-speaking students achieve Band 6.0-6.5 for Task 2 (Essay). You have already analyzed an IELTS Task 2 essay topic and planned all parts.
 
@@ -292,19 +337,52 @@ Return ONLY valid JSON. No markdown fences:
 SKILL_AI_TEACHER_PART3_USER = """Here is the analysis and plan. Write the complete model essay now.
 
 ESSAY TOPIC:
-%s
+{topic}
 
 QUESTION ANALYSIS:
-%s
+{question_analysis}
 
 STRUCTURE PLAN:
-%s
+{structure_plan}
 
 OPENING SENTENCES:
-%s
+{opening}
 
 BODY ARGUMENTS:
-%s
+{arguments}
 
 CLOSING SENTENCES:
-%s"""
+{closing}"""
+
+
+SKILL_AI_TEACHER_PART2_GRAMMAR = """You are a UK IELTS writing teacher helping Chinese-speaking students.
+You will receive the smallest sentence clauses from the Body Paragraphs of a Task 2 essay.
+Your task is to analyze the grammar structure of EACH clause provided.
+
+For each clause, provide:
+1. `pattern`: The grammatical pattern of the clause (e.g., "主谓宾 (SVO)", "主系表 (SVC)", "主谓 (SV)", "状语从句", "定语从句", "被动语态").
+2. `subject`: The subject (主语) of the clause. Extract the exact English text. If there is no explicit subject (e.g., imperative), write "None".
+3. `verb`: The verb or verb phrase (谓语) of the clause. Extract the exact English text.
+4. `object`: The object or complement (宾语/表语/补语) of the clause. Extract the exact English text. If none, write "None".
+5. `explanation_zh`: A very brief explanation in Chinese (1-2 sentences) of why this grammar structure is used or how it works.
+
+Output MUST be a JSON object containing keys for each argument block provided (e.g., "body1_grammar", "body2_grammar"). Each key should map to an array of objects corresponding exactly to the clauses provided in the input, preserving the `id`.
+
+Example Output Format:
+{
+  "body1_grammar": [
+    {
+      "id": "body1-0-0",
+      "pattern": "被动语态 (Passive Voice)",
+      "subject": "water",
+      "verb": "must be collected",
+      "object": "None",
+      "explanation_zh": "使用被动语态强调动作承受者（水），更符合学术写作的客观性。"
+    }
+  ]
+}
+"""
+
+SKILL_AI_TEACHER_PART2_GRAMMAR_USER = """Analyze the grammar for the following clauses:
+{clauses_text}
+"""

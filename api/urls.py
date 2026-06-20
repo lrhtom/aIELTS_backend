@@ -25,6 +25,7 @@ from .vocab import learning_plan_views
 from .extra import store_views
 from .extra import creative_workshop_views
 from .extra import assistant_views
+from .assistant_views import UserTodoItemViewSet, UserShortcutViewSet
 from .extra import markdown_notes_views
 from . import checkin_views
 from . import analytics_views
@@ -36,7 +37,7 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    # ---- 鉴权与用户 API ----
+    # ---- 鉴权与用�?API ----
     path('auth/register', auth_views.UserRegistrationView.as_view(), name='auth_register'),
     path('auth/send-code', SendVerificationCodeView.as_view(), name='auth_send_code'),
     path('auth/login', CustomLoginView.as_view(), name='token_obtain_pair'),
@@ -54,7 +55,7 @@ urlpatterns = [
     path('checkin', checkin_views.daily_checkin, name='daily_checkin'),
     path('checkin/status', checkin_views.checkin_status, name='checkin_status'),
 
-    # ---- AT币管理 API ----
+    # ---- AT币管�?API ----
     path('balance', balance_views.get_balance, name='get_balance'),
     path('balance/check', balance_views.check_balance, name='check_balance'),
     path('balance/consume', balance_views.consume_at, name='consume_at'),
@@ -95,7 +96,6 @@ urlpatterns = [
     path('speaking/bank/part2/generate', speaking_bank_views.bank_generate_part2, name='bank_generate_part2'),
     path('speaking/bank/part3/generate', speaking_bank_views.bank_generate_part3, name='bank_generate_part3'),
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
-    path('writing/synonyms', writing_views.get_writing_synonyms, name='writing_synonyms'),
     path('writing/chat', writing_views.writing_chat, name='writing_chat'),
     path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
     path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
@@ -135,6 +135,15 @@ urlpatterns = [
     path('markdown-notes/', markdown_notes_views.MarkdownNoteListView.as_view(), name='markdown_note_list'),
     path('markdown-notes/<int:pk>/', markdown_notes_views.MarkdownNoteDetailView.as_view(), name='markdown_note_detail'),
 
+    
+    # ---- 助手额外功能 API ----
+    path('assistant/todos/', UserTodoItemViewSet.as_view({'get': 'list', 'post': 'create'}), name='assistant_todos'),
+    path('assistant/todos/<int:pk>/', UserTodoItemViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy'}), name='assistant_todo_detail'),
+    path('assistant/todos/clear-completed/', UserTodoItemViewSet.as_view({'post': 'clear_completed'}), name='assistant_todo_clear_completed'),
+    
+    path('assistant/shortcuts/', UserShortcutViewSet.as_view({'get': 'list', 'post': 'create'}), name='assistant_shortcuts'),
+    path('assistant/shortcuts/<int:pk>/', UserShortcutViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy'}), name='assistant_shortcut_detail'),
+
     # ---- 全局助手 API ----
     path('assistant/personal-chat', assistant_views.personal_agent_chat, name='assistant_personal_chat'),
     path('assistant/mcp/capabilities', assistant_views.assistant_mcp_capabilities, name='assistant_mcp_capabilities'),
@@ -142,7 +151,7 @@ urlpatterns = [
     path('assistant/mcp/open-pages', assistant_views.assistant_mcp_open_pages, name='assistant_mcp_open_pages'),
     path('assistant/mcp/react-browser', assistant_views.assistant_mcp_react_browser, name='assistant_mcp_react_browser'),
 
-    # ---- 笔记本 API ----
+    # ---- 笔记�?API ----
     path('notebooks/',                              notebook_views.NotebookListView.as_view(),      name='notebook_list'),
     path('notebooks/<int:pk>/',                     notebook_views.NotebookDetailView.as_view(),    name='notebook_detail'),
     path('notebooks/<int:pk>/words/',               notebook_views.NotebookWordListView.as_view(),  name='notebook_words'),
@@ -177,4 +186,5 @@ urlpatterns = [
     # ---- 学习分析 API ----
     path('analytics/vocab',                 analytics_views.VocabAnalyticsView.as_view(),     name='analytics_vocab'),
     path('analytics/scheduled-words',       analytics_views.ScheduledWordsView.as_view(),     name='analytics_scheduled_words'),
+    path('analytics/writing',               analytics_views.WritingAnalyticsView.as_view(),   name='analytics_writing'),
 ]

@@ -385,6 +385,44 @@ class UserSettingsView(APIView):
             if 'ai_provider' in request.data:
                 user.ai_provider = request.data.get('ai_provider', 'deepseek')
                 update_fields.append('ai_provider')
+                
+            # 处理个人目标 (听说读写与考试日期)
+            score_fields = ['target_listening', 'target_reading', 'target_writing', 'target_speaking']
+            has_score_update = False
+            for sf in score_fields:
+                if sf in request.data:
+                    val = request.data.get(sf)
+                    if val is None or val == '':
+                        setattr(user, sf, None)
+                    else:
+                        setattr(user, sf, float(val))
+                    update_fields.append(sf)
+                    has_score_update = True
+                    
+            if has_score_update:
+                # 重新计算总分 (target_score)
+                scores = [getattr(user, sf) for sf in score_fields if getattr(user, sf) is not None]
+                if len(scores) == 4:
+                    avg = sum(scores) / 4.0
+                    import math
+                    frac = avg - math.floor(avg)
+                    if frac < 0.25:
+                        user.target_score = math.floor(avg)
+                    elif frac < 0.75:
+                        user.target_score = math.floor(avg) + 0.5
+                    else:
+                        user.target_score = math.ceil(avg)
+                else:
+                    user.target_score = None
+                update_fields.append('target_score')
+                
+            if 'exam_date' in request.data:
+                val = request.data.get('exam_date')
+                if val is None or val == '':
+                    user.exam_date = None
+                else:
+                    user.exam_date = val
+                update_fields.append('exam_date')
             
             # 保存所有更新
             user.save(update_fields=update_fields)

@@ -51,6 +51,10 @@ class AIClient:
             self.base_url = base_url
             self.api_key = api_key
             self.model = model
+        elif self.provider == 'deepseek_flash':
+            self.base_url = os.environ.get('AI_BASE_URL', '')
+            self.api_key = os.environ.get('AI_API_KEY', '')
+            self.model = os.environ.get('DEEPSEEK_FLASH_MODEL', 'deepseek-v4-flash')
         else:
             self.base_url = os.environ.get('AI_BASE_URL', '')
             self.api_key = os.environ.get('AI_API_KEY', '')
@@ -282,7 +286,7 @@ class AIClient:
                     self.base_url,
                     headers=headers,
                     json=payload,
-                    timeout=120,
+                    timeout=600,
                 )
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
@@ -473,7 +477,7 @@ class AIClient:
             }
 
         try:
-            response = requests.post(self.base_url, headers=headers, json=payload, stream=True, timeout=120)
+            response = requests.post(self.base_url, headers=headers, json=payload, stream=True, timeout=600)
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             yield f"[ERR] HTTP Error: {e.response.status_code}\n{e.response.text}"

@@ -23,6 +23,11 @@ class User(AbstractUser):
     avatar_file = models.CharField(max_length=255, blank=True, null=True, verbose_name="头像文件路径")
     
     target_score = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="目标分数(如: 7.5)")
+    target_listening = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="听力目标分数")
+    target_reading = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="阅读目标分数")
+    target_writing = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="写作目标分数")
+    target_speaking = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="口语目标分数")
+    
     current_score = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="当前预估分数")
     exam_date = models.DateField(blank=True, null=True, verbose_name="预计考试时间")
     
@@ -788,3 +793,32 @@ class TransactionRecord(models.Model):
                 balance_after=balance_after,
                 description=description
             )
+
+# ==========================================
+# Assistant Personal Features
+# ==========================================
+
+class UserTodoItem(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='todos', verbose_name='用户')
+    text = models.CharField(max_length=255, verbose_name='待办内容')
+    done = models.BooleanField(default=False, verbose_name='是否完成')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        db_table = 'user_todo_items'
+        verbose_name = '用户待办事项'
+        verbose_name_plural = '用户待办事项'
+        ordering = ['created_at']
+
+class UserShortcut(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shortcuts', verbose_name='用户')
+    title = models.CharField(max_length=100, verbose_name='标题')
+    url = models.URLField(max_length=500, verbose_name='链接地址')
+    open_in_new_tab = models.BooleanField(default=True, verbose_name='新标签页打开')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        db_table = 'user_shortcuts'
+        verbose_name = '用户快捷访问'
+        verbose_name_plural = '用户快捷访问'
+        ordering = ['created_at']

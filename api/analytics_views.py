@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.models import LearningPlan, VocabFSRS
+from api.models import LearningPlan, VocabFSRS, WritingServiceRecord
 
 
 class VocabAnalyticsView(APIView):
@@ -159,3 +159,89 @@ class ScheduledWordsView(APIView):
             return Response({'words': unique_words}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class WritingAnalyticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        records = WritingServiceRecord.objects.filter(
+            user=request.user, 
+            service_type='correction'
+        ).order_by('created_at')
+
+        task1_trend = []
+        task2_trend = []
+        
+        t1_tr_sum = t1_cc_sum = t1_lr_sum = t1_gra_sum = 0
+        t1_count = 0
+        
+        t2_tr_sum = t2_cc_sum = t2_lr_sum = t2_gra_sum = 0
+        t2_count = 0
+
+        for rec in records:
+            content = rec.content
+            if not isinstance(content, dict): continue
+            res = content.get('result')
+            if not res: continue
+            
+            task_type = content.get('task_type', 'task2')
+            # format as MM-DD HH:MM
+            date_str = rec.created_at.strftime('%m-%d %H:%M')
+            score = res.get('Overall_Band', 0)
+            
+            # Use Task_Response or Task_Achievement based on what's available
+            tr_score = res.get('Task_Response', 0) or res.get('Task_Achievement', 0)
+            cc_score = res.get('Coherence_Cohesion', 0)
+            lr_score = res.get('Lexical_Resource', 0)
+            gra_score = res.get('Grammatical_Range', 0)
+            
+            if score > 0:
+                record_data = {
+                    'id': rec.id,
+                    'date': date_str,
+                    'overall': round(score, 1),
+                    'tr': round(tr_score, 1) if tr_score else None,
+                    'cc': round(cc_score, 1) if cc_score else None,
+                    'lr': round(lr_score, 1) if lr_score else None,
+                    'gra': round(gra_score, 1) if gra_score else None,
+                }
+                if task_type == 'task1':
+                    task1_trend.append(record_data)
+                else:
+                    task2_trend.append(record_data)
+            
+            if tr_score > 0 and cc_score > 0 and lr_score > 0 and gra_score > 0:
+                if task_type == 'task1':
+                    t1_tr_sum += tr_score
+                    t1_cc_sum += cc_score
+                    t1_lr_sum += lr_score
+                    t1_gra_sum += gra_score
+                    t1_count += 1
+                else:
+                    t2_tr_sum += tr_score
+                    t2_cc_sum += cc_score
+                    t2_lr_sum += lr_score
+                    t2_gra_sum += gra_score
+                    t2_count += 1
+                
+        task1_skills_avg = {
+            'tr': round(t1_tr_sum / t1_count, 1) if t1_count > 0 else 0,
+            'cc': round(t1_cc_sum / t1_count, 1) if t1_count > 0 else 0,
+            'lr': round(t1_lr_sum / t1_count, 1) if t1_count > 0 else 0,
+            'gra': round(t1_gra_sum / t1_count, 1) if t1_count > 0 else 0,
+        }
+        
+        task2_skills_avg = {
+            'tr': round(t2_tr_sum / t2_count, 1) if t2_count > 0 else 0,
+            'cc': round(t2_cc_sum / t2_count, 1) if t2_count > 0 else 0,
+            'lr': round(t2_lr_sum / t2_count, 1) if t2_count > 0 else 0,
+            'gra': round(t2_gra_sum / t2_count, 1) if t2_count > 0 else 0,
+        }
+        
+        return Response({
+            'task1_trend': task1_trend,
+            'task2_trend': task2_trend,
+            'task1_skills_avg': task1_skills_avg,
+            'task2_skills_avg': task2_skills_avg,
+            'total_corrections': t1_count + t2_count
+        })
