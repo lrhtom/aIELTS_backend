@@ -11,6 +11,7 @@ from .practice import writing_task2_views
 from .practice import writing_ai_teacher_views
 from .practice import writing_task1_ai_teacher_views
 from .practice import writing_record_views
+from .practice import ai_question_views
 from .extra import prompt_views
 from .auth import auth_views
 from .auth import balance_views
@@ -37,7 +38,7 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    # ---- 鉴权与用�?API ----
+    # ---- 鉴权与用�?API ----
     path('auth/register', auth_views.UserRegistrationView.as_view(), name='auth_register'),
     path('auth/send-code', SendVerificationCodeView.as_view(), name='auth_send_code'),
     path('auth/login', CustomLoginView.as_view(), name='token_obtain_pair'),
@@ -55,7 +56,7 @@ urlpatterns = [
     path('checkin', checkin_views.daily_checkin, name='daily_checkin'),
     path('checkin/status', checkin_views.checkin_status, name='checkin_status'),
 
-    # ---- AT币管�?API ----
+    # ---- AT币管�?API ----
     path('balance', balance_views.get_balance, name='get_balance'),
     path('balance/check', balance_views.check_balance, name='check_balance'),
     path('balance/consume', balance_views.consume_at, name='consume_at'),
@@ -98,9 +99,7 @@ urlpatterns = [
     path('writing/generate', writing_views.generate_writing, name='generate_writing'),
     path('writing/chat', writing_views.writing_chat, name='writing_chat'),
     path('writing/chart/generate', writing_chart_views.generate_chart, name='generate_chart'),
-    path('writing/chart/evaluate', writing_chart_views.evaluate_chart, name='evaluate_chart'),
     path('writing/task2/generate', writing_task2_views.generate_task2, name='generate_task2'),
-    path('writing/task2/evaluate', writing_task2_views.evaluate_task2, name='evaluate_task2'),
     path('writing/task2/opinion-drill/generate', writing_task2_views.generate_opinion_drill_questions, name='generate_opinion_drill_questions'),
     path('writing/task2/opinion-drill/evaluate', writing_task2_views.evaluate_opinion_drill_answer, name='evaluate_opinion_drill_answer'),
     path('writing/ai-teacher/generate', writing_ai_teacher_views.generate_ai_teacher_lesson, name='generate_ai_teacher_lesson'),
@@ -109,6 +108,11 @@ urlpatterns = [
     # Writing Records
     path('writing/records', writing_record_views.writing_records_list, name='writing_records_list'),
     path('writing/records/<int:record_id>', writing_record_views.writing_record_detail, name='writing_record_detail'),
+
+    # ---- AI 题库 API ----
+    path('ai-questions/', ai_question_views.list_ai_questions, name='ai_question_list'),
+    path('ai-questions/<int:pk>/', ai_question_views.ai_question_detail, name='ai_question_detail'),
+    path('ai-questions/<int:pk>/submit/', ai_question_views.submit_ai_question, name='ai_question_submit'),
 
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
     path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),
@@ -151,7 +155,7 @@ urlpatterns = [
     path('assistant/mcp/open-pages', assistant_views.assistant_mcp_open_pages, name='assistant_mcp_open_pages'),
     path('assistant/mcp/react-browser', assistant_views.assistant_mcp_react_browser, name='assistant_mcp_react_browser'),
 
-    # ---- 笔记�?API ----
+    # ---- 笔记�?API ----
     path('notebooks/',                              notebook_views.NotebookListView.as_view(),      name='notebook_list'),
     path('notebooks/<int:pk>/',                     notebook_views.NotebookDetailView.as_view(),    name='notebook_detail'),
     path('notebooks/<int:pk>/words/',               notebook_views.NotebookWordListView.as_view(),  name='notebook_words'),

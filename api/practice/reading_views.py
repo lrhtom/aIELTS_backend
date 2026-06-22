@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from api.core.utils import call_ai_api
 from api.core.rate_limit import check_rate_limit
+from api.models import AIQuestion
+from api.practice.ai_question_views import create_ai_question
 
 READING_QUESTION_TYPE_MCQ = 'multiple_choice'
 READING_QUESTION_TYPE_TRUE_FALSE = 'true_false'
@@ -254,6 +256,19 @@ def generate_reading(request):
             'questions': _normalize_questions(result.get('questions'), question_type, judgement_mode),
             'atConsumed': result.get('atConsumed', 0),
         }
+
+        try:
+            ai_question = create_ai_question(
+                user=request.user,
+                skill=AIQuestion.SKILL_READING,
+                subtype=question_type,
+                title=title,
+                content={k: v for k, v in payload.items() if k != 'atConsumed'},
+            )
+            payload['aiQuestionId'] = ai_question.id
+        except Exception as save_err:
+            print(f'[Reading] ⚠️ AIQuestion 入库失败: {save_err}', flush=True)
+            payload['aiQuestionId'] = None
 
         return JsonResponse(payload)
 

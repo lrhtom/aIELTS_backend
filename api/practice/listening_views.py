@@ -10,6 +10,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from api.core.utils import call_ai_api
 from api.core.rate_limit import check_rate_limit
+from api.models import AIQuestion
+from api.practice.ai_question_views import create_ai_question
 from api.skills.listening.generation import (
     SKILL_LISTENING_ARTICLE_TEMPLATE as ARTICLE_LISTENING_PROMPT_TEMPLATE,
     SKILL_LISTENING_MULTIPLE_CHOICE_TEMPLATE as ARTICLE_LISTENING_MULTIPLE_CHOICE_PROMPT_TEMPLATE,
@@ -251,6 +253,22 @@ def generate_listening(request):
         print(f"{result.get('passage', '')}", flush=True)
         
         print(f"{'='*60}\n", flush=True)
+
+        try:
+            listening_title = str(result.get('title') or '').strip() or '听力练习'
+            content_to_save = {k: v for k, v in result.items() if k != 'atConsumed'}
+            ai_question = create_ai_question(
+                user=request.user,
+                skill=AIQuestion.SKILL_LISTENING,
+                subtype=practice_type,
+                title=listening_title,
+                content=content_to_save,
+            )
+            result['aiQuestionId'] = ai_question.id
+        except Exception as save_err:
+            print(f'[Listening] ⚠️ AIQuestion 入库失败: {save_err}', flush=True)
+            result['aiQuestionId'] = None
+
         return JsonResponse(result)
 
     except Exception as e:

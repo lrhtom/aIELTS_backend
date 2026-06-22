@@ -13,11 +13,30 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from api.core.ai_client import AIClient, refund_at
 from api.core.rate_limit import check_rate_limit
+from api.models import AIQuestion
+from api.practice.ai_question_views import create_ai_question
+
+
+def _save_chart_question(user, chart_type: str, prompt_text: str, payload: dict) -> dict:
+    """Persist a chart-generation payload to AIQuestion and inject aiQuestionId."""
+    try:
+        title = (prompt_text or 'Task 1').strip().splitlines()[0][:200] or 'Task 1 图表'
+        ai_question = create_ai_question(
+            user=user,
+            skill=AIQuestion.SKILL_WRITING,
+            subtype=f'chart:{chart_type}',
+            title=title,
+            content={k: v for k, v in payload.items() if k != 'atConsumed'} | {'writingKind': 'chart', 'chartType': chart_type},
+        )
+        payload['aiQuestionId'] = ai_question.id
+    except Exception as save_err:
+        print(f'[Chart] ⚠️ AIQuestion 入库失败: {save_err}', flush=True)
+        payload['aiQuestionId'] = None
+    return payload
 from api.skills.writing.chart import (
     skill_writing_chart_map,
     skill_writing_chart_flowchart,
     skill_writing_chart_standard,
-    skill_writing_chart_evaluate,
 )
 
 CHART_SUBJECT_AREAS = [
@@ -1059,13 +1078,14 @@ def generate_chart(request):
                 prompt_text = ('The diagram below shows the process illustrated in the flowchart. '
                                'Summarise the information by selecting and reporting the main features.')
 
-            return Response({
+            fc_payload = {
                 'imageUrl':    None,
                 'mermaidCode': mermaid_code,
                 'prompt':      prompt_text,
                 'pythonCode':  mermaid_code,
                 'atConsumed':  at_cost,
-            })
+            }
+            return Response(_save_chart_question(user, chart_type, prompt_text, fc_payload))
 
         # ── MAP: generate HTML + SVG (no matplotlib execution) ──
         if chart_type == 'map':
@@ -1127,7 +1147,7 @@ def generate_chart(request):
                 'layoutSummary': layout_summary,
             }
 
-            return Response({
+            map_payload = {
                 'imageUrl': None,
                 'mermaidCode': None,
                 'prompt': prompt_text,
@@ -1137,7 +1157,8 @@ def generate_chart(request):
                 'mapEnvironmentType': environment_type,
                 'mapLocationName': location_name,
                 'atConsumed': at_cost,
-            })
+            }
+            return Response(_save_chart_question(user, chart_type, prompt_text, map_payload))
 
         # 鈹€鈹€ OTHER CHART TYPES: JSON mode + Matplotlib sandbox ┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢
         subject_area = random.choice(CHART_SUBJECT_AREAS)
@@ -1203,68 +1224,15 @@ def generate_chart(request):
         except OSError:
             pass # ignore cleanup errors
         
-        return Response({
+        std_payload = {
             'imageUrl': img_url,
             'mermaidCode': None,
             'prompt': prompt_text,
             'pythonCode': python_code,
-            'atConsumed': at_cost
-        })
+            'atConsumed': at_cost,
+        }
+        return Response(_save_chart_question(user, chart_type, prompt_text, std_payload))
     except Exception as e:
         import traceback
         return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def evaluate_chart(request):
-    try:
-        user = request.user
-        limit_resp = check_rate_limit(user.id, 'chart_evaluate', max_calls=5, window=60)
-        if limit_resp: return limit_resp
-        prompt_text = request.data.get('prompt', '')
-        python_code = request.data.get('pythonCode', '')
-        user_answer = request.data.get('userAnswer', '')
-        ui_lang = request.data.get('lang', 'en')
-        provider = request.headers.get('X-AI-Provider', 'deepseek')
-        eval_scope = _build_singleflight_scope(
-            'writing_chart_evaluate',
-            {
-                'prompt': prompt_text,
-                'pythonCode': python_code,
-                'userAnswer': user_answer,
-                'lang': ui_lang,
-            },
-        )
-
-        client = AIClient(provider=provider)
-
-        lang_instruction = (
-            'Write the "feedback" field in Simplified Chinese (中文).'
-            if ui_lang == 'zh'
-            else 'Write the "feedback" field in English.'
-        )
-
-        system_prompt = skill_writing_chart_evaluate(lang_instruction)
-        user_msg = f"Prompt:\n{prompt_text}\n\nReference Data (Python/Mermaid/Map JSON):\n{python_code}\n\nUser Answer:\n{user_answer}"
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_msg}
-        ]
-        
-        try:
-            response_data, at_cost = client.generate(
-                messages,
-                expect_json=True,
-                user_id=user.id,
-                singleflight_scope=eval_scope,
-            )
-            response_data['atConsumed'] = at_cost
-            return Response(response_data)
-        except Exception as e:
-            return Response({'error': f'Failed to evaluate or parse: {e}'}, status=500)
-            
-    except Exception as e:
-        import traceback
-        return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
-
 

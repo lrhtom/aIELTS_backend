@@ -7,9 +7,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from api.core.ai_client import AIClient
 from api.core.rate_limit import check_rate_limit
+from api.models import AIQuestion
+from api.practice.ai_question_views import create_ai_question
 from api.skills.writing.task2 import (
     skill_writing_task2_generate,
-    skill_writing_task2_evaluate,
     skill_writing_task2_opinion_generate,
     skill_writing_task2_opinion_evaluate,
 )
@@ -272,66 +273,33 @@ def generate_task2(request):
             singleflight_scope='writing_task2_generate',
         )
         prompt_text = response_data.get('prompt', '')
-        
-        return Response({
+
+        payload = {
             'prompt': prompt_text,
             'requestedTopicCategory': requested_topic_category,
             'topicCategory': resolved_topic_category,
             'topicArea': topic_area or 'innovation-generated',
-            'atConsumed': at_cost
-        })
+            'atConsumed': at_cost,
+        }
+
+        try:
+            title = (prompt_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
+            ai_question = create_ai_question(
+                user=user,
+                skill=AIQuestion.SKILL_WRITING,
+                subtype=f'task2:{task_type}',
+                title=title,
+                content={k: v for k, v in payload.items() if k != 'atConsumed'} | {'writingKind': 'task2', 'taskType': task_type},
+            )
+            payload['aiQuestionId'] = ai_question.id
+        except Exception as save_err:
+            print(f'[Task2] ⚠️ AIQuestion 入库失败: {save_err}', flush=True)
+            payload['aiQuestionId'] = None
+
+        return Response(payload)
     except Exception as e:
         import traceback
         return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def evaluate_task2(request):
-    try:
-        user = request.user
-        limit_resp = check_rate_limit(user.id, 'task2_evaluate', max_calls=5, window=60)
-        if limit_resp: return limit_resp
-        prompt_text = request.data.get('prompt', '')
-        user_answer = request.data.get('userAnswer', '')
-        ui_lang = request.data.get('lang', 'en')
-        provider = request.headers.get('X-AI-Provider', 'deepseek')
-        eval_scope = _build_singleflight_scope(
-            'writing_task2_evaluate',
-            {
-                'prompt': prompt_text,
-                'userAnswer': user_answer,
-                'lang': ui_lang,
-            },
-        )
-
-        client = AIClient(provider=provider)
-
-        lang_instruction = (
-            'Write the "feedback" field in Simplified Chinese (中文).'
-            if ui_lang == 'zh'
-            else 'Write the "feedback" field in English.'
-        )
-
-        system_prompt = skill_writing_task2_evaluate(lang_instruction)
-        user_msg = f"Prompt:\n{prompt_text}\n\nUser Answer:\n{user_answer}"
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_msg}
-        ]
-        
-        response_data, at_cost = client.generate(
-            messages,
-            expect_json=True,
-            user_id=user.id,
-            singleflight_scope=eval_scope,
-        )
-        response_data['atConsumed'] = at_cost
-        return Response(response_data)
-        
-    except Exception as e:
-        import traceback
-        return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

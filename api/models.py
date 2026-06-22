@@ -822,3 +822,44 @@ class UserShortcut(models.Model):
         verbose_name = '用户快捷访问'
         verbose_name_plural = '用户快捷访问'
         ordering = ['created_at']
+
+
+class AIQuestion(models.Model):
+    """AI 题库题目：listening / reading / writing 的生成产物 + 用户最近一次作答。"""
+
+    SKILL_READING = 'reading'
+    SKILL_LISTENING = 'listening'
+    SKILL_WRITING = 'writing'
+    SKILL_CHOICES = [
+        (SKILL_READING, '阅读'),
+        (SKILL_LISTENING, '听力'),
+        (SKILL_WRITING, '写作'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ai_questions',
+        verbose_name='用户',
+    )
+    skill = models.CharField(max_length=20, choices=SKILL_CHOICES, verbose_name='技能类型')
+    subtype = models.CharField(max_length=50, blank=True, default='', verbose_name='子类型')
+    title = models.CharField(max_length=300, blank=True, default='', verbose_name='展示标题')
+    content_json = models.JSONField(default=dict, verbose_name='生成内容')
+    user_answer_json = models.JSONField(null=True, blank=True, verbose_name='用户作答')
+    ai_feedback_json = models.JSONField(null=True, blank=True, verbose_name='AI 反馈/评分')
+    answered_at = models.DateTimeField(null=True, blank=True, verbose_name='首次作答时间')
+    last_attempt_at = models.DateTimeField(null=True, blank=True, verbose_name='最近作答时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='生成时间')
+
+    class Meta:
+        db_table = 'ai_questions'
+        verbose_name = 'AI 题库题目'
+        verbose_name_plural = 'AI 题库题目'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'skill', '-created_at'], name='idx_aiq_user_skill_created'),
+        ]
+
+    def __str__(self):
+        return f'[{self.skill}] {self.title or self.id} ({self.user.username})'
