@@ -2,6 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -85,16 +87,24 @@ class NotebookListView(APIView):
             cover_color = 'indigo'
         is_public = bool(request.data.get('is_public', False))
 
+        UserModel = get_user_model()
         try:
-            nb = Notebook(
-                user=request.user,
-                title=title,
-                description=description,
-                cover_color=cover_color,
-                is_public=is_public,
-            )
-            nb.full_clean()
-            nb.save()
+            # Serialise concurrent POSTs for the same user via a row lock on the User row, so
+            # Notebook.clean()'s count check below cannot be raced by another in-flight create
+            # — without this, two simultaneous requests both see "9 of 10" and both insert.
+            with transaction.atomic():
+                UserModel.objects.select_for_update().filter(pk=request.user.pk).only('id').first()
+                nb = Notebook(
+                    user=request.user,
+                    title=title,
+                    description=description,
+                    cover_color=cover_color,
+                    is_public=is_public,
+                )
+                nb.full_clean()
+                nb.save()
+        except ValidationError as e:
+            return Response({'error': '；'.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             msg = str(e)
             if '最多创建' in msg:

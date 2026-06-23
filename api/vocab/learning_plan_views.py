@@ -1,5 +1,8 @@
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -301,17 +304,24 @@ class PlanListView(APIView):
         except (TypeError, ValueError):
             return Response({'error': '每日学习词数必须在 1-200 之间'}, status=status.HTTP_400_BAD_REQUEST)
 
+        UserModel = get_user_model()
         try:
-            plan = LearningPlan(
-                user=request.user,
-                name=name,
-                daily_count=daily_count,
-                complete_difficulty='hint',
-            )
-            plan.save()
+            # Lock the user row so a parallel POST for the same user serialises behind us —
+            # without this, two concurrent requests both pass LearningPlan.clean()'s count check
+            # before either commits, letting users exceed MAX_PER_USER.
+            with transaction.atomic():
+                UserModel.objects.select_for_update().filter(pk=request.user.pk).only('id').first()
+                plan = LearningPlan(
+                    user=request.user,
+                    name=name,
+                    daily_count=daily_count,
+                    complete_difficulty='hint',
+                )
+                plan.save()
+        except ValidationError as e:
+            return Response({'error': '；'.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            msg = str(e)
-            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'plan': _plan_dict(plan, 0, user=request.user)}, status=status.HTTP_201_CREATED)
 

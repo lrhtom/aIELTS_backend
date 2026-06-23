@@ -183,29 +183,26 @@ class AIClient:
             print(f"[AIClient]   地  址: {self.base_url}")
             print(f"[AIClient]   用户ID: {user_id}")
 
-            # 1. 预检：检查余额是否已为负（5秒短路缓存减少 DB 压力）
+            # 1. 预检：余额必须 > 0 才能发起请求。
+            #    旧版用 5 秒 Redis 缓存做"快路径"，但并发场景下两个请求都读到陈旧正余额、各自
+            #    通过 AI 再扣款，会把用户拖到深度负余额。改成强一致：transaction.atomic() +
+            #    select_for_update() 直读 DB，避免缓存陈旧导致的并发超支。注意 select_for_update
+            #    的锁在事务退出时立即释放，所以此处只能阻挡"已知欠费的用户"再发请求；要彻底防
+            #    止并发超支需要 pre-reservation（在 AI 调用前先预扣一笔），属于后续架构改进。
             if user_id:
                 User = get_user_model()
+                from django.db import transaction as _txn
                 try:
-                    balance = None
-                    try:
-                        from api.core.redis_client import get_redis
-                        _balance_key = f"balance:{user_id}"
-                        _cached = get_redis().get(_balance_key)
-                        if _cached is not None:
-                            balance = float(_cached)
-                    except Exception:
-                        pass
-                    if balance is None:
-                        _user_obj = User.objects.get(id=user_id)
-                        balance = _user_obj.at_balance
-                        try:
-                            from api.core.redis_client import get_redis
-                            get_redis().setex(f"balance:{user_id}", 5, str(balance))
-                        except Exception:
-                            pass
-                    if balance < 0:
-                        print(f"[AIClient] [ALERT] 拦截负余额用户 id={user_id}, 余额: {balance}")
+                    with _txn.atomic():
+                        _user_obj = (
+                            User.objects
+                            .select_for_update()
+                            .only('id', 'at_balance')
+                            .get(id=user_id)
+                        )
+                        balance = float(_user_obj.at_balance)
+                    if balance <= 0:
+                        print(f"[AIClient] [ALERT] 拦截欠费/零余额用户 id={user_id}, 余额: {balance}")
                         raise ValueError(f"您的AT币余额不足({balance})，请充值后重试。")
                 except ValueError:
                     raise
@@ -328,19 +325,27 @@ class AIClient:
             ai_content = re.sub(r'<think>[\s\S]*?</think>', '', ai_content).strip()
 
             # 2. 扣费（非 JSON 模式：立即扣费；JSON 模式：解析成功后再扣，失败不扣）
+            #    TransactionRecord.record() 内部已经是 atomic + select_for_update，单笔扣款本身
+            #    不存在双扣或竞态，只可能整体失败（抛异常）。失败时 token 已经计费给 AI 商，但
+            #    用户没扣到钱——会丢钱给我们。必须打 ERROR 让运维捞到这条记录人工核对。
             def _deduct():
-                if user_id:
-                    User = get_user_model()
+                if not user_id:
+                    return
+                User = get_user_model()
+                from api.models import TransactionRecord
+                try:
                     u = User.objects.get(id=user_id)
-                    from api.models import TransactionRecord
                     TransactionRecord.record(u, TransactionRecord.Currency.AT_COIN, -at_cost, f"AI生成消耗 ({self.model})")
-                    # 余额变化后失效余额缓存
-                    try:
-                        from api.core.redis_client import get_redis
-                        get_redis().delete(f"balance:{user_id}")
-                    except Exception:
-                        pass
                     print(f"[AIClient] [OK] Token 计费成功: 消耗{total_tokens}T -> {at_cost}AT, 最终余额{u.at_balance}")
+                except Exception as deduct_err:
+                    # Critical: AI already returned a usable response but we couldn't charge the
+                    # user. Surface this loudly so it can be reconciled manually.
+                    print(
+                        f"[AIClient] [CRITICAL] 扣费失败但 AI 响应已发出！"
+                        f" user_id={user_id} tokens={total_tokens} at_cost={at_cost}"
+                        f" model={self.model} err={deduct_err!r}"
+                    )
+                    raise
 
             if not expect_json:
                 _deduct()

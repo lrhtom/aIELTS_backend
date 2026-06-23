@@ -51,7 +51,10 @@ MIDDLEWARE = [
 ]
 
 # CORS — 允许前端开发服务器跨域
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # 仅在开发模式下允许所有来源
+# httpOnly cookie 认证要求：必须开启 ALLOW_CREDENTIALS，且 ALLOWED_ORIGINS 不能用 '*'。
+# 因此在开发环境也显式列出 origin，而不是开 ALLOW_ALL_ORIGINS。
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
@@ -66,6 +69,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-mcp-request-id",
     "cache-control",
     "pragma",
+    "x-csrf-token",  # 双提交 CSRF：前端把非 httpOnly cookie 中的值回传到这个 header
 ]
 
 ROOT_URLCONF = 'backend.urls'

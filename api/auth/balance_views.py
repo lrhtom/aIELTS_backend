@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -43,7 +44,6 @@ def check_balance(request):
 @permission_classes([IsAuthenticated])
 def consume_at(request):
     """消费 AT 币。"""
-    user = request.user
     amount = request.data.get('amount', 0)
     description = request.data.get('description', '')
     service_type = request.data.get('service_type', '')
@@ -51,23 +51,34 @@ def consume_at(request):
     if amount <= 0:
         return Response({'error': '消费金额必须大于 0'}, status=400)
 
-    if user.at_balance < amount:
-        return Response({
-            'error': f'AT币余额不足，需要 {amount} AT，当前余额 {user.at_balance} AT',
-            'requiredBalance': amount,
-            'currentBalance': user.at_balance
-        }, status=402)
-
-    # 扣除 AT 币
+    # 余额校验和扣款必须在同一个事务里、同一把行锁下完成，否则两个并发 consume 请求会双双
+    # 通过 `at_balance < amount` 检查再各自扣款，把用户拖入负数。
     from api.models import TransactionRecord
-    TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, -amount, description or f"{service_type} 消费")
+    try:
+        with transaction.atomic():
+            locked_user = User.objects.select_for_update().get(pk=request.user.pk)
+            if locked_user.at_balance < amount:
+                return Response({
+                    'error': f'AT币余额不足，需要 {amount} AT，当前余额 {locked_user.at_balance} AT',
+                    'requiredBalance': amount,
+                    'currentBalance': locked_user.at_balance,
+                }, status=402)
+            TransactionRecord.record(
+                locked_user,
+                TransactionRecord.Currency.AT_COIN,
+                -amount,
+                description or f"{service_type} 消费",
+            )
+            new_balance = locked_user.at_balance
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
 
     return Response({
         'ok': True,
-        'newBalance': user.at_balance,
+        'newBalance': new_balance,
         'consumed': amount,
         'description': description,
-        'serviceType': service_type
+        'serviceType': service_type,
     })
 
 @api_view(['POST'])

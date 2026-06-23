@@ -31,10 +31,11 @@ from .extra import markdown_notes_views
 from . import checkin_views
 from . import analytics_views
 from . import finance_views
-from .auth.auth_views import SendVerificationCodeView, CustomLoginView
+from .auth.auth_views import (
+    SendVerificationCodeView, CustomLoginView, LogoutView, CookieAwareTokenRefreshView,
+)
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
-    TokenRefreshView,
 )
 
 urlpatterns = [
@@ -42,7 +43,8 @@ urlpatterns = [
     path('auth/register', auth_views.UserRegistrationView.as_view(), name='auth_register'),
     path('auth/send-code', SendVerificationCodeView.as_view(), name='auth_send_code'),
     path('auth/login', CustomLoginView.as_view(), name='token_obtain_pair'),
-    path('auth/token/refresh', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/logout', LogoutView.as_view(), name='auth_logout'),
+    path('auth/token/refresh', CookieAwareTokenRefreshView.as_view(), name='token_refresh'),
     path('auth/profile', auth_views.UserProfileView.as_view(), name='auth_profile'),
     path('auth/settings', auth_views.UserSettingsView.as_view(), name='user_settings'),
     path('auth/avatar', auth_views.AvatarUploadView.as_view(), name='avatar_upload'),

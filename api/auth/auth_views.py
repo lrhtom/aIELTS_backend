@@ -3,12 +3,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth import get_user_model
 from api.serializers import UserRegistrationSerializer, UserSerializer
 from api.core.email_service import send_verification_code, verify_code
+from api.core.authentication import (
+    ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME,
+)
 from datetime import timedelta
 import os
 import mimetypes
+import secrets
 from PIL import Image
 import io
 import uuid
@@ -18,6 +23,53 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 
 User = get_user_model()
+
+
+# Cookie lifetimes — keep in sync with simple-jwt's ACCESS_TOKEN_LIFETIME / REFRESH_TOKEN_LIFETIME.
+ACCESS_COOKIE_MAX_AGE = 60 * 60          # 1 hour
+REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
+
+
+def _cookie_kwargs(httponly: bool, max_age: int) -> dict:
+    """
+    SameSite policy:
+      - dev (DEBUG=True, plain HTTP)   → Lax + non-secure. Lax allows the cookie on
+        same-site top-level navigations and the browser still sends it on XHR/fetch
+        within the same registrable domain (localhost:5173 ↔ localhost:8000 count
+        as same-site).
+      - prod (HTTPS)                    → Lax + Secure. Strict would block links
+        from external sites that should remain authenticated; Lax is the usual
+        sweet spot.
+    """
+    is_secure = not settings.DEBUG
+    return {
+        'httponly': httponly,
+        'secure': is_secure,
+        'samesite': 'Lax',
+        'max_age': max_age,
+        'path': '/',
+    }
+
+
+def set_auth_cookies(response, *, access: str, refresh: str | None = None) -> None:
+    """Attach access/refresh/csrf cookies to ``response``.
+
+    Pass ``refresh=None`` for token-refresh responses where the refresh token
+    didn't rotate (default SIMPLE_JWT setting). The CSRF token is rotated on
+    every call so a stolen csrf cookie can't be replayed indefinitely.
+    """
+    response.set_cookie(ACCESS_COOKIE_NAME, access, **_cookie_kwargs(httponly=True, max_age=ACCESS_COOKIE_MAX_AGE))
+    if refresh is not None:
+        response.set_cookie(REFRESH_COOKIE_NAME, refresh, **_cookie_kwargs(httponly=True, max_age=REFRESH_COOKIE_MAX_AGE))
+    response.set_cookie(
+        CSRF_COOKIE_NAME, secrets.token_urlsafe(32),
+        **_cookie_kwargs(httponly=False, max_age=REFRESH_COOKIE_MAX_AGE),
+    )
+
+
+def clear_auth_cookies(response) -> None:
+    for name in (ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME):
+        response.delete_cookie(name, path='/')
 
 class CustomLoginView(APIView):
     """
@@ -51,11 +103,14 @@ class CustomLoginView(APIView):
         refresh = RefreshToken.for_user(user)
         # 将 Token ID 注入到 JWT 负载中
         refresh['jwt_token_id'] = user.jwt_token_id
-        
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-        })
+        access_str = str(refresh.access_token)
+        refresh_str = str(refresh)
+
+        # Tokens are returned in the JSON body for backwards compatibility (older
+        # clients still read them), but the canonical channel is now httpOnly cookies.
+        response = Response({'access': access_str, 'refresh': refresh_str})
+        set_auth_cookies(response, access=access_str, refresh=refresh_str)
+        return response
 
 class SendVerificationCodeView(APIView):
     """
@@ -117,15 +172,19 @@ class UserRegistrationView(APIView):
             # 注册成功直接签发 Token，自动登录
             refresh = RefreshToken.for_user(user)
             refresh['jwt_token_id'] = user.jwt_token_id
-            
-            return Response({
+            access_str = str(refresh.access_token)
+            refresh_str = str(refresh)
+
+            response = Response({
                 'message': '注册成功',
                 'user': UserSerializer(user).data,
                 'tokens': {
-                    'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                }
+                    'refresh': refresh_str,
+                    'access': access_str,
+                },
             }, status=status.HTTP_201_CREATED)
+            set_auth_cookies(response, access=access_str, refresh=refresh_str)
+            return response
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -503,3 +562,43 @@ class ChangeUsernameView(APIView):
             'username': new_username,
             'at_balance': user.at_balance,
         })
+
+
+class LogoutView(APIView):
+    """End the session: rotate jwt_token_id so any stolen access token is dead,
+    and wipe the auth cookies on the response."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        user.jwt_token_id = str(uuid.uuid4())
+        user.save(update_fields=['jwt_token_id'])
+        response = Response({'message': '已退出登录'}, status=status.HTTP_200_OK)
+        clear_auth_cookies(response)
+        return response
+
+
+class CookieAwareTokenRefreshView(APIView):
+    """Refresh the access token.
+
+    Reads the refresh JWT from either the request body (legacy clients) or the
+    httpOnly cookie (browser sessions). On success, sets a fresh access cookie
+    and rotates the CSRF cookie. The refresh cookie is unchanged because
+    simple-jwt's default is not to rotate refresh tokens.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh') or request.COOKIES.get(REFRESH_COOKIE_NAME)
+        if not refresh_token:
+            return Response({'error': 'No refresh token'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_str = str(refresh.access_token)
+        except (TokenError, InvalidToken) as e:
+            return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        response = Response({'access': access_str}, status=status.HTTP_200_OK)
+        set_auth_cookies(response, access=access_str)
+        return response
