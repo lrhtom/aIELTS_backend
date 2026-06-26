@@ -16,8 +16,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         json_path = os.path.join(
-            os.path.dirname(__file__), '..', '..', '..', '..',
-            'scripts', 'ielts_speaking_bank.json'
+            os.path.dirname(__file__), 'data', 'ielts_speaking_bank.json'
         )
         json_path = os.path.abspath(json_path)
 

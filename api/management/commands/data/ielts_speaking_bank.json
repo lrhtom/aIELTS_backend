@@ -1,0 +1,3259 @@
+{
+  "version": "2025.9-12",
+  "source": "环球教育北京学校",
+  "part1": [
+    {
+      "category": "必考三剑客",
+      "topic_en": "Work or Studies",
+      "questions": [
+        "Do you work or are you still studying?",
+        "What is your job?",
+        "How long have you been working in your current job?",
+        "What are your main responsibilities at work? Study",
+        "Are you currently studying or have you finished your studies?",
+        "What is your major or area of study?",
+        "How do you usually study?",
+        "Do you prefer to study alone or with a group?"
+      ]
+    },
+    {
+      "category": "必考三剑客",
+      "topic_en": "Home/Accommodation",
+      "questions": [
+        "Describe the type of house or apartment you envision living in the future.",
+        "What transportation options are available near your home?",
+        "Do you prefer living in a house or an apartment?",
+        "Can you describe your current living space, including your favorite room?"
+      ]
+    },
+    {
+      "category": "必考三剑客",
+      "topic_en": "Hometown",
+      "questions": [
+        "Where is your hometown located?",
+        "How would you describe the size of your hometown?",
+        "What aspects do you like most about your hometown?",
+        "Are there any features or aspects of your hometown that you dislike?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Sharing",
+      "questions": [
+        "Do you often share things with your friends or family, like books or snacks?",
+        "What s the most common thing you share with others in your daily life?",
+        "Do you prefer sharing your personal experiences like travel stories with others, or keeping them to yourself?",
+        "Have you ever had a good or bad experience when sharing something with someone?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Having a break",
+      "questions": [
+        "How often do you take a break when you restudying or working?",
+        "What do you usually do to relax during your breaks?",
+        "Do you prefer short breaks or longer breaks when you re busy?",
+        "Do you think taking regular breaks helps you work or study better?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Museum",
+      "questions": [
+        "How often do you visit a museum, either with friends or alone?",
+        "Do you prefer museums about history, art, or science? Why?",
+        "What do you usually do when you re inside a museum? For example, read explanations or take photos?",
+        "Do you think museums are important for learning about a country s culture?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Chatting",
+      "questions": [
+        "Who do you usually chat within your daily life, like friends, family, or classmates?",
+        "How often do you have a casual chat with others, either online or in person?",
+        "What topics do you often talk about when chatting with your close friends?",
+        "Do you prefer chatting face-to-face or through messages like We Chat or What s App? Why?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Growing vegetables/fruits",
+      "questions": [
+        "Have you ever grown any vegetables or fruits, either at home like a balcony or with your family?",
+        "If you had a small garden, what kind of vegetables or fruits would you like to grow? Why?",
+        "Do you think growing your own vegetables or fruits is a good way to spend your free time?",
+        "Have you ever eaten vegetables or fruits that you or someone you know grew? How did they taste?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Going out",
+      "questions": [
+        "How often do you go out with friends or family, like for dinner or a walk?",
+        "Who do you usually go out with when you want to relax or have fun?",
+        "What do you often do when you go out on weekends? For example, watch a movie or try a new caf?",
+        "Do you prefer going out in the daytime or at night? Why?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Staying with old people",
+      "questions": [
+        "How often do you stay with old people, like your grandparents or elderly relatives?",
+        "What do you usually do when you stay with old people? For example, chat with them or help with housework?",
+        "Do you enjoy staying with old people? Why or why not?",
+        "Do you think young people should spend more time staying with old people?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Doing something well",
+      "questions": [
+        "What s one thing you think you do well, like cooking, drawing, or playing a sport?",
+        "How did you learn to do that thing well? For example, by practicing a lot or taking classes?",
+        "Do you feel happy when you do something well? Why or why not?",
+        "Do you usually tell others when you do something well, or do you keep it to yourself?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Shoes",
+      "questions": [
+        "What kind of shoes do you usually wear in your daily life, like sneakers, sandals, or boots?",
+        "How often do you buy a new pair of shoes?",
+        "Do you prefer comfortable shoes or stylish shoes when you go out? Why?",
+        "Have you ever bought a special pair of shoes for a specific occasion, like a party or a sports event?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Rules",
+      "questions": [
+        "Do you think it s important to follow rules in daily life?",
+        "What kinds of rules do you often encounter at home or school?",
+        "Have you ever broken a small rule? What happened then?",
+        "Do you think some rules are too strict? Why or why not?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Public places",
+      "questions": [
+        "Do you often goto public places like parks or shopping malls?",
+        "What s your favorite public place to visit in your city? Why?",
+        "Do you think people should follow special rules in public places?",
+        "Have you ever seen someone behave badly in a public place? What happened?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Quiet/noisy places",
+      "questions": [
+        "Do you prefer noisy places or quiet places when you have free time?",
+        "Where do you usually go when you want to be in a quiet place?",
+        "Have you ever felt uncomfortable because a place was too noisy?",
+        "Do you think it s important for cities to have enough quiet public spaces?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Carrying things",
+      "questions": [
+        "Do you usually carry a lot of things when you go out?",
+        "What s the most important thing you always carry with you everyday?",
+        "Have you ever forgotten to carry something important when going out? What was it?",
+        "Do you prefer carrying things in a bag or in your pockets? Why?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Plants",
+      "questions": [
+        "Do you like plants? For example, do you enjoy looking at them or growing them?",
+        "Have you ever grown any plants, like flowers or vegetables? How did it go?",
+        "Are there many plants such as trees or flowers around your home or neighborhood?",
+        "Do you think it s important to have more plants in cities? Why or why not?"
+      ]
+    },
+    {
+      "category": "2025 年 9 月增",
+      "topic_en": "Dream Job",
+      "questions": [
+        "Do you have a dream job you want to do in the future, like a teacher or a designer?",
+        "What s the most important reason you want to do your dream job, like interest or",
+        "Do you prefer a high-paying dream job or one that makes you feel happy everyday? Why?",
+        "Have you ever done anything to get closer to your dream job, like taking related classes or reading books?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Being busy",
+      "questions": [
+        "Do you often feel busy?",
+        "What do you usually do when you re busy?",
+        "Do you prefer to be busy or have free time?",
+        "How do you manage your time when you are busy?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Puzzles",
+      "questions": [
+        "Do you like doing puzzles?",
+        "What kind of puzzles do you enjoy the most?",
+        "Did you play with puzzles when you were a child?",
+        "Do you think puzzles are good for children?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Saying thank you",
+      "questions": [
+        "Do you often say thankyou in your daily life?",
+        "In what situations do you usually say thankyou?",
+        "Do you prefer saying thankyou in person or through messages?",
+        "Why do you think it s important to express gratitude?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Public transportation",
+      "questions": [
+        "Do you often use public transportation?",
+        "What s your favorite type of public transportation?",
+        "Are there any problems with public transportation in your city?",
+        "How do you think public transportation could be improved?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Names",
+      "questions": [
+        "Does your name have any special meaning?",
+        "Do you like your name? Why or why not?",
+        "Do you think a person s name can affect their life?",
+        "Do people in your country usually change their names?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Geography",
+      "questions": [
+        "Did you study geography at school?",
+        "What s the most interesting geographical feature you ve seen?​",
+        "Do you think geography is important in daily life?",
+        "Is there a place with unique geography that you want to visit?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Flowers",
+      "questions": [
+        "Do you like flowers? Why or why not?",
+        "Have you ever grown flowers by yourself?",
+        "Are there any special meanings of flowers in your country?",
+        "On what occasions do people usually give flowers in your country?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Plan/schedule",
+      "questions": [
+        "Do you usually make plans for your weekends?",
+        "How do you usually organize your daily schedule?",
+        "Do you prefer to make detailed plans or just have a general idea?",
+        "Have you ever had a plan that didn't work out? What happened?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Text messages",
+      "questions": [
+        "Do you send a lot of text messages everyday?",
+        "What kind of text messages do you receive most frequently?",
+        "Do you prefer sending text messages or making phone calls?",
+        "Have text messages changed the way you communicate with others?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Praise",
+      "questions": [
+        "Do you like to receive praise from others? Why or why not?",
+        "When was the last time someone praised you? What was it for?",
+        "Do you often praise others in your daily life?",
+        "How do you feel when someone praises your achievements?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Singing",
+      "questions": [
+        "Do you like singing? Why or why not?",
+        "Do you often singin your free time?",
+        "Is there a particular type of song or genre you enjoy singing the most?",
+        "Have you ever sung in front of others, like in a group or at an event?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Outer space and stars",
+      "questions": [
+        "Do you often look at stars in the sky?",
+        "Have you ever learned anything about outer space at school or in your free time?",
+        "Do you think human beings will live on other planets in the future?",
+        "Are there any movies or books about outer space that you like?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "List",
+      "questions": [
+        "Do you often make to-do lists in your daily life?",
+        "How do you usually organize the tasks on your list?",
+        "Have you ever forgotten to complete something on your list?",
+        "Do you prefer writing lists by hand or using digital apps?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Housework and cooking",
+      "questions": [
+        "Do you often do housework in your daily life?",
+        "What kind of cooking do you like or dislike, and why?",
+        "Did you learn to do housework or cooking from anyone, such as your family?",
+        "Do you think doing housework and cooking is important for young people?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Spare time",
+      "questions": [
+        "Do you usually have much sparetime in your daily life?",
+        "What do you like to do most in your sparetime?",
+        "Do you prefer to spend your sparetime alone or with others?",
+        "Has your way of spending sparetime changed in recent years?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Spending time by yourself",
+      "questions": [
+        "Do you enjoy spending time alone?",
+        "What do you usually do when you spend time by yourself?",
+        "How often do you spend time alone in a week?",
+        "Do you prefer to spend time alone or with others in your free time?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Writing",
+      "questions": [
+        "Do you usually write by hand or use a computer when you need to write something?",
+        "Do you like writing letters to friends and family? Why or why not?",
+        "Have you ever written a story or a poem? Can you tell me about it?",
+        "Do you think writing skills are important in your daily life? How do they help you?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Snacks",
+      "questions": [
+        "Do you often eat snacks? Why or why not?",
+        "What s your favorite snack? How often do you have it?",
+        "Do you prefer sweet snacks or savory snacks? Why?",
+        "Do you usually buy snacks from stores or make them at home?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Patience",
+      "questions": [
+        "Do you consider yourself a patient person?",
+        "In what situations do you need to be more patient?",
+        "Has anyone ever taught you the importance of patience?",
+        "Do you think patience is more important for young people or older people?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Machine",
+      "questions": [
+        "Do you often use machines in your daily life, such as smartphones or computers?",
+        "Are there any machines you find difficult to use? Why?",
+        "What's the most useful machine you've ever owned or used?",
+        "Do you think machines will replace humans in most jobs in the future? Why or why not?"
+      ]
+    },
+    {
+      "category": "2025 年 5 月增",
+      "topic_en": "Memory",
+      "questions": [
+        "Do you often write down important memories, like events or feelings?",
+        "What s the earliest memory you can still clearly remember from your childhood?",
+        "Are there any old photos that can easily bring back good memories for you?",
+        "Do you think people s memories become less clear as they get older? Why or why not?"
+      ]
+    },
+    {
+      "category": "2025 年 1 月增",
+      "topic_en": "Colours",
+      "questions": [
+        "What's your favourite colour?",
+        "Why do you like this colour so much?",
+        "Do you often wear clothes in your favourite colour?",
+        "Do you think your preference for this colour reflects your personality in some way?"
+      ]
+    },
+    {
+      "category": "2025 年 1 月增",
+      "topic_en": "Stories",
+      "questions": [
+        "Do you often share stories with your friends or family in daily conversations?",
+        "Have you heard any interesting or funny stories from your colleagues recently?",
+        "When you meet new people, do you like to listen to their personal stories? Why or why not?",
+        "In your opinion, what makes a story engaging and worth sharing in daily life?"
+      ]
+    },
+    {
+      "category": "2025 年 1 月增",
+      "topic_en": "Borrowing/lending",
+      "questions": [
+        "Do you often borrow things from others?",
+        "When you borrow something, do you always return it on time? Why or why not?",
+        "What do you think are the important things to consider before lending?",
+        "In your experience, has borrowing or lending ever caused any misunderstandings or problems?"
+      ]
+    },
+    {
+      "category": "2025 年 1 月增",
+      "topic_en": "Hats/caps",
+      "questions": [
+        "What's your favorite type of hat or cap? Why do you like it?",
+        "Do you usually choose hats based on fashion trends or for practical purposes like sun protection?3. Have you ever worn a hat that was completely out of your comfort zone?",
+        "When you see people wearing different styles of hats on the street, which ones catch your eye the most and why?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "Dreams",
+      "questions": [
+        "Do you often remember your dreams? What kind of dreams do you usually recall, vivid ones or just fragments?",
+        "Is there any particular dream that has stayed with you for a long time? What was it about?",
+        "Do you think there are any factors that can affect whether you remember your dreams or not, like stress or diet?",
+        "Do you believe that dreams have hidden meanings? Have you ever tried to interpret your own dreams?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "Watch",
+      "questions": [
+        "Do you pay more attention to the design, functionality, or brand of the watch?",
+        "Have you ever received a watch as a gift?",
+        "Do you wear a watch everyday?",
+        "Are there any occasions when you think it's inappropriate to wear a watch, for example, at a formal dinner? Why?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "Feel bored",
+      "questions": [
+        "Do you often feel bored?",
+        "What should people do when they feel bored?",
+        "What kinds of things are boring to you?",
+        "What will you do when you feel bored?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "Evening time",
+      "questions": [
+        "What do people usually do in the evening?",
+        "What do you usually do in the evening?",
+        "Do you usually relax or keep yourself busy during the evening?",
+        "Are there any evenings when you completely break your routine?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "Old buildings",
+      "questions": [
+        "Have you ever visited any old buildings?",
+        "Do you think we should preserve old buildings in cities?",
+        "Are there any old buildings you want to visit in the future?",
+        "Do you prefer living in a noldor a modern building?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "E-mails",
+      "questions": [
+        "Do you often send emails?",
+        "When would you send emails to others?",
+        "Is sending emails popular in China?",
+        "Do you think sending emails will be more or less popular in the future?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "Mirrors",
+      "questions": [
+        "Do you often look at yourself in the mirror?",
+        "When do you use a mirror?",
+        "Have you ever bought a mirror?",
+        "What kind of mirrors have you bought?"
+      ]
+    },
+    {
+      "category": "2024 年 11 月增",
+      "topic_en": "Meeting new friends/people",
+      "questions": [
+        "Do you like making friends?",
+        "Did you make a lot of friends when you were a child?",
+        "Have you made any new friends recently?",
+        "What do you often talk about with your new friends?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Bikes",
+      "questions": [
+        "Did you have a bike when you were young?",
+        "Do you have a bike now?",
+        "Do you often ride a bike now?",
+        "Are bikes popular in China?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Talking with others",
+      "questions": [
+        "Do you like to talk with others?",
+        "Do you like to talk a lot with others?",
+        "Did you like to talk with others when you were a child?",
+        "Are you good at communicating with others?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Coins",
+      "questions": [
+        "Do you often take coins with you?",
+        "Have you collected coins?",
+        "Is it convenient to use coins?",
+        "Do you think coins will be replaced by electronic payment in the future?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Road",
+      "questions": [
+        "Are the roads in the area where you live busy?",
+        "How do people cross the road in the city where you live?",
+        "What improvements would you like to see in the roads in your city?",
+        "Do you think good roads are important for a city's development?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Laughing",
+      "questions": [
+        "Do you enjoy watching funny movies?",
+        "Do you think you have a good sense of humor?",
+        "Do you often laugh with your friends?",
+        "What makes you laugh the most?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Fishing",
+      "questions": [
+        "Is fishing popular in your country?",
+        "Do you like eating fish?",
+        "Have you ever had the experience of fishing?",
+        "What do you think about fishing as a hobby?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Teachers",
+      "questions": [
+        "Do you have a favorite teacher?",
+        "What qualities do you think a good teacher should have?",
+        "Have you ever had a teacher who had a great influence on you?",
+        "Do you think teachers play an important role in students ' lives?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Place of study",
+      "questions": [
+        "Where do you usually study?",
+        "What do you like about your place of study?",
+        "Do you think the environment of the place of study is important?",
+        "How can you improve your study efficiency in your place of study?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Perfume",
+      "questions": [
+        "Do you like to use perfume?",
+        "What kind of perfume do you prefer?",
+        "Why do some people like to use perfume?",
+        "Do you think the smell of perfume can affect people's mood?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Free time",
+      "questions": [
+        "How do you usually spend your free time?",
+        "What activities do you enjoy doing in your free time?",
+        "Do you think it's important to have free time?",
+        "How can you make the most of your free time?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Good view",
+      "questions": [
+        "Have you ever seen a beautiful view that impressed you?",
+        "Where is the best place to enjoy a good view in your city?",
+        "Do you like to take photos of good views?",
+        "Why do people like to enjoy good views?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Place of work/study",
+      "questions": [
+        "Do you like your current place of work/study?",
+        "What are the advantages and disadvantages of studying/working at home?",
+        "How can you improve the environment of your place of work/study?",
+        "Do you think the location of the place of work/study is important?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Teamwork",
+      "questions": [
+        "What kind of team projects have you participated in?",
+        "How do you handle conflicts ina team?",
+        "Do you think teamwork can improve work efficiency?",
+        "What role do you usually play in a team?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Making friends",
+      "questions": [
+        "How do you make friends?",
+        "Do you think it's easy to make true friends?",
+        "What qualities do you look for in a friend?",
+        "How often do you meet with your friends?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月增",
+      "topic_en": "Taking photos",
+      "questions": [
+        "Why do you like taking photos?",
+        "What kind of photos do you like to take?",
+        "Do you think taking photos can help you remember things?",
+        "How do you share your photos with others?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Chocolate",
+      "questions": [
+        "How often do you consume chocolate?",
+        "Do you believe chocolate makes a good gift? Why or why not?",
+        "Were you fond of chocolate when you were younger?",
+        "Why do you think chocolate is popular worldwide?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Small Businesses",
+      "questions": [
+        "Are there many small shops or businesses in your area?",
+        "Do you prefer shopping at big stores or small local shops? Why?",
+        "Have you ever worked for a small business?",
+        "Would you like to start your own small business in the future?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "T-shirts",
+      "questions": [
+        "Do you like wearing T-shirts?",
+        "How often do you we arT-shirts?",
+        "Do you like T-shirts with pictures on them?",
+        "Would you buy T-shirts as souvenirs while on vacation?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "The Space and the Stars",
+      "questions": [
+        "Did you study anything about space and stars during your school years?",
+        "Are you interested in learning more about space and stars?",
+        "Do you enjoy watching science-fiction movies set in space?",
+        "Would you like to travel to outer space someday?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Libraries",
+      "questions": [
+        "How often do you visit the library?",
+        "Did you frequent the library during your childhood?",
+        "Is it common for children in China to visit libraries?",
+        "What activities do you typically engage in when you visit the library?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Sports",
+      "questions": [
+        "How involved were you in sports during your school years?",
+        "What was your favorite sport during your schooldays?",
+        "Do you believe it's crucial for children to participate in sports at school?",
+        "Did any of your schoolmates excel in sports?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Happy Things",
+      "questions": [
+        "What brought you joy during your childhood?",
+        "What do you anticipate will bring you happiness in the future?",
+        "Has anything recently brought you happiness?",
+        "When do you experience happiness at work, and why?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Staying Up Late",
+      "questions": [
+        "Do you often stay up very late?",
+        "Did you have a habit of staying up late when you were a child?",
+        "How do you typically feel the morning after staying up late?",
+        "What do you enjoy doing when you stay up late?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Number/Math",
+      "questions": [
+        "What is your favorite number, and why?",
+        "Do you frequently use numbers in your daily life?",
+        "Are you proficient in mathematics?",
+        "Are you adept at remembering phone numbers?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "School Change/Schools",
+      "questions": [
+        "Do you attend a reputable school?",
+        "What improvements would you like to see in your school?",
+        "How does your school differ from others?",
+        "Is there anything you would like to change about your school?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Jewellery",
+      "questions": [
+        "When do people commonly give jewellery in your country?",
+        "What type of jewellery do you prefer?",
+        "Have you ever gifted jewellery to someone?",
+        "How often do you wear jewellery?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Art",
+      "questions": [
+        "Do you have an appreciation for art?",
+        "Do you enjoy visiting art galleries?",
+        "Have you ever aspired to bean artist?",
+        "Do you prefer modern art or traditional art?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Keys",
+      "questions": [
+        "Do you typically carry a lot of keys with you?",
+        "Do you frequently forget to take your keys when you go out?",
+        "Have you ever misplaced any keys?",
+        "Do you think it's wise to leave a spare key with a neighbor?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Weekends",
+      "questions": [
+        "Is the weekend your favorite part of the week?",
+        "How did you spend last weekend?",
+        "Do you prefer to plan your weekend activities in advance?",
+        "Do you ever work or study during the weekends?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Pen/Pencil",
+      "questions": [
+        "How do you feel if someone gives you a pen or pencil as a present?",
+        "When was the last time you bought a pen or pencil?",
+        "Which do you use more often, ape nora pencil?",
+        "Do you usually use a pen or pencil?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Sharing Things",
+      "questions": [
+        "Do you have anything you've recently shared with others?",
+        "What kind of things do you believe are not suitable for sharing?",
+        "What kind of things do you enjoy sharing with others?",
+        "Did your parents teach you the value of sharing when you were a child?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "News",
+      "questions": [
+        "Are you very interested in the news?",
+        "How do you typically access news?",
+        "How do your friends stay informed about current events?",
+        "Do you often discuss news topics with your friends?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Language",
+      "questions": [
+        "What languages do you speak?",
+        "Which languages would you like to learn in the future?",
+        "How do you usually go about learning a foreign language?",
+        "Can you describe how languages are taught and learned in your school?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Relaxation",
+      "questions": [
+        "What activities do you engage into relax?",
+        "Do you believe engaging in sports is a good way to relax?",
+        "Do you find vacations to be a good opportunity for relaxation?",
+        "Do you think students need more time for relaxation?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Life Stage",
+      "questions": [
+        "What activities did you often do with your friends during your childhood?",
+        "What do you consider the most important aspect of your life at the moment?",
+        "Do you have any plans or aspirations for the next five years?",
+        "How do individuals typically reminisce about each stage of their lives?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Internet",
+      "questions": [
+        "When did you start using the internet?",
+        "How frequently do you go online?",
+        "In what ways does the internet influence people's lives?",
+        "Do you believe you spend too much time online?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Science",
+      "questions": [
+        "Do you have an interest in science?",
+        "Which science subject do you find most fascinating?",
+        "Can you describe any interesting experiences or experiments you've had involving science?",
+        "Do you enjoy watching science-related TV programs?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "E-books and Paper Books",
+      "questions": [
+        "Do you prefer e-books or paper books?",
+        "When do you typically read online?",
+        "Do you anticipate reading more online in the future?",
+        "Do you believe paper books will become obsolete in the future?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Exciting Activities",
+      "questions": [
+        "Have you ever participated in any thrilling activities?",
+        "What activities did you find exciting during your childhood?",
+        "Have you experienced anything exhilarating recently?",
+        "Would you be interested in trying scuba diving or bungee jumping?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Holidays",
+      "questions": [
+        "Where did you goon your last holiday?",
+        "Do you enjoy holidays? Why?",
+        "Which public holiday do you like best?",
+        "What do you typically do on your holidays?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Mobile Phone",
+      "questions": [
+        "Do you remember your first phone?",
+        "Do you primarily use your mobile phone for texting or calls?",
+        "Are you planning to buy a new phone in the future?",
+        "How has your mobile phone changed your life?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Staying at Home",
+      "questions": [
+        "Are you someone who enjoys staying at home?",
+        "What activities do you engage in when you stay at home?",
+        "What is your favorite area or spot at home?",
+        "What were your favorite activities at home during your childhood?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Morning Routines",
+      "questions": [
+        "What is your morning routine?",
+        "Do you believe breakfast is important?",
+        "How do you feel about waking up early in the morning?",
+        "When do you typically wake up and start your day?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Asking for Help",
+      "questions": [
+        "Do you seek assistance when faced with a problem?",
+        "Why do you think teachers are always willing to help students?",
+        "What types of assistance do you usually ask for?",
+        "When was the last time you reached out for help?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Childhood Memory",
+      "questions": [
+        "What childhood activities brought you joy?",
+        "Reflecting on your childhood, did you enjoy it overall?",
+        "Can you share some of your fondest childhood memories?",
+        "In your opinion, is it preferable for children to grow up in urban or rural areas?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Schools and Workplaces",
+      "questions": [
+        "Where is your school located, and what do you like about it?",
+        "Describe the learning environment at your school and how it could be improved.",
+        "Reflect on your current job Do you find it satisfying, and how is the work environment?",
+        "Have you ever contemplated changing jobs, and if so, what factors influenced your decision?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Teacher",
+      "questions": [
+        "Would you consider a career as a teacher in the future?",
+        "Can you recall a memorable teacher from your past?",
+        "Do you have a favorite teacher? What made them standout?",
+        "In what ways do you think teachers today differ from those in the past?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Maths",
+      "questions": [
+        "Are girls generally good at mathematics?",
+        "How often do you use a calculator?",
+        "Do you find it difficult to learn mathematics well?",
+        "In your opinion, is mathematics an important subject?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Music",
+      "questions": [
+        "What kind of music do you enjoy listening to?",
+        "Are there any types of music that you don't particularly like?",
+        "Is there a musician or band you would like to see perform live?",
+        "Have your music preferences always aligned with those of your friends?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Daily Routine",
+      "questions": [
+        "Can you describe your daily study routine?",
+        "Have you ever made changes to your routine?",
+        "Do you believe having a daily routine is important for studying effectively?",
+        "What part of your day do you enjoy the most?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Doing Sports",
+      "questions": [
+        "What sports do you enjoy participating in?",
+        "Where did you learn to play those sports?",
+        "Did you participate in any sports when you were younger?",
+        "In your opinion, do students need more physical exercise?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Area",
+      "questions": [
+        "Do you like the area where you live?",
+        "Where do you enjoy spending time in your area?",
+        "Are there any notable figures from your area?",
+        "What recentchanges have occurred in your area?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Breakfast",
+      "questions": [
+        "What is your typical breakfast choice?",
+        "How important do you consider breakfast in your daily routine?",
+        "Can you identify any differences between your morning routine now and during your childhood?",
+        "Would you contemplate altering your morning routine in the future?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Weather",
+      "questions": [
+        "Describe the prevailing weather conditions in your locality.",
+        "Do you prefer colder or warmer weather? Why?",
+        "What are your thoughts on dry versus wet weather?",
+        "How often do you check the weather forecast, and what prompts you to do so?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Shopping",
+      "questions": [
+        "Do you enjoy shopping, and if so, what do you like about it?",
+        "When shopping, do you tend to compare prices? Why or why not?",
+        "Have you encountered challenges when making choices during shopping trips?",
+        "In your opinion, are more expensive products always superior to cheaper alternatives?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Classmates",
+      "questions": [
+        "In your country, do students have the opportunity to select their desk mates?",
+        "Do you believe it's beneficial for children to engage in activities with their classmates?",
+        "How do you think classmates influence each other's academic performance and behavior?",
+        "From your experience, what role do classmates play in fostering social skills and relationships?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Birthdays",
+      "questions": [
+        "How do you typically celebrate your birthday?",
+        "Reflecting on your childhood, what were some memorable birthday celebrations?",
+        "Share your perspective on the significance of celebrating one's birthday.",
+        "Whose birthday do you believe holds the most importance for celebration in China?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Sunglasses",
+      "questions": [
+        "Do you frequently wear sunglasses?",
+        "Do you invest a significant amount of money in purchasing sunglasses?",
+        "Have you ever considered giving sunglasses as gifts to others?",
+        "Have you experienced misplacing or losing your sunglasses?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Cakes",
+      "questions": [
+        "Are you fond of consuming cakes or other sweet treats?",
+        "Did you have a penchant for eating cakes during your childhood?",
+        "Can you demonstrate proficiency in baking cakes?",
+        "Are there any traditional Chinese cakes that appeal to you, and if so, which ones?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Video Games",
+      "questions": [
+        "Do you engage in playing videogames regularly?",
+        "Are you interested inspect a ting others play videogames?",
+        "What are your thoughts on the amount of time people devote to playing video games?",
+        "Do you have a preference for playing videogames independently or with others?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Social Media",
+      "questions": [
+        "At what stage in your life did you begin using social media platforms?",
+        "Do you believe you allocate excessive time to social media consumption?",
+        "Are your friends active users of social media platforms as well?",
+        "What activities do individuals typically engage in when using social media?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Crowded Places",
+      "questions": [
+        "Would you characterize the city you reside in as densely populated?",
+        "Can you identify any crowded locations in close proximity to your residence?",
+        "Do you enjoy spending time in crowded places?",
+        "When was the last occasion you found yourself in a crowded setting?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Feeling Bored",
+      "questions": [
+        "How often do you find yourself feeling bored?",
+        "What typically triggers feelings of boredom for you?",
+        "How do you combat boredom when it arises?",
+        "Do you perceive childhood or adulthood as more prone to boredom?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Money",
+      "questions": [
+        "Do you prioritize saving or spending money?",
+        "What methods do you use to manage your finances and save money?",
+        "What are your thoughts on the prevalence of payment apps and mobile",
+        "How do you foresee the future of cash usage in an increasingly digital economy?"
+      ]
+    },
+    {
+      "category": "2024 年 9 月保留",
+      "topic_en": "Advertisement",
+      "questions": [
+        "Can you recall a memorable advertisement from your childhood?",
+        "Have you noticed a significant amount of advertising in public transportation?",
+        "What is your overall opinion of advertisements?",
+        "Do you have a preference for certain types of advertisements?"
+      ]
+    }
+  ],
+  "part2": [
+    {
+      "category": "人物题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "钦佩的运动员",
+      "cue_card": "Describe a successful sportsman you admire.",
+      "bullet_points": [
+        "Who this sportsman is",
+        "What sport he/she is good at",
+        "How he/she became successful",
+        "And explain why you admire him/her"
+      ],
+      "part3_questions": [
+        "What qualities do you think a successful sportsman needs to have?",
+        "Do you think famous sportsmen should be good role models for young people? Why or why not?",
+        "How do you think technology helps sportsmen improve their performance today?",
+        "Some people say winning is the only thing that matters in sports. Do you agree with this view?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "钦佩的创作者",
+      "cue_card": "Describe a creative person e. g., an artist, a musician, etc. you admire.",
+      "bullet_points": [
+        "Who this creative person is",
+        "What kind of creative work he/she does e. g., painting, song-writing, design",
+        "What makes his/her work or ideas creative",
+        "And explain why you admire him/her"
+      ],
+      "part3_questions": [
+        "What qualities do you think a creative person needs to have to standout in their field?",
+        "Do you think schools should teach more subjects that help develop children s creativity e. g., art, music, creative writing? Why or why not?",
+        "Some people say creativity is something you reborn with, not learned.” Do you agree with this view?",
+        "How has technology e. g., design software, music production tools changed the way creative people work today?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "有好习惯的朋友",
+      "cue_card": "Describe a friend of yours who has a good habit.",
+      "bullet_points": [
+        "Who this friend is",
+        "What good habit he/she has",
+        "How often he/she keeps this habit or how he/she sticks to it",
+        "And explain why you think this habit is good or why you admire this about him/her"
+      ],
+      "part3_questions": [
+        "What kinds of good habits do you think are important for young people to develop?",
+        "Do you think it s easier to form good habits when you re young, or when you re an adult? Why?",
+        "Some people say family members have a big influence on our habits. Do you agree with this?",
+        "How can someone stay motivated to keep a good habit, especially when they feel tired or lazy?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "经营家族企业的人",
+      "cue_card": "Describe a person you know who runs a family business.",
+      "bullet_points": [
+        "Who this person is (e. g., a friend, a relative",
+        "What kind of family business he/she runs e. g., a restaurant, a shop, a factory",
+        "How he/she manages the business or what he/she does to make it work",
+        "And explain what you think about his/her work or why you admire his/her effort"
+      ],
+      "part3_questions": [
+        "What challenges do you think people face when running a family business?",
+        "Do you think family businesses are more reliable than non-family businesses? Why or why not?",
+        "Some people say family members working together can cause conflicts. Do you agree with this view?",
+        "What do you think is the most important factor for a family business to be successful in the long term?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "重要的好朋友",
+      "cue_card": "Describe a friend who is important to you.",
+      "bullet_points": [
+        "Who this friend is (e. g., how you met, how long you ve been friends",
+        "What kind of person he/she is (e. g., personality, hobbies",
+        "What things you usually do together",
+        "And explain why this friend is important to you"
+      ],
+      "part3_questions": [
+        "What qualities do you think make a good friend?",
+        "Do you think it s better to have a few close friends or many casual friends? Why?",
+        "How do you think modern technology e. g., social media, messaging apps affects the way we maintain friendships?",
+        "Some people say childhood friends are the most important ones.’ Do you agree with this view?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "擅长音乐的朋友",
+      "cue_card": "Describe a friend of yours who is good at music.",
+      "bullet_points": [
+        "Who this friend is (e. g., how you know each other, how long you ve been friends",
+        "What kind of music he/she is good at e. g., playing an instrument, singing, composing",
+        "How he/she learned to be good at this music e. g., practice habits, courses, self-study",
+        "And explain why you think he/she is good at music or why you admire this skill"
+      ],
+      "part3_questions": [
+        "What qualities do you think a person needs to have to be good at music?",
+        "Do you think learning music is beneficial for children s development? Why or why not?",
+        "How do you think technology e. g., music apps, online courses helps people learn music today?",
+        "Some people say you need to have natural talent to be good at music, not just practice. Do you agree with this view?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "激励你做有趣事情的人",
+      "cue_card": "Describe a person who inspired you to do something interesting",
+      "bullet_points": [
+        "Who the person is and how you know them",
+        "What interesting thing you were inspired to do",
+        "How this person inspired you to do it",
+        "And explain how this experience has influenced you"
+      ],
+      "part3_questions": [
+        "Why do you think some people are more likely to inspire others than others?",
+        "In modern society, which channels such as social media, real - life interactions do you think are more effective for people to find sources of inspiration?",
+        "Do you believe that inspiration from others can help people overcome difficulties in self-improvement?",
+        "Are there differences in the types of people who inspire young people and those who inspire older people?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "劝你的人",
+      "cue_card": "Describe a person who persuaded you to do something",
+      "bullet_points": [
+        "Who the person was and how you knew them",
+        "What they persuaded you to do",
+        "How they managed to persuade you",
+        "And explain how you felt about doing what they persuaded you to do"
+      ],
+      "part3_questions": [
+        "What qualities do you think a person needs to have in order to persuade others effectively?",
+        "Do you think people are more easily persuaded by those they know well or by strangers? Why?",
+        "In your opinion, is it ethical to use certain persuasive techniques, such as emotional appeals, to get others to do something?",
+        "How has the development of the Internet and social media changed the way people persuade others?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "由不喜欢到喜欢的朋友",
+      "cue_card": "Describe a person you disliked at first but ended up being friends with",
+      "bullet_points": [
+        "Who the person was and how you first met",
+        "Why you disliked this person initially",
+        "What happened that changed your feelings towards them",
+        "And explain how you feel about your friendship now"
+      ],
+      "part3_questions": [
+        "What do you think are the common reasons that lead people to dislike others at first sight?",
+        "In your opinion, how important is communication in turning an initial negative impression into a positive relationship?",
+        "Do you believe that initial negative feelings towards someone can always be overcome? Why or why not?",
+        "Are there differences in the way children and adults form friendships after initially disliking someone?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "聪明的人",
+      "cue_card": "Describe an intelligent person you know",
+      "bullet_points": [
+        "Who the person is",
+        "In what way she/she shows intelligence",
+        "What kind of experiences you've had with this person",
+        "And explain how this person's intelligence has influenced you"
+      ],
+      "part3_questions": [
+        "What are the main differences between intelligence and knowledge?",
+        "How can parents and schools help children develop their intelligence?",
+        "Do you think intelligent people are more likely to succeed in life? Why or why not?",
+        "With the development of technology, do you think human intelligence will be affected? In what ways?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "侍花弄果之人",
+      "cue_card": "Describe a person you know who loves to grow plants e. g. vegetables/fruits/flowers etc.)",
+      "bullet_points": [
+        "Who the person is",
+        "What kinds of plants he/she grows and how",
+        "What achievements he/she has made in growing plants",
+        "And explain how his/her love for growing plants affects others or you"
+      ],
+      "part3_questions": [
+        "What benefits can people get from growing plants in their daily life?",
+        "Are there any differences in the popularity of growing plants between urban and rural areas? Why?",
+        "How does growing plants contribute to environmental protection?",
+        "With the development of modern technology, how has the way people grow plants changed?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "情绪外露的人",
+      "cue_card": "Describe a person who shows his/her feelings very openly",
+      "bullet_points": [],
+      "part3_questions": [
+        "Why do some people choose to express their feelings openly while others prefer to hide them?",
+        "How do cultural differences affect people's ways of expressing emotions?",
+        "What are the advantages and disadvantages of openly expressing one's feelings in",
+        "In modern society, with the prevalence of social media, do you think people's emotional expression has changed? And how?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "想见的名人",
+      "cue_card": "Describe a famous person you would like to meet",
+      "bullet_points": [],
+      "part3_questions": [
+        "Why do people in modern society pay so much attention to famous people?",
+        "What qualities do you think are most important for a person to become famous?",
+        "How can famous people influence the behavior and values of the public?",
+        "With the development of social media, how has the relationship between famous people and their fans changed?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "精力充沛的人",
+      "cue_card": "Describe an energetic person that you know",
+      "bullet_points": [
+        "Who this person is",
+        "How you knew this person",
+        "Why you think this person is energetic",
+        "And explain how you feel about this person"
+      ],
+      "part3_questions": [
+        "Do you think energetic people play an important role in different fields like business, education, and sports? Why or why not?",
+        "In your opinion, how can the energy of an individual contribute to the success of a team or organization?",
+        "What do you think are the key factors that help a person stay energetic throughout the",
+        "Do you believe that some people are naturally more energetic than others?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "(外)祖父/母的工作",
+      "cue_card": "Describe your grandpa/grandma's job",
+      "bullet_points": [
+        "What job he/she does",
+        "What you know about his/her job",
+        "Whether it is his/her only job",
+        "And explain how you feel about his/her job"
+      ],
+      "part3_questions": [
+        "What factors do you think have led to these changes?",
+        "In your opinion, have these changes been beneficial overall?",
+        "Do you believe that grandparents ' jobs can have an influence on the career choices of their grandchildren?",
+        "Can you give an example of how a grandparent's job might inspire or discourage a younger person's career path?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "经常待在一起的人",
+      "cue_card": "Describe someone you spend a lot of time with",
+      "bullet_points": [
+        "Who this person is",
+        "How you knew him/her",
+        "How often you meet each other",
+        "And explain what you usually do together"
+      ],
+      "part3_questions": [
+        "Can you give an example of a significant event or change that led to a shift in your relationship and the things you do together?",
+        "Do you think it's important to balance spending time with others and maintaining your own individuality?",
+        "Can you give an example of how you and the person you spend a lot of time with respect each other's individuality?",
+        "Do you believe that the person you spend a lot of time with can have an impact on your life choices?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "会打扮的朋友",
+      "cue_card": "Describe a friend of yours who is well- dressed and is good at dressing up",
+      "bullet_points": [
+        "Who this friend is",
+        "What kind of dressing style he/she has",
+        "How his/her dressing style influences others",
+        "And explain where he/she gets inspiration for dressing"
+      ],
+      "part3_questions": [
+        "Why do you think people pay attention to their appearance in modern society?",
+        "Are there differences in dressing styles between different age groups? What causes these differences?",
+        "How do social media and advertising affect people's choices of clothing?",
+        "Do you think it is important for people to follow fashion trends when dressing? Why or why not?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "想要一起学习/工作的人",
+      "cue_card": "Describe a person you have met who you want to work/study with.",
+      "bullet_points": [
+        "Who this person is",
+        "How you met this person",
+        "What qualities this person has",
+        "And explain why you want to work/study with this person"
+      ],
+      "part3_questions": [
+        "What are the most important qualities for a good work or study partner?",
+        "How can effective communication improve collaboration in work or study?",
+        "Do you think working or studying with someone who has different ideas is beneficial or challenging? Why?",
+        "In a team project, how can conflicts between members be resolved smoothly?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "奇装异服的人",
+      "cue_card": "Describe a person who you think wears unusual clothes.",
+      "bullet_points": [
+        "Who this person is",
+        "What kind of unusual clothes this person wears",
+        "When and where you usually see this person",
+        "And explain why you think their clothes are unusual"
+      ],
+      "part3_questions": [
+        "Why do some people like to wear unusual clothes?",
+        "How does clothing style reflect a person's personality and values?",
+        "Do you think society should be more accepting of diverse clothing styles? Why?",
+        "In the fashion industry, how do designers create unique and unconventional clothing?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "不同文化的朋友",
+      "cue_card": "Describe a person from a different cultural background with whom you enjoy spending",
+      "bullet_points": [
+        "Who this person is",
+        "What their cultural background is",
+        "How you got to know each other",
+        "And explain why you like spending time with this person"
+      ],
+      "part3_questions": [
+        "What are the benefits of interacting with people from different cultural backgrounds?",
+        "What challenges might people face when communicating with those from different cultures, and how can they overcome them?",
+        "Do you think cultural exchanges can help reduce misunderstandings between different countries? Why?",
+        "In modern society, how can people better promote cross-cultural communication and understanding?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你们国家受欢迎的人",
+      "cue_card": "Describe a popular well-known person in your country./ Describe a person who",
+      "bullet_points": [
+        "Who this person is",
+        "What he or she is famous for",
+        "How you know about this person"
+      ],
+      "part3_questions": [
+        "What qualities do you think a popular person should have?",
+        "Do you think the media plays an important role in making people popular?",
+        "Why do some famous people have a negative influence?",
+        "How can famous people use their influence for good?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你在社交媒体上的关注的人",
+      "cue_card": "Describe a person who you regularly followed on social media.",
+      "bullet_points": [
+        "Who this person is",
+        "What kind of content he or she posts",
+        "Why you started following him or her",
+        "And how you feel about following this person"
+      ],
+      "part3_questions": [
+        "What are the advantages and disadvantages of following people on social media?",
+        "Why do some people become addicted to following social media influence rs?",
+        "Do you think social media influence rs should have more responsibilities?",
+        "How has the role of social media influence rs changed in recent years?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你帮助过的小孩",
+      "cue_card": "Describe a child you helped before.",
+      "bullet_points": [
+        "Who the child was",
+        "What problem the child had",
+        "How you helped him or her",
+        "And how you felt after helping."
+      ],
+      "part3_questions": [
+        "Do you think it's important for adults to help children with their studies?",
+        "What kind of skills do children need to develop in order to solve problems independently?",
+        "In what ways can parents encourage children to help others?",
+        "How does helping others benefit children's mental health?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一位有趣的邻居",
+      "cue_card": "Describe an interesting neighbor.",
+      "bullet_points": [
+        "Who this person is",
+        "How you became aware of them",
+        "What makes them interesting",
+        "And explain why you think they are interesting"
+      ],
+      "part3_questions": [
+        "Do you think people are familiar with their neighbors?",
+        "How can people improve the relationship with neighbors in a community?",
+        "How do children build relationships with others in a community?",
+        "Is it beneficial to get along well with neighbors?"
+      ]
+    },
+    {
+      "category": "人物题",
+      "date": "2024 年 9 月保留",
+      "topic_zh": "一位过着有趣生活的老人",
+      "cue_card": "Describe a person who likes to make things by hand (e. g. toys, furniture",
+      "bullet_points": [
+        "who this person is",
+        "when and where you met this person",
+        "what the person did when you met him/her",
+        "and explain how you feel about this person.",
+        "Who this person is",
+        "How you knew him/her",
+        "Why you think he/she is an opinionated person",
+        "And explain how you feel about him/her",
+        "Who he/she is",
+        "How you knew each other",
+        "Why you lost contact",
+        "How you got in contact again",
+        "And explain how you felt after getting in contact again",
+        "Who this person is",
+        "Where he/she lives in",
+        "What he/she has done in his/her life",
+        "And explain how you feel about this person",
+        "When it happened",
+        "Who you helped",
+        "How you helped",
+        "And explain how you felt about the experience",
+        "Who he/she is",
+        "What he/she does",
+        "Why he/she chose this career",
+        "And explain how you feel about him/her",
+        "Who this person is",
+        "How you knew him/her",
+        "What he/she likes to read",
+        "And explain why you think he/she likes to read a lot",
+        "Who this person is",
+        "What he/she makes",
+        "Why he/she likes to make things by hand",
+        "And explain how you feel about the person"
+      ],
+      "part3_questions": [
+        "What can young people learn from the older generation?",
+        "Do you think it's important to record the life stories of old people?",
+        "In what ways can society better respect and care for the elderly?",
+        "Why do some old people have a more positive attitude towards life than some young people?",
+        "固执已见的人",
+        "What aspects do young people have strong opinions about?",
+        "What aspects do old people have strong opinions about?",
+        "How do you deal with people who have strong opinions?",
+        "Do you think it's important to respect others ' opinions?",
+        "How can we have a healthy discussion with people who have different opinions?",
+        "老友又见",
+        "Is it better to have a lot of friends than just a few friends?",
+        "Would having just a few friends limit your horizons?",
+        "Do you think you are good at maintaining good relationships with others?",
+        "Why do old friends lose touch with each other?",
+        "How can we keep in touch with old friends?",
+        "认识的老人",
+        "What do you think people like to do when they are old?",
+        "Do you think grandparents can always have a good relationship with their grandchildren?",
+        "What can grandparents and grandchildren learn from each other?",
+        "Do you think children's parents enjoy living with the grandparents in the family? Why?",
+        "How can we show respect to the elderly?",
+        "帮助亲人",
+        "How can children help their parents at home?",
+        "Should parents always help their children with everything?",
+        "What can children learn by helping others?",
+        "Do neighbours often help each other in your country?",
+        "How does helping others benefit us?",
+        "医疗人士",
+        "Do you think doctors and nurses are very important?",
+        "Who is more important, doctors or nurses?",
+        "Do you think that doctors and nurses are not paid enough?",
+        "Do you think it is necessary to learn first aid skills?",
+        "What qualities should a good medical professional have?",
+        "读书迷",
+        "What are the benefits of reading?",
+        "How can reading improve one's language skills?",
+        "Do you think reading books is more beneficial than reading online articles?",
+        "What kinds of books are popular among people nowadays?",
+        "喜欢做手工的人",
+        "What are the advantages of making things by hand?",
+        "Do you think making things by hand is a good hobby?",
+        "How can making things by hand improve one's creativity?",
+        "Are there any traditional handicrafts that are still popular today?"
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "嘈杂地",
+      "cue_card": "Describe a noisy place you have been to",
+      "bullet_points": [
+        "Where the place is",
+        "What kinds of noises there were",
+        "Why you went to this place",
+        "And explain how you felt about the noise"
+      ],
+      "part3_questions": [
+        "Why do you think some public places are becoming noisier nowadays?",
+        "What negative effects can noise have on people's lives and health?",
+        "What measures can be taken to reduce noise in crowded areas?",
+        "Are there differences in the types of noise people tolerate in different environments such as at home, at work, or in entertainment venues? Why?"
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "想参观的不寻常建筑",
+      "cue_card": "Describe an unusual but interesting building you would like to visit",
+      "bullet_points": [],
+      "part3_questions": [
+        "Why do some cities build unusual buildings? What benefits can these buildings bring to the city?",
+        "How do architects balance the functionality and aesthetic appeal when designing unique buildings?",
+        "In what ways can unusual buildings influence local culture and tourism?",
+        "With the development of technology, how will the design and construction of future buildings change?"
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "乡村一隅",
+      "cue_card": "Describe a place in a village that you visited",
+      "bullet_points": [
+        "Where it is",
+        "When you visited this place",
+        "What you did there",
+        "And how you feel about this place"
+      ],
+      "part3_questions": [
+        "In your opinion, is it important for people to experience village life atleast once in their lives? Why or why not?",
+        "Do you think it's important to preserve the unique places and traditions in villages?",
+        "Do you believe that social life in villages is more or less intense than in cities?",
+        "What do you think are the main attractions of living in a village? For example, fresh air, close-knit community."
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "想去的外国",
+      "cue_card": "Describe a foreign country you would like to visit in the future",
+      "bullet_points": [
+        "What it is",
+        "What you have known about it",
+        "Who you would like togo there with",
+        "And explain why you would like to visit it"
+      ],
+      "part3_questions": [
+        "In your opinion, what can tourists do to minimize the negative impacts and maximize the positive ones when visiting a foreign country?",
+        "Do you believe that visiting a foreign country can enhance cultural exchange and understanding?",
+        "Do you think people's preferences for foreign countries to visit are mainly influenced by media, personal interests, or something else?",
+        "Do you think globalization has made it easier or more difficult to visit foreign countries?"
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "你们国家重要的河流/湖泊",
+      "cue_card": "Describe an important river/lake in your country",
+      "bullet_points": [
+        "where it is",
+        "how big or long it is",
+        "what it looks like",
+        "and explain why it is important."
+      ],
+      "part3_questions": [
+        "How can rivers or lakes benefit local people?",
+        "Do you think rivers or lakes attract tourists?",
+        "How do rivers or lakes affect local tourism?",
+        "Are rivers or lakes good for transport? Why?"
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个安静的地方",
+      "cue_card": "Describe a quiet place.",
+      "bullet_points": [
+        "Where it is",
+        "What it is like",
+        "What you can do there",
+        "And how you feel when you are there."
+      ],
+      "part3_questions": [
+        "Why do people need quiet places in modern life?",
+        "Are there any disadvantages to living in a very quiet place?",
+        "What are the differences between quiet places in the city and those in the countryside?",
+        "How can we create a quiet environment at home?"
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你喜欢去的乡村的地方",
+      "cue_card": "Describe a place in the countryside you enjoy visiting / Describe a place you visited",
+      "bullet_points": [
+        "Where it is",
+        "What it is like",
+        "What you do there",
+        "And why you enjoy visiting it."
+      ],
+      "part3_questions": [
+        "What are the benefits of spending time in the countryside compared to the city?",
+        "Do you think more people will move to the countryside in the future?",
+        "How does tourism affect the countryside?",
+        "What kind of activities can be organized in the countryside to attract more tourists?"
+      ]
+    },
+    {
+      "category": "地点题",
+      "date": "2024 年 9 月保留",
+      "topic_zh": "一个你去过的新地方",
+      "cue_card": "Describe a public park or garden",
+      "bullet_points": [
+        "where the new place was",
+        "when you went there",
+        "why you went there",
+        "and explain how you felt about the place.",
+        "Where it is",
+        "How you knew this place",
+        "What it is like",
+        "And explain how the place is related to culture",
+        "When you went there",
+        "Who you went there with",
+        "Why you went there",
+        "And how you felt about it",
+        "Where it would be",
+        "What it would look like",
+        "What special features it would have",
+        "And explain why it would bean ideal place for you",
+        "Where it is",
+        "Why you think it is different",
+        "Who you would like togo there with",
+        "And explain whether you have been there",
+        "Where it is",
+        "What it is like",
+        "How often you go there",
+        "What you often do there",
+        "And explain how you feel about it"
+      ],
+      "part3_questions": [
+        "How do people usually feel when they goto a new place?",
+        "How do children feel when they goto a new school?",
+        "How do young people feel when they graduate from universities and start their first jobs?",
+        "Why do many college students like togo to universities in a new city/country?",
+        "文化之地",
+        "How does the internet affect culture?",
+        "How is a culture formed?",
+        "What kind of culture is popular among the young?",
+        "How can we protect and promote local culture?",
+        "拥挤地方",
+        "Which cities are crowded in your country?",
+        "Will there be more or less green space in cities in the future?",
+        "Will people use bikes more or less in cities in the future?",
+        "How can cities manage the problem of overcrowding?",
+        "理想房屋",
+        "What are apartments like in your country?",
+        "Why are apartments welcome in some places while not in other places?",
+        "What are the important factors to consider when choosing a place to live?",
+        "How can we make our homes more comfortable and functional?",
+        "想带亲友去的地方",
+        "What are the benefits of traveling with family and friends?",
+        "How can we find unique places to visit in our hometown/city?",
+        "Do you think it's important to explore local places?",
+        "What kind of places do people usually like to visit with their loved ones?",
+        "公园/花园",
+        "What are the benefits of having parks and gardens in the city?",
+        "How can parks and gardens contribute to the environment?",
+        "Do you think parks and gardens are important for people's well-being?",
+        "What activities can people do in parks and gardens?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "有用的书",
+      "cue_card": "Describe a book you read that you found useful. You should say",
+      "bullet_points": [
+        "What the book is called and what it is about",
+        "When and where you read this book",
+        "How you found out about this book e. g., recommended by someone, saw online",
+        "Explain why you think this book is useful"
+      ],
+      "part3_questions": [
+        "Do you think reading paper books is better than reading e-books? Why or why not?",
+        "What kinds of books do you think are most useful for young people today?",
+        "How can parents encourage their children to read more useful books?",
+        "Do you think schools should assign more useful non-fiction books instead of fiction books?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "家中老物件",
+      "cue_card": "Describe an important old thing that your family has kept for along time. You should say",
+      "bullet_points": [
+        "What this old thing is e. g., a piece of furniture, a jewelry, a photo album",
+        "How old this thing is and where your family got it",
+        "Where your family keeps this thing now",
+        "Explain why this old thing is important to your family"
+      ],
+      "part3_questions": [
+        "Do you think it s important for families to keep old things? Why?",
+        "What s the difference between keeping old things and collecting antiques?",
+        "Why do some young people not like to keep old things from their families?",
+        "Do you think modern technology (e. g., taking photos, scanning old items can help preserve family memories better than keeping old things?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "让你自豪的照片",
+      "cue_card": "Describe a photo you took that you are proud of",
+      "bullet_points": [
+        "When and where you took the photo",
+        "What or who is in the photo",
+        "How you took the photo e. g., camera used, settings",
+        "And explain why you are proud of this photo"
+      ],
+      "part3_questions": [
+        "Why do you think some people enjoy taking photos more than others?",
+        "In what ways can a good photo affect people's memories and emotions?",
+        "Do you believe that professional photography skills are necessary to take impressive photos?",
+        "How has the development of mobile phone cameras changed the way people take and share photos?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "想再看的电影",
+      "cue_card": "Describe a movie you watched recently and would like to watch again",
+      "bullet_points": [
+        "When and where you watched this movie",
+        "What the movie was about and its main plot",
+        "Who the main characters were and what you thought of them",
+        "And explain why you would like to watch this movie again"
+      ],
+      "part3_questions": [
+        "Why do you think some people prefer watching movies at home rather than in a cinema?",
+        "In your opinion, what elements make a movie suitable for repeat viewing?",
+        "How do movie reviews and recommendations from others influence people's choices of what movies to watch?",
+        "Do you believe that the popularity of a movie is directly related to its quality?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "喜欢看的照片",
+      "cue_card": "Describe a photo that you enjoy looking at",
+      "bullet_points": [],
+      "part3_questions": [
+        "Why do you think people like to take and keep photos?",
+        "How has the development of digital technology influenced the way people take and store photos?",
+        "Are there differences in the types of photos people prefer based on their age groups? Why?",
+        "In what ways can photos help people remember important events or experiences?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "塑料废品",
+      "cue_card": "Describe a time when you saw a lot of plastic waste.",
+      "bullet_points": [
+        "When and where you saw it",
+        "What the situation was like",
+        "How you felt when you saw the plastic waste",
+        "And explain what actions were taken or should betaken to deal with it"
+      ],
+      "part3_questions": [
+        "What are the main sources of plastic waste, and how does it affect the environment?",
+        "How can individuals and governments work together to reduce plastic waste?",
+        "Do you think the popularity of single-use plastics can be effectively curbed? Why or why not?",
+        "What alternative materials do you think can replace plastics in daily life?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "你们国家的传统产品",
+      "cue_card": "Describe a traditional product in your country",
+      "bullet_points": [
+        "What the product is",
+        "How it is made",
+        "Why it is important",
+        "And how you feel about it"
+      ],
+      "part3_questions": [
+        "In your opinion, how can modern technology be used to revive or improve traditional products?",
+        "Do you believe that globalization has had a positive or negative impact on traditional products in your country?",
+        "In your opinion, how can traditional products compete with modern, mass-produced goods in the global marketplace?",
+        "Do you think consumer preferences for traditional products have changed over the years?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个帮你节约很多时间的改变",
+      "cue_card": "Describe away/change that helps you save a lot of time",
+      "bullet_points": [
+        "What the change is",
+        "How you discovered it",
+        "How it helps you save time",
+        "And explain why you think it is effective"
+      ],
+      "part3_questions": [
+        "In your opinion, what are the key benefits of effective time management for individuals and society as a whole?",
+        "Can you give an example of a situation where poor time management led to negative consequences?",
+        "Do you believe that technology has played a major role in helping people save time?",
+        "In your opinion, what are the most significant technological advancements that have contributed to time-saving in daily life?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一件帮你在工作/学习上集中注意力的物品",
+      "cue_card": "Describe something you do that can help you concentrate on work/study",
+      "bullet_points": [
+        "What the change is",
+        "How you discovered it",
+        "How it helps you save time",
+        "And explain why you think it is effective"
+      ],
+      "part3_questions": [
+        "Why is it more difficult for children to concentrate nowadays than in the past?",
+        "Do you think technology will harm children's ability to concentrate?",
+        "What kinds of jobs require high concentration at work?",
+        "Can exercise help people improve concentration?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你小时候喜欢的玩具",
+      "cue_card": "Describe a toy you liked in your childhood",
+      "bullet_points": [
+        "What the toy is",
+        "How you got it",
+        "Why you liked it"
+      ],
+      "part3_questions": [
+        "How do advertisements influence children?",
+        "Should advertising aimed at kids be prohibited?",
+        "Do you think parents should buy more toys for their kids or spend more time with them?",
+        "What's the difference between the toys kids play now and those they played in the past?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一项对你日常生活有用的科技",
+      "cue_card": "Describe a piece of technology that you feel difficult to use",
+      "bullet_points": [
+        "What it is",
+        "When you first used it",
+        "Why you needed to use it",
+        "And explain why you find it difficult to use."
+      ],
+      "part3_questions": [
+        "Do you think modern technology is becoming increasingly complex?",
+        "In your opinion, what should technology developers do to improve the user experience and make their products more accessible?",
+        "Can you give an example of a technology that has managed to balance complexity and ease of use very well?",
+        "Do you believe that people are generally more willing to invest time in learning to use new technology nowadays?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一项你觉得有用的日常发明",
+      "cue_card": "Describe an invention that is useful in your daily life./Describe the greatest invention that",
+      "bullet_points": [
+        "What the invention is",
+        "When you first used it",
+        "How you got to know about it",
+        "And explain why it is useful in your daily life."
+      ],
+      "part3_questions": [
+        "Do you think inventions have significantly changed people's lifestyles over the years?",
+        "Can you predict any future inventions that might further revolutionize our daily lives?",
+        "Do you believe that certain inventions are more important in some fields, like healthcare, education, or transportation?",
+        "Do you think creativity is essential for inventing new things?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一件别人给你的衣服",
+      "cue_card": "Describe an item of clothing that someone gave you",
+      "bullet_points": [
+        "What the item of clothing is",
+        "Who gave it to you",
+        "When you received it",
+        "And explain why it is special to you."
+      ],
+      "part3_questions": [
+        "Do you think clothing is a common and appropriate gift?",
+        "What kind of relationship is usually signified when someone gives clothing as a gift?",
+        "Do you believe that fashion trends influence the choice of clothing gifts?",
+        "How do people keep up with the latest fashion trends when choosing clothing gifts?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "你保持运动的一件事儿",
+      "cue_card": "Describe something you do to keep fit and healthy",
+      "bullet_points": [
+        "What it is",
+        "When you started doing it",
+        "How often you do it",
+        "And explain why you think it is effective in keeping you fit and healthy."
+      ],
+      "part3_questions": [
+        "Do you think people in general are becoming more aware of the importance of fitness and health?",
+        "What are the main benefits of a fit and healthy lifestyle for individuals and society as a whole?",
+        "Do you believe that there are different ways to keep fit and healthy that are suitable for different people?",
+        "What factors should people consider when choosing a fitness activity?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你不喜欢的规则",
+      "cue_card": "Describe a rule that you don't like",
+      "bullet_points": [
+        "What the rule is",
+        "Where it applies",
+        "When you first noticed it",
+        "And explain why you don't like it."
+      ],
+      "part3_questions": [
+        "Do you think rules are essential for maintaining social order?",
+        "What are the consequences if people don't follow the rules?",
+        "Do you believe that rules should be updated or changed overtime?",
+        "What are the most important rules in a workplace to ensure productivity and harmony?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个在你家碎掉又被修补好了的物品",
+      "cue_card": "Describe something that was broken in your home and then repaired",
+      "bullet_points": [
+        "What it was",
+        "When it got broken",
+        "How you found out it was broken",
+        "And explain how it was repaired."
+      ],
+      "part3_questions": [
+        "Do you think the cost of repairing household items is generally reasonable?",
+        "How can people save money on repairs?",
+        "Do you think it's possible to recycle or up cycle broken household items?",
+        "What are the creative way store use broken things?"
+      ]
+    },
+    {
+      "category": "物品题",
+      "date": "2024 年 9 月保留",
+      "topic_zh": "一个你日常必不可缺的物品",
+      "cue_card": "Describe a photo that is special to you",
+      "bullet_points": [
+        "What it is",
+        "How long you have had it",
+        "Why you need it",
+        "And explain what you would do if you lost it.",
+        "When and where you bought it",
+        "What it was",
+        "What you used it for",
+        "And explain how you liked it",
+        "When and where it was taken",
+        "Who are in the photo",
+        "Why it is special to you",
+        "And explain whether you will keep it for along time"
+      ],
+      "part3_questions": [
+        "Do you think modern technology makes people rely too much on certain devices?",
+        "What are the advantages and disadvantages of being dependent on something?",
+        "In your opinion, what things are essential for everyone's daily life?",
+        "How do people's essential items change as they grow older?",
+        "昂贵物品",
+        "Do people spend too much time shopping these days? Why?",
+        "What factors influence people's decisions to buy expensive items?",
+        "Do you think it's worth spending a lot of money on luxury goods?",
+        "How do people feel after buying expensive items?",
+        "特别的照片",
+        "Why do people like to take photos?",
+        "What do people usually do with their photos?",
+        "How do photos help people remember things?",
+        "Do you think taking photos is a good way to record memories?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "别人帮忙下做的决定",
+      "cue_card": "Describe an important decision made with the help of other people. You should say",
+      "bullet_points": [
+        "What this decision was",
+        "Who helped you make this decision",
+        "How they helped you e. g., gave advice, shared experience",
+        "Explain why this decision was important to you"
+      ],
+      "part3_questions": [
+        "Do you think it s better to make important decisions alone or with others help? Why?",
+        "What kinds of decisions do young people usually need others help with?",
+        "How can parents help their children make better decisions?",
+        "Do you think people should take responsibility for the decisions they make, even if others helped?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "弄坏东西",
+      "cue_card": "Describe a time when you broke something. You should say",
+      "bullet_points": [
+        "What thing you broke",
+        "When and where this happened",
+        "How you broke it",
+        "Explain how you dealt with the situation after breaking it"
+      ],
+      "part3_questions": [
+        "What should people do if they break something that belongs to others?",
+        "Do you think children should be punished when they break things? Why or why not?",
+        "Are there anythings that are easy to break but worth buying?",
+        "How do modern products compare to old ones in terms of durability not breaking easily?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "第一次尝试的兴奋活动",
+      "cue_card": "Describe an exciting activity you have tried for the first time. You should say",
+      "bullet_points": [
+        "What the activity was",
+        "When and where you tried it",
+        "How you prepared for this activity",
+        "Explain why you felt excited about it"
+      ],
+      "part3_questions": [
+        "Why do some people enjoy trying new activities, while others don t?",
+        "Do you think it s important for people to try new things regularly?",
+        "What kinds of new activities are popular among young people today?",
+        "Do you think trying new activities can help people reduce stress?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "别人向你道歉",
+      "cue_card": "Describe a time when someone apologized to you. You should say",
+      "bullet_points": [
+        "Who apologized to you",
+        "What this person did to make an apology necessary",
+        "How this person apologized (e. g., said sorry, gave a gift",
+        "Explain how you felt after receiving the apology"
+      ],
+      "part3_questions": [
+        "Do you think a sincere apology is more important than a gift? Why?",
+        "Why do some people find it hard to apologize to others?",
+        "Is it necessary for people to apologize even if they didn t mean to do something wrong?",
+        "How can a person make their apology more effective?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "第一次用外语",
+      "cue_card": "Describe the time when you first talked ina foreign language. You should say",
+      "bullet_points": [
+        "Which foreign language you used",
+        "When and where this happened",
+        "Who you talked to and what you talked about",
+        "Explain how you felt during and after the conversation"
+      ],
+      "part3_questions": [
+        "Do you think it s important to practice speaking a foreign language in real life?",
+        "What are the challenges people face when speaking a foreign language for the first time?",
+        "How can technology (e. g., language apps help people improve their foreign language speaking skills?",
+        "Do you think children learn to speak foreign languages faster than adults? Why?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "突然停电",
+      "cue_card": "Describe a time when the electricity suddenly went off. You should say",
+      "bullet_points": [
+        "When and where this happened",
+        "What you were doing when the electricity went off",
+        "How you and others around you reacted",
+        "Explain how long the power was off and how it affected you"
+      ],
+      "part3_questions": [
+        "What should people prepare for unexpected power cuts?",
+        "How do power cuts affect daily life in cities vs. in rural areas?",
+        "Do you think governments should invest more in improving electricity supply systems?",
+        "What are the main causes of power cuts in your country?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "远行",
+      "cue_card": "Describe along journey you had. You should say",
+      "bullet_points": [
+        "Where you went and how you traveled e. g., by plane, train",
+        "How long the journey took",
+        "What you did during the journey",
+        "Explain how you felt after the journey ended"
+      ],
+      "part3_questions": [
+        "Do you prefer long journeys or short journeys? Why?",
+        "What are the advantages and disadvantages of traveling by plane for a long journey?",
+        "How can people make long journeys more comfortable?",
+        "Do you think long journeys help people relax?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "和亲友享受的晚餐",
+      "cue_card": "Describe a great dinner you and your friends or family members enjoyed. You should say",
+      "bullet_points": [
+        "Where this dinner took place e. g., at home, in a restaurant",
+        "Who was with you",
+        "What food you had and why you chose it",
+        "Explain why this dinner was great"
+      ],
+      "part3_questions": [
+        "Do you think eating dinner with family is important for family relationships?",
+        "What s the difference between having dinner at home and having dinner in a restaurant?",
+        "Why do some people like to try new foods when having dinner with friends?",
+        "How have people s dining habits changed in recent years?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "想多了解的野生动物",
+      "cue_card": "Describe a wild animal that you want to know more about. You should say",
+      "bullet_points": [
+        "What kind of animal it is",
+        "Where this animal lives e. g., forests, deserts",
+        "What you already know about this animal",
+        "Explain why you want to know more about it"
+      ],
+      "part3_questions": [
+        "Why do you think it s important to protect wild animals?",
+        "How do human activities affect wild animals habitats?",
+        "Do you think zoos area good way to help people learn about wild animals?",
+        "What can individuals do to protect wild animals in daily life?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "想再去的旅行",
+      "cue_card": "Describe a trip you would like to make again. You should say",
+      "bullet_points": [
+        "Where this trip was to",
+        "When you went there for the first time",
+        "What you did and enjoyed during the trip",
+        "Explain why you want togo on this trip again"
+      ],
+      "part3_questions": [
+        "Do you prefer to visit the same place multiple times or new places each time you travel?",
+        "What kinds of places are worth visiting more than once?",
+        "How can traveling to the same place again bring new experiences?",
+        "Do you think traveling with the same people again makes the trip better?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "迷路",
+      "cue_card": "Describe an occasion when you lost your way. You should say",
+      "bullet_points": [
+        "Where you were when you got lost",
+        "How you got lost e. g., took the wrong turn, no map",
+        "What you did to find your way back",
+        "Explain how you felt during this experience"
+      ],
+      "part3_questions": [
+        "Do you think it s easier to get lost ina big city or a small town? Why?",
+        "How has technology e. g., GPS, maps apps changed the way people find their way?",
+        "What should people do to avoid getting lost when traveling to a new place?",
+        "Do you think getting lost can sometimes bring unexpected good experiences?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "想提升的天赋",
+      "cue_card": "Describe a natural talent you want to improve. You should say",
+      "bullet_points": [
+        "What this talent is (e. g., singing, drawing, playing sports",
+        "How you discovered you had this talent",
+        "What you have done so far to improve it",
+        "Explain why you want to improve this talent"
+      ],
+      "part3_questions": [
+        "Do you think everyone has atleast one natural talent?",
+        "How can parents help their children discover their natural talents?",
+        "Is it more important to improve a natural talent or learn a new skill?",
+        "Do you think people need to take classes to improve their natural talents?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "告诉朋友实情",
+      "cue_card": "Describe a time when you told your friend an important truth. You should say",
+      "bullet_points": [
+        "What the truth was",
+        "Why you thought it was important to tell your friend",
+        "How your friend reacted after hearing the truth",
+        "Explain why you decided to tell the truth instead of keeping it secret"
+      ],
+      "part3_questions": [
+        "Do you think it s always better to tell the truth to friends, even if it hurts them?",
+        "Why do some people choose to lie to their friends instead of telling the truth?",
+        "How can telling the truth strengthen a friendship?",
+        "Is there any situation where it s better not to tell a friend the whole truth?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "不寻常的一餐",
+      "cue_card": "Describe an unusual meal you had. You should say",
+      "bullet_points": [
+        "When and where you had this meal",
+        "What the meal was e. g., special ingredients or dishes",
+        "Who you had the meal with if anyone",
+        "Explain why you thought this meal was unusual"
+      ],
+      "part3_questions": [
+        "Do you think trying unusual meals is a good way to learn about a different culture? Why or why not?",
+        "Why do some people feel nervous about eating unusual foods, like insects or exotic fruits?",
+        "How has the internet influenced people s willingness to try unusual meals (e. g., food blogs or videos?",
+        "Do you think restaurants should offer more unusual dishes, or focus on traditional ones?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "购物服务",
+      "cue_card": "Describe a time when you received good service in a shop/store. You should say",
+      "bullet_points": [
+        "When and which shop/store it was",
+        "What you went to the shop/store to buy",
+        "What the shop assistant did to provide good service",
+        "Explain why you thought the service was good"
+      ],
+      "part3_questions": [
+        "Do you think good service is more important for small local shops or large chain stores? Why?",
+        "Why do some shops fail to provide good service, even if they want to?",
+        "How can a shop s good service make customers want to visit again?",
+        "Do you think technology like self-checkout will replace the need for good service from shop assistants?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "近期日常改变",
+      "cue_card": "Describe a positive change that you have made recently in your daily routine. You should",
+      "bullet_points": [
+        "What this positive change was (e. g., adjusting sleep time or adding exercise",
+        "When and how you started this change",
+        "What difficulties you faced at the beginning if any",
+        "Explain how this change has improved your life"
+      ],
+      "part3_questions": [
+        "Do you think it s easier for young people or older people to make positive changes in their daily routines? Why?",
+        "Why do some people find it hard to stick to positive changes in their daily lives, like giving up late-night snacking?",
+        "How can family or friends help someone keep a positive change in their daily routine?",
+        "Do you think technology like habit-tracking apps is helpful for maintaining positive daily routine changes?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "演讲经历",
+      "cue_card": "Describe a talk you gave to a group of people. You should say",
+      "bullet_points": [
+        "What the topic of your talk was e. g., a hobby, a study tip, ora life experience",
+        "Who the group of people was e. g., classmates, club members, or colleagues",
+        "How you prepared for this talk e. g., practicing, making notes, or using slides",
+        "Explain how you felt before and after giving the talk"
+      ],
+      "part3_questions": [
+        "Do you think it s important for students to learn public speaking skills at school? Why",
+        "Why do some people feel nervous when giving a talk to a group of people? How can they overcome this?",
+        "What qualities make a person stalk interesting and engaging for the audience?",
+        "Do you think online talks (e. g., web in ars are more effective than in-person talks?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "印象深刻的谈话",
+      "cue_card": "Describe an impressive talk you had",
+      "bullet_points": [
+        "Who you had the talk with and your relationship",
+        "Where and when the talk took place",
+        "What the main topics of the talk were and what was said",
+        "And explain why this talk left a deep impression on you"
+      ],
+      "part3_questions": [
+        "Do you think the impact of an impressive talk depends on the relationship between the speakers?",
+        "In what ways can listening to impressive talks contribute to personal development?",
+        "Are there differences in the topics of impressive talks among people of different age groups? Why?",
+        "Do you believe modern communication technologies have changed the way people have impressive talks compared to the past?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "美丽天空",
+      "cue_card": "Describe a beautiful sky you enjoy seeing",
+      "bullet_points": [
+        "When and where you saw this beautiful sky",
+        "What the sky looked like e. g., colors, clouds, other features",
+        "Who you were with when you saw it if anyone",
+        "And explain why you think this sky was particularly beautiful"
+      ],
+      "part3_questions": [
+        "Why do you think people are often attracted to beautiful skies?",
+        "Do you think the beauty of the sky can have an impact on people's mood and emotions?",
+        "Are there differences in the beauty of the sky in urban and rural areas? What are the reasons for these differences?",
+        "With the development of technology and environmental changes, how might the appearance of the sky change in the future?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "计划多人活动",
+      "cue_card": "Describe a time when you made a plan to do an activity with a lot of people",
+      "bullet_points": [
+        "What the activity was",
+        "Who the people were and how you knew them",
+        "How you made the plan and what preparations you did",
+        "And explain how the activity turned out and how you felt about it"
+      ],
+      "part3_questions": [
+        "What do you think are the most challenging aspects of planning an activity for a large group of people?",
+        "In your opinion, how can technology help with organizing group activities more effectively?",
+        "Are there differences in the ways young people and older people plan group activities? Why do you think this is?",
+        "Do you believe that group activities are more beneficial for personal development than individual activities?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "熊孩子",
+      "cue_card": "Describe a time when you saw children behave badly in public",
+      "bullet_points": [
+        "When and where you saw the children misbehaving",
+        "What kind of bad behavior the children showed",
+        "How other people around reacted to the situation",
+        "And explain how you felt about what you saw"
+      ],
+      "part3_questions": [
+        "What do you think are the main reasons why children maybe have badly in public?",
+        "Whose responsibility do you think it is to correct children's bad behavior in public - parents, teachers, or society as a whole?",
+        "Do you believe that modern technology, such as smartphones and video games, has an impact on children's behavior in public places?",
+        "How can schools and families work together to teach children appropriate public behavior?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "争论",
+      "cue_card": "Describe a disagreement you had with someone",
+      "bullet_points": [
+        "Who you had the disagreement with and your relationship",
+        "What the disagreement was about",
+        "How the disagreement was resolved or not resolved",
+        "And explain how you felt about the disagreement"
+      ],
+      "part3_questions": [
+        "In your opinion, what are the most common causes of disagreements between people?",
+        "Do you think it's possible to maintain a good relationship with someone after having a serious disagreement? Why or why not?",
+        "What communication skills do you think are important when trying to resolve a disagreement?",
+        "Are there differences in how people handle disagreements in personal relationships and in the workplace?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "教别人技能",
+      "cue_card": "Describe as kill that you think you can teach other people",
+      "bullet_points": [
+        "What the skill is",
+        "How you learned this skill",
+        "How you would teach it to others",
+        "And explain why you are capable of teaching this skill"
+      ],
+      "part3_questions": [
+        "What are the most important qualities a person needs to have to bea good teacher?",
+        "Are there differences in teaching skills to children and adults? Why?",
+        "How has the development of technology influenced the way people teach and learn skills?",
+        "In your opinion, why is it important for people to share their skills with others in society?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "校外学到的重要事情",
+      "cue_card": "Describe an important thing that you learned not at school or college",
+      "bullet_points": [
+        "What the thing is",
+        "How you learned it",
+        "What benefits you got from learning it",
+        "And explain why it is important to you"
+      ],
+      "part3_questions": [
+        "What are the advantages of learning things outside of school or college?",
+        "Do you think self- learning is more effective than learning from others? Why?",
+        "What factors do you think can influence people's learning efficiency when learning something new?",
+        "How do you think the way people learn things outside of school or college will change in the future?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "收钱做礼物",
+      "cue_card": "Describe a time when you received money as a gift",
+      "bullet_points": [
+        "When and where it happened",
+        "Who gave you the money and why",
+        "How you felt when you received the money",
+        "And explain what you did with the money"
+      ],
+      "part3_questions": [
+        "Are there differences in giving money as a gift on different occasions such as",
+        "weddings, birthdays, or holidays?",
+        "Do you think giving money as a gift can truly express one s feelings? Why or why not?",
+        "With the popularity of digital payments, how has the way of giving money as a gift changed?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "收到想要的物品",
+      "cue_card": "Describe a time when someone gave you something that you really wanted",
+      "bullet_points": [],
+      "part3_questions": [
+        "Why do people give gifts to others? What does giving gifts mean in social interactions?",
+        "Are there differences in the types of gifts people choose for different age groups? Why?",
+        "How do you think giving gifts can affect relationships between people?",
+        "With the development of technology, more people are choosing digital gifts. What do you think are the advantages and disadvantages of digital gifts compared with traditional ones?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "与朋友做的有趣决定",
+      "cue_card": "Describe an interesting decision that you and your friend made together",
+      "bullet_points": [
+        "What the decision was",
+        "How you and your friend made this decision",
+        "Why you think it was interesting",
+        "And explain what the result of this decision was"
+      ],
+      "part3_questions": [
+        "What are the key factors people usually consider when making important decisions?",
+        "How can group decisions differ from individual decisions? What are the advantages and disadvantages of each?",
+        "In what situations do you think people tend to make impulsive decisions, and how can these decisions affect their lives?",
+        "With the development of technology, how has the way people make decisions changed?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "失约",
+      "cue_card": "Describe a time when you forgot or missed an appointment.",
+      "bullet_points": [
+        "What the appointment was for",
+        "Why you forgot or missed it",
+        "How you felt when you realized what happened",
+        "And explain how you dealt with the situation afterwards"
+      ],
+      "part3_questions": [
+        "What are the common reasons people forget or miss appointments, and how can they avoid it?",
+        "Do you think technology, such as reminder apps, helps people manage their appointments better? Why or why not?",
+        "How important is punctuality in different cultures, and how does it affect social interactions?",
+        "In a busy life, how can people balance multiple appointments and commitments effectively?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "朋友的争执",
+      "cue_card": "Describe an argument two of your friends had. You should say",
+      "bullet_points": [
+        "Who the two friends were",
+        "What the argument was about",
+        "How you reacted when you saw the argument",
+        "And explain what happened after the argument"
+      ],
+      "part3_questions": [
+        "What are the typical causes of arguments among friends, and how can they be resolved peacefully?",
+        "Do you think it s better for a third - party to interfere in a friends argument, or should they solve it on their own?",
+        "How can effective communication skills help prevent misunderstandings and arguments between friends?",
+        "In your opinion, what role do arguments play in the process of building stronger friendships?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "决意等待",
+      "cue_card": "Describe a time you made a decision to wait for something. You should say",
+      "bullet_points": [
+        "What you were waiting for",
+        "Why you decided to wait",
+        "How long you had to wait",
+        "And explain how you felt during the waiting period"
+      ],
+      "part3_questions": [
+        "In what situations do people usually choose to wait, and what factors influence their decision to wait?",
+        "How does waiting affect people s emotions and patience? And how can they manage these feelings?",
+        "Do you think modern society s fast - paced lifestyle makes it harder for people to wait patiently? Why?",
+        "What are the benefits and drawbacks of waiting for something important in life?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "努力实现的目标",
+      "cue_card": "Describe a goal you set that you tried your best to achieve. You should say",
+      "bullet_points": [
+        "What the goal was",
+        "Why you set this goal",
+        "What steps you took to achieve it",
+        "And explain whether you finally achieved the goal or not"
+      ],
+      "part3_questions": [
+        "Why do people set goals for themselves, and how do goals influence personal development?",
+        "In your opinion, what qualities are necessary for people to achieve their goals successfully?",
+        "How can parents and teachers help children set and achieve appropriate goals?",
+        "Do you think it s important to adjust goals when facing difficulties, or should people stick to the original plan?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "近期做出的改变",
+      "cue_card": "Describe a positive change that you have made recently in your daily routine",
+      "bullet_points": [
+        "What the change is",
+        "How you have changed the routine",
+        "Why you think it is a positive change",
+        "And explain how you feel about the change"
+      ],
+      "part3_questions": [
+        "Do you think making positive changes in daily routines can have a significant impact on people's overall well-being?",
+        "Can you give some examples of other common positive changes in routines that you've heard of, apart from the one you described?",
+        "What do you think are the main motivations for people to make changes in their daily routines?",
+        "Do you believe that external factors can play a major role in inspiring people to modify"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "交通工具抛锚",
+      "cue_card": "Describe a time when the vehicle you took broke down on your trip",
+      "bullet_points": [
+        "Where it happened",
+        "When it happened",
+        "Who you were with at that time",
+        "And what impacts this breakdown had"
+      ],
+      "part3_questions": [
+        "If a vehicle breaks down frequently, do you think it's better to repair it or replace it?",
+        "How do you think the experience of a vehicle breakdown would differ if it happened in a remote area compared to a busy city?",
+        "Can you give an example of a particularly challenging location where a vehicle breakdown could occur?",
+        "Do you think a vehicle breakdown always has a negative impact on travel plans?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "退货",
+      "cue_card": "Describe something you bought but you returned in the end",
+      "bullet_points": [
+        "What it is",
+        "When you bought it",
+        "Why you returned it",
+        "And explain how you returned it"
+      ],
+      "part3_questions": [
+        "In your opinion, how might return policies continue to evolve in the future to better serve both consumers and retailers?",
+        "Do you believe that the act of returning an item can affect a consumer's subsequent shopping behavior?",
+        "In your opinion, what psychological factors come into play when consumers decide whether or not to return an item?",
+        "Can you give an example of a strategy that retailers use to handle returns efficiently while minimizing losses?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "忘记重要事情",
+      "cue_card": "Describe an occasion when you forgot something important",
+      "bullet_points": [
+        "When it was",
+        "What you forgot",
+        "Why you forgot it",
+        "And how you felt about it"
+      ],
+      "part3_questions": [
+        "What are the best ways to manage stress to prevent memory lapses in important situations?",
+        "Do you believe that the overuse of technology, such as relying too much on smartphones to remember things, is making people's memories worse?",
+        "Do you think forgetting something important can have serious consequences in social relationships or professional settings?",
+        "Do you think there are effective techniques to improve memory and reduce the occurrence of forgetting important things?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你没实现的伟大理想",
+      "cue_card": "Describe an ambition that you haven't achieved",
+      "bullet_points": [
+        "What the ambition is",
+        "Why you haven t achieved it yet",
+        "How you plan to achieve it",
+        "And explain how you feel about it"
+      ],
+      "part3_questions": [
+        "Do you think it's important for people to have ambitions? Why?",
+        "How do parents and society influence a person's ambitions?",
+        "What difficulties might people face when trying to achieve their ambitions?",
+        "In your opinion, should people change their ambitions if they encounter too many obstacles? Why or why not?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一次你非常忙碌的经历",
+      "cue_card": "Describe a time you were very busy",
+      "bullet_points": [
+        "When it was",
+        "Why you were so busy",
+        "What you had to do",
+        "And how you managed everything"
+      ],
+      "part3_questions": [
+        "Do you think modern life makes people busier than before? Why?",
+        "How can people manage their time better when they are busy?",
+        "What are the negative effects of being constantly busy?",
+        "In your opinion, is it better to be busy with work or with personal hobbies? Why?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一件你庆祝的重要事件",
+      "cue_card": "Describe an important event you celebrated",
+      "bullet_points": [
+        "When and where it happened",
+        "Who you celebrated with",
+        "What activities took place during the celebration",
+        "And explain why it was important to you"
+      ],
+      "part3_questions": [
+        "What kind of events do people usually celebrate in your country?",
+        "Do you think it's necessary to celebrate important events in a grand way? Why?",
+        "How has the way of celebrating events changed in recent years?",
+        "What role do celebrations play in maintaining family and social relationships?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一次忙碌的经历",
+      "cue_card": "Describe a time you were very busy",
+      "bullet_points": [
+        "When it was",
+        "What you were busy with",
+        "Why you were so busy",
+        "And how you managed that busy period."
+      ],
+      "part3_questions": [
+        "Do you think modern life makes people busier than before? Why?",
+        "How do people usually handle stress when they are extremely busy?",
+        "In your opinion, is being busy all the time a good thing? Explain your reasons.",
+        "What suggestions would you give to someone who is always complaining about being busy?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个你想参加的比赛",
+      "cue_card": "Describe a contest/competition you would like to participate in",
+      "bullet_points": [
+        "What the contest/competition is about",
+        "When and where it would beheld",
+        "Why you want to take part in it",
+        "And what you would do to prepare for it."
+      ],
+      "part3_questions": [
+        "What kinds of competitions are popular in your country? Why?",
+        "Do you think competitions are more beneficial for children or adults?",
+        "How can competitions help to improve people's skills?",
+        "In your opinion, should schools organize more competitions? Why or why not?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一次你没花很多钱过的特殊的一天",
+      "cue_card": "Describe a special day out that cost you little money/didn't cost you much",
+      "bullet_points": [
+        "Where you went",
+        "Who you were with",
+        "What you did",
+        "And explain why it was special eventhough it didn't cost much."
+      ],
+      "part3_questions": [
+        "Do people like to spend their leisure time out in your country?",
+        "How do people spend their leisure time in your country?",
+        "How does technology affect the way people spend their leisure time?",
+        "Do you think only old people have time for leisure?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "你学语言做的一件事儿",
+      "cue_card": "Describe a thing you did to learn another language.",
+      "bullet_points": [
+        "What it was",
+        "When you did it",
+        "How you did it",
+        "And explain whether it was helpful for you to learn the language."
+      ],
+      "part3_questions": [
+        "Do you think it's better to learn a language by self-study or in a classroom setting? Why?",
+        "What role do you think technology plays in language learning nowadays?",
+        "In your view, at what age should children start learning a foreign language? Why?",
+        "Do you think people who learn multiple languages have an advantage in the job market? Why?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一件吃惊的事儿让你开心",
+      "cue_card": "Describe something that surprised you and made you happy.",
+      "bullet_points": [
+        "What it was",
+        "When it happened",
+        "Who was involved",
+        "And explain why it surprised you and made you happy."
+      ],
+      "part3_questions": [
+        "Do you think surprises are always positive? Can you give some examples of negative surprises?",
+        "In your culture, how do people usually celebrate happy occasions?",
+        "Do you think it's important to share your happy moments with others? Why?",
+        "What kind of surprises do children usually like? Is it different from adults?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一个艰难的决定",
+      "cue_card": "Describe a difficult decision that you once made.",
+      "bullet_points": [
+        "What the decision was",
+        "When you made this decision",
+        "What factors you considered",
+        "And explain how you felt after making this decision."
+      ],
+      "part3_questions": [
+        "Do you think young people and old people make decisions in different ways? Why?",
+        "In your opinion, what kind of decisions are the most difficult to make in life?",
+        "How can people get more information to help them make better decisions?",
+        "Do you think it's better to make decisions alone or with the help of others? Why?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 11 月增",
+      "topic_zh": "一次成功组织的开心事件",
+      "cue_card": "Describe a time when you organized a happy event successfully.",
+      "bullet_points": [
+        "What the event was",
+        "Why you organized it",
+        "Who helped you",
+        "And explain why you think it was successful."
+      ],
+      "part3_questions": [
+        "What skills do people need to organize a large event?",
+        "Do you think it's necessary to have a professional team to organize important events? Why?",
+        "In your opinion, what are the differences between organizing a formal event and an informal one?",
+        "How can technology help in event organization nowadays?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 9 月保留",
+      "topic_zh": "一次交通堵塞的经历",
+      "cue_card": "Describe a challenge you faced that you thought was rather difficult",
+      "bullet_points": [
+        "When it happened",
+        "Where you were going",
+        "How long you were stuck",
+        "And explain how you felt about it.",
+        "When it happened",
+        "What it was",
+        "Why it made you feel confident",
+        "And explain how you felt about it",
+        "When and Where it happened",
+        "What he/she said",
+        "How you corresponded",
+        "And explain how you felt about the experience",
+        "Who this person was",
+        "Why you asked for the advice",
+        "What the advice was",
+        "And explain how you felt about the advice",
+        "When and where it happened",
+        "What it was",
+        "How valuable it was",
+        "How you lost it",
+        "And explain how you felt about the experience",
+        "What it was",
+        "When you received it",
+        "What you did to receive it",
+        "And explain how you felt about it",
+        "What it was",
+        "When and where you faced it",
+        "Why you thought it was a difficult challenge",
+        "And explain how you felt at the time"
+      ],
+      "part3_questions": [
+        "What do you think are the main causes of traffic jams in big cities?",
+        "Do you think the government should take more measures to solve traffic problems? What kind of measures?",
+        "In your view, how does traffic congestion affect people's daily lives?",
+        "Are there any differences in traffic conditions between weekdays and weekends in your city? Why?",
+        "令你自信的事",
+        "What can teachers do to help their students become more confident?",
+        "How can teachers help their students become more confident by rewarding them for studying?",
+        "What can teachers do to make studying more interesting?",
+        "Do you think that children of confident parents are also confident?",
+        "公共场所接陌生人电话",
+        "Do most people mind others talking on the phone in public places?",
+        "What are the differences between sitting beside a person who keeps talking on the phone and a person who keeps talking to you?",
+        "Why do some people not care what they do in public places?",
+        "Do you think parents should teach their children not to behave badly in public places?",
+        "寻求建议",
+        "Who should people ask for advice on big issues, family members or friends?",
+        "How can we make sure we get good advice?",
+        "What should we do if we don't agree with the advice we receive?",
+        "Can we learn from the advice we give to others?",
+        "弄丢贵重物品",
+        "What kinds of things do people lose easily?",
+        "Why do people keep losing things?",
+        "Where do people often find things they have lost?",
+        "Is it important to be organised for a good student?",
+        "获奖",
+        "Do you think competition is all about the prize?",
+        "What prizes should schools set for students?",
+        "What criteria should be set for students to win a particular prize?",
+        "Why do many companies offer prizes to their customers?",
+        "遇到困难挑战",
+        "What do children often do when they face a challenge?",
+        "Is it easy for children to overcome a challenge?",
+        "Do most people choose to face a challenge alone or with others?",
+        "How can we help children develop the ability to face challenges?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "社交媒体趣事",
+      "cue_card": "Describe a time you saw something interesting on social media. You should say",
+      "bullet_points": [
+        "Which social media platform you used e. g., Insta gram, We Chat, Tik Tok",
+        "What the interesting thing was e. g., a video, a post, a photo",
+        "When you saw it and who posted it if you know",
+        "Explain why you thought this thing was interesting"
+      ],
+      "part3_questions": [
+        "Do you think social media has more positive or negative effects on people s lives?",
+        "Why do some people like to share interesting things on social media?",
+        "How can people tell if the information or things they see on social media are true?",
+        "Do you think children should be allowed to use social media to see interesting content? Why or why not?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 9 月增",
+      "topic_zh": "传统故事",
+      "cue_card": "Describe an interesting traditional story. You should say",
+      "bullet_points": [
+        "What the story is about e. g., the characters, the main plot",
+        "Where this traditional story comes from e. g., your country, a specific culture",
+        "How you first heard this story e. g., told by your parents, read in a book",
+        "Explain why you think this story is interesting"
+      ],
+      "part3_questions": [
+        "Do you think it s important to pass traditional stories to the next generation? Why?",
+        "What s the difference between traditional stories and modern stories (e. g., movies, novels?",
+        "How can traditional stories be made more interesting for young people today?",
+        "Do you think traditional stories from different cultures can help people understand each other better?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "水上运动",
+      "cue_card": "Describe a water sport you would like to try in the future. You should say",
+      "bullet_points": [
+        "What kind of water sport it is (e. g., surfing, kayaking, or snorkeling",
+        "Where you would like to try this water sport and why you chose that place",
+        "What you know about how to do this water sport e. g., equipment needed or basic skills",
+        "Explain why you want to try this water sport"
+      ],
+      "part3_questions": [
+        "Do you think watersports are more suitable for young people than older people? Why or why not?",
+        "Why do some people feel scared to try water sports, even if they re interested? How can they overcome this fear?",
+        "What benefits do people get from doing water sports, compared to other kinds of",
+        "Do you think governments should build more facilities for water sports (e. g., artificial wave pools?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "健康文章",
+      "cue_card": "Describe an article on health you read in a magazine or on the internet",
+      "bullet_points": [],
+      "part3_questions": [
+        "Why do you think health- related articles are becoming more popular nowadays?",
+        "What are the differences between health articles in magazines and those on the internet?",
+        "How can people distinguish reliable health information from misleading content?",
+        "Do you think the future development of health- related articles will be more influenced by traditional media or new media?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "二手物品网站",
+      "cue_card": "Describe a website that sells second-hand items.",
+      "bullet_points": [
+        "What the website is called",
+        "How you discovered this website",
+        "What kinds of second-hand items it sells",
+        "And explain why you like using this website"
+      ],
+      "part3_questions": [
+        "Why do you think the popularity of second-hand item websites is increasing?",
+        "What challenges do buyers and sellers face when using second-hand item websites, and how can they be solved?",
+        "Do you think the development of second-hand item websites has a positive or",
+        "How can platforms ensure the quality and authenticity of second-hand products sold on their websites?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "喜欢的节目",
+      "cue_card": "Describe a program you like to watch. You should say",
+      "bullet_points": [
+        "What the program is",
+        "What type of program it is e. g., drama, reality show, documentary",
+        "When and where you usually watch it",
+        "And explain why you enjoy watching this program"
+      ],
+      "part3_questions": [
+        "How do different types of TV programs influence people's values and lifestyles?",
+        "In the era of streaming services, how has the way people watch programs changed compared to traditional TV?",
+        "Do you think programs should focus more on entertainment or education? Why?",
+        "What role do advertising and sponsorships play in the production and development of TV programs?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 5 月增",
+      "topic_zh": "有名产品的广告",
+      "cue_card": "Describe an advertisement you have seen that introduced a well-known product.",
+      "bullet_points": [
+        "What the product is",
+        "Where and when you saw the advertisement",
+        "What the advertisement was like e. g., its content, style",
+        "And explain why this advertisement impressed you"
+      ],
+      "part3_questions": [
+        "What are the most effective ways for advertisements to promote well-known products?",
+        "How do advertisements influence consumers ' purchasing decisions, especially for popular products?",
+        "Do you think there should be more restrictions on advertising certain products? Why or why not?",
+        "In the digital age, how has the form and reach of product advertisements changed?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "信息搜索",
+      "cue_card": "Describe a time when you needed to search for information. You should say",
+      "bullet_points": [
+        "What information you needed",
+        "Why you needed this information",
+        "How you searched for it e. g., online, in books",
+        "And explain how you felt about the process of searching for information"
+      ],
+      "part3_questions": [
+        "What are the advantages and disadvantages of searching for information online compared to using traditional resources?",
+        "How can people ensure the accuracy and reliability of the information they find?",
+        "Do you think the ability to search for information efficiently is an important skill? Why?",
+        "In the future, how might the way people search for information change with the development of technology?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2025 年 1 月增",
+      "topic_zh": "感兴趣的科学学科",
+      "cue_card": "Describe a science subject that you are interested in",
+      "bullet_points": [
+        "What it is",
+        "Where you got to know it",
+        "How you have learned it",
+        "And explain why you are interested in it"
+      ],
+      "part3_questions": [
+        "In your opinion, what changes could be made to the science curriculum in schools to make it more engaging and relevant to students?",
+        "Are there any particular teaching methods that you think are especially effective for teaching science?",
+        "How do you think the science subject you're interested in has contributed to the development of modern technology?",
+        "Do you believe that continuous investment in this science field is necessary for further technological advancements?"
+      ]
+    },
+    {
+      "category": "事件经历题",
+      "date": "2024 年 9 月保留",
+      "topic_zh": "一首有趣的歌",
+      "cue_card": "Describe a movie you like that you watched recently",
+      "bullet_points": [
+        "What the song is",
+        "When you first heard it",
+        "What the song is about",
+        "And explain why you think it is interesting.",
+        "When and where you watched it",
+        "What it was",
+        "Why you watched it",
+        "And explain what you have learned from it",
+        "When and where you watched it",
+        "Who you watched it with",
+        "What it was about",
+        "And explain why you like this movie"
+      ],
+      "part3_questions": [
+        "Why do you think music is an important part of people s lives?",
+        "Do different age groups like different types of music? Why?",
+        "How has the way people listen to music changed over the years?",
+        "Can music have an impact on a country s culture?",
+        "学到新东西的网络视频",
+        "What kinds of videos are most popular in your country?",
+        "Are there many people who watch online videos a lot?",
+        "Do you think people spend too much time on watching short videos? Why?",
+        "Why are so many young people obsessed with short videos?",
+        "近期观影",
+        "What kinds of movies do you think are successful in your country?",
+        "What are the factors that make a successful movie?",
+        "Do Chinese people prefer to watch domestic movies or foreign movies?",
+        "Do you think only well-known directors can create the best movies?"
+      ]
+    }
+  ],
+  "stats": {
+    "part1_topics": 116,
+    "part1_total_questions": 467,
+    "part2_topics": 106,
+    "part3_total_questions": 539
+  }
+}
