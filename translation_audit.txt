@@ -1,0 +1,151 @@
+Word total: 4587    LearningPlanEntry total: 5027
+
+==============================================================================
+A. EMPTY definitions (Word.definitions == []) — count=0
+==============================================================================
+
+==============================================================================
+B. SCHEMA issues (non-dict shape, or "n./v." prefix bled into meaning) — count=0
+==============================================================================
+
+==============================================================================
+C. SUSPECT-LONG meaning (>80 CJK chars, likely AI dump / truncated) — count=0
+==============================================================================
+
+==============================================================================
+D. NON-CHINESE definitions (no CJK chars anywhere) — count=0
+==============================================================================
+
+==============================================================================
+E. POLYSEMOUS-IELTS word with single thin meaning (manual review) — count=0
+==============================================================================
+
+==============================================================================
+F. PLAN entry word column contains space/slash/comma (phrase row) — count=173
+==============================================================================
+  928  |  2  |  bones/bone  |  'n. 骨头；骨骼；骨质'
+  1084  |  2  |  interest rate  |  '利率'
+  998  |  2  |  laundry room  |  '洗衣间'
+  999  |  2  |  shared room  |  '公用房间'
+  1050  |  2  |  stuffy nose  |  '鼻塞'
+  945  |  2  |  united states  |  '美国；美利坚合众国'
+  13289  |  7  |  bush fire  |  'n. 林区大火'
+  12947  |  7  |  carbon dioxide  |  'n. 二氧化碳'
+  17393  |  7  |  chief executive officer  |  'n. 首席执行官'
+  13659  |  7  |  dining hall  |  'n. 食堂'
+  12963  |  7  |  El Nino  |  'n. 厄尔尼诺现象'
+  16271  |  7  |  health care  |  'n. 医疗保健'
+  16225  |  7  |  heart attack  |  'n. 心脏病发作'
+  14777  |  7  |  ice cream  |  'n. 冰激凌'
+  14882  |  7  |  living room  |  'n. 客厅'
+  15226  |  7  |  New Zealand  |  'n. 新西兰'
+  13774  |  7  |  per cent  |  'n. 百分比'
+  14030  |  7  |  science fiction  |  'n. 科幻小说'
+  17420  |  15  |  as a result of  |  'prep. 由于；作为……的结果'
+  17419  |  15  |  by contrast  |  'adv. 相比之下；相反地'
+  17418  |  15  |  due to  |  'prep. 由于；因为'
+  17417  |  15  |  for instance  |  'adv. 例如；比如'
+  17416  |  15  |  in spite of  |  'prep. 尽管；不管'
+  17446  |  15  |  sb/sth indicate sth  |  '某人/某物表明；显示某事'
+  17445  |  15  |  someone implement something  |  '某人实施某事；执行某事'
+  17955  |  16  |  a decline in flights, cease to fly, avoid flying, cut flight  |  'reduce flying'
+  17940  |  16  |  a diet without meat, plant-based diet, eating vegetables and  |  'vegetarian diet'
+  17943  |  16  |  a piece of investigative journalism, newspaper reports, medi  |  'news'
+  17956  |  16  |  achieve success in sport, fulfill one's dream/ambition/poten  |  'be successful in sport'
+  17874  |  16  |  achieve success, realize one's full potential, a rewarding c  |  'career success'
+  17998  |  16  |  address, tackle, combat, cope with, alleviate  |  'solve'
+  17924  |  16  |  advanced technology, advances in technology, technological a  |  'technological development'
+  17927  |  16  |  advertising campaign, advertisement, advertise, endorsement,  |  'advertising'
+  17897  |  16  |  aid, assist sb in/with sth, assistance, support, subsidy, su  |  'help (v.)'
+  17972  |  16  |  aliens, intelligent beings, intelligent life, extraterrestri  |  'life on other planets'
+  17933  |  16  |  always, consistently, continuously, constantly  |  'all the time'
+  17842  |  16  |  an increasing/growing number of, increasingly popular, be pr  |  'more and more'
+  17887  |  16  |  at the earliest age, in advance, it is never too early to  |  'as early as possible'
+  17886  |  16  |  attend/enter/join school, enrol, enrollment, preschool, kind  |  'start school'
+  17901  |  16  |  avoid automobile accidents, ensure road safety  |  'improve road safety'
+  17847  |  16  |  be able to, be capable of doing, have the potential to  |  'can'
+  17868  |  16  |  be appropriate for, fit, perform equally well  |  'be suitable for'
+  17853  |  16  |  be determined by, be triggered by, be due to, stem from, ari  |  'be caused by'
+  17858  |  16  |  be detrimental/pernicious/hazardous/damaging to  |  'be harmful'
+  17872  |  16  |  be employed, be engaged in, take up employment, earn a livin  |  'work (v.)'
+  17944  |  16  |  be totally/completely/largely irrelevant to, be unrelated to  |  'has no connection to'
+  17885  |  16  |  become mature/adults, in the future, reach adulthood  |  'when they grow up'
+  17980  |  16  |  before, prior, previous, previously, formerly, in former tim  |  'in the past'
+  17929  |  16  |  before, prior, previous, previously, formerly, in former tim  |  'in the past (广告)'
+  17984  |  16  |  benefits, positive aspects, merits, strengths, the upside  |  'advantages'
+  17964  |  16  |  by the forces/laws of nature, without human intervention, or  |  'naturally'
+  17875  |  16  |  change employment, labour mobility, improve job/career prosp  |  'work abroad'
+  17888  |  16  |  children who are seven years old, until they are seven, at t  |  'at the age of seven'
+  17910  |  16  |  civilization, religion, belief, aesthetic appreciation, hist  |  'culture'
+  17967  |  16  |  combat, deter, fight against, prevent  |  'reduce (crime)'
+  17922  |  16  |  computer literacy, sophisticated/advanced/proficient compute  |  'computer skills'
+  17969  |  16  |  conditions, context, environment, environmental factors, ext  |  'circumstances'
+  17908  |  16  |  construct, design, erect  |  'be built'
+  17915  |  16  |  contamination, emissions, waste, carbon emissions, greenhous  |  'pollution'
+  17889  |  16  |  cooperative learning, collaborative research, group study  |  'study in a group'
+  ... (+113 more)
+
+==============================================================================
+G. PLAN entry zh column is English-only (no CJK) — count=146
+==============================================================================
+  17955  |  16  |  a decline in flights, cease to fly, avoid flying, cut flight  |  'reduce flying'
+  17940  |  16  |  a diet without meat, plant-based diet, eating vegetables and  |  'vegetarian diet'
+  17943  |  16  |  a piece of investigative journalism, newspaper reports, medi  |  'news'
+  17956  |  16  |  achieve success in sport, fulfill one's dream/ambition/poten  |  'be successful in sport'
+  17874  |  16  |  achieve success, realize one's full potential, a rewarding c  |  'career success'
+  17998  |  16  |  address, tackle, combat, cope with, alleviate  |  'solve'
+  17924  |  16  |  advanced technology, advances in technology, technological a  |  'technological development'
+  17927  |  16  |  advertising campaign, advertisement, advertise, endorsement,  |  'advertising'
+  17897  |  16  |  aid, assist sb in/with sth, assistance, support, subsidy, su  |  'help (v.)'
+  17972  |  16  |  aliens, intelligent beings, intelligent life, extraterrestri  |  'life on other planets'
+  17933  |  16  |  always, consistently, continuously, constantly  |  'all the time'
+  17842  |  16  |  an increasing/growing number of, increasingly popular, be pr  |  'more and more'
+  17887  |  16  |  at the earliest age, in advance, it is never too early to  |  'as early as possible'
+  17886  |  16  |  attend/enter/join school, enrol, enrollment, preschool, kind  |  'start school'
+  17901  |  16  |  avoid automobile accidents, ensure road safety  |  'improve road safety'
+  17847  |  16  |  be able to, be capable of doing, have the potential to  |  'can'
+  17868  |  16  |  be appropriate for, fit, perform equally well  |  'be suitable for'
+  17853  |  16  |  be determined by, be triggered by, be due to, stem from, ari  |  'be caused by'
+  17858  |  16  |  be detrimental/pernicious/hazardous/damaging to  |  'be harmful'
+  17872  |  16  |  be employed, be engaged in, take up employment, earn a livin  |  'work (v.)'
+  17944  |  16  |  be totally/completely/largely irrelevant to, be unrelated to  |  'has no connection to'
+  17885  |  16  |  become mature/adults, in the future, reach adulthood  |  'when they grow up'
+  17980  |  16  |  before, prior, previous, previously, formerly, in former tim  |  'in the past'
+  17984  |  16  |  benefits, positive aspects, merits, strengths, the upside  |  'advantages'
+  17964  |  16  |  by the forces/laws of nature, without human intervention, or  |  'naturally'
+  17875  |  16  |  change employment, labour mobility, improve job/career prosp  |  'work abroad'
+  17888  |  16  |  children who are seven years old, until they are seven, at t  |  'at the age of seven'
+  17910  |  16  |  civilization, religion, belief, aesthetic appreciation, hist  |  'culture'
+  17967  |  16  |  combat, deter, fight against, prevent  |  'reduce (crime)'
+  17922  |  16  |  computer literacy, sophisticated/advanced/proficient compute  |  'computer skills'
+  17969  |  16  |  conditions, context, environment, environmental factors, ext  |  'circumstances'
+  17908  |  16  |  construct, design, erect  |  'be built'
+  17915  |  16  |  contamination, emissions, waste, carbon emissions, greenhous  |  'pollution'
+  17889  |  16  |  cooperative learning, collaborative research, group study  |  'study in a group'
+  17966  |  16  |  criminality, criminal behaviour/activity/offence, be involve  |  'crime'
+  17963  |  16  |  crops, staples, fruit and vegetables, farm produce, agricult  |  'food'
+  17962  |  16  |  cultivate, produce, farm  |  'grow'
+  17981  |  16  |  currently, at present, in the modern era, in the information  |  'now / today'
+  17845  |  16  |  currently, today, recently, at present  |  'nowadays'
+  17928  |  16  |  customers, patrons, shoppers, buyers, the public, people  |  'consumers'
+  17906  |  16  |  demolish, demolition, flatten, tear down, pull down, bulldoz  |  'knock down'
+  17938  |  16  |  deprived areas, economically deprived countries, less develo  |  'developing countries'
+  17916  |  16  |  diminish, lower, restrict, limit, cut, alleviate, mitigate  |  'reduce'
+  17985  |  16  |  drawbacks, shortcomings, negative aspects, the downside, per  |  'disadvantages'
+  17932  |  16  |  dress, wear, garment, clothing, apparel  |  'clothes'
+  17953  |  16  |  driver's license, driving permit  |  'driving license'
+  17950  |  16  |  ease, relieve, alleviate, mitigate, solve the problem of  |  'improve'
+  17899  |  16  |  ease/relieve/alleviate/mitigate heavy traffic, reduce traffi  |  'solve traffic congestion'
+  17948  |  16  |  entertainment value, for leisure and recreation, for pleasur  |  'relaxation sources'
+  17913  |  16  |  environmental protection, nature conservancy, preserve, cons  |  'protect the environment'
+  17849  |  16  |  essential, crucial, vital, indispensable, play an important   |  'important'
+  17861  |  16  |  exorbitant, wasteful spending, squander on, a great deal of   |  'too much money'
+  17937  |  16  |  expedition, journey, adventure, trip, tour, voyage, itinerar  |  'travel'
+  17850  |  16  |  fail to, be unlikely to, seldom, scarcely  |  'not'
+  17968  |  16  |  favour, foster, breed, stimulate, promote, boost  |  'encourage (crime)'
+  17946  |  16  |  film violence, graphically violent video games, violent medi  |  'violent films and video games'
+  17871  |  16  |  find employment/work, in the labour market, job seekers/appl  |  'when choosing a job'
+  17971  |  16  |  find, discover, locate, search for, explore for, exploration  |  'looking for'
+  17877  |  16  |  finish something on time, work under pressure to meet deadli  |  'meet deadlines'
+  17909  |  16  |  follow/copy/imitate ancient architecture, architectural feat  |  'in traditional styles'
+  ... (+86 more)

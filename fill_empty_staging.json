@@ -1,0 +1,3982 @@
+{
+  "items": {
+    "gray": {
+      "word": "gray",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "灰色的；灰白的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "灰色"
+        },
+        {
+          "pos": "v.",
+          "meaning": "使变灰；变灰"
+        }
+      ]
+    },
+    "coconut": {
+      "word": "coconut",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "椰子"
+        }
+      ]
+    },
+    "strawberry": {
+      "word": "strawberry",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "草莓"
+        }
+      ]
+    },
+    "mouths": {
+      "word": "mouths",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "嘴；口；入口"
+        },
+        {
+          "pos": "v.",
+          "meaning": "说出；开口说"
+        }
+      ]
+    },
+    "shirt": {
+      "word": "shirt",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "衬衫"
+        }
+      ]
+    },
+    "gloves": {
+      "word": "gloves",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "手套"
+        }
+      ]
+    },
+    "1st": {
+      "word": "1st",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "2nd": {
+      "word": "2nd",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "3rd": {
+      "word": "3rd",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "4th": {
+      "word": "4th",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "5th": {
+      "word": "5th",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "21st": {
+      "word": "21st",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "22nd": {
+      "word": "22nd",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "23rd": {
+      "word": "23rd",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "24th": {
+      "word": "24th",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "100th": {
+      "word": "100th",
+      "defs": [],
+      "skip": "ordinal number"
+    },
+    "monkeys": {
+      "word": "monkeys",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "猴子"
+        },
+        {
+          "pos": "v.",
+          "meaning": "胡闹；瞎弄"
+        }
+      ]
+    },
+    "cinema": {
+      "word": "cinema",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "电影院；电影业；电影"
+        }
+      ]
+    },
+    "factory": {
+      "word": "factory",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "工厂"
+        }
+      ]
+    },
+    "harbor": {
+      "word": "harbor",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "港口；避风港"
+        },
+        {
+          "pos": "v.",
+          "meaning": "庇护；怀有"
+        }
+      ]
+    },
+    "hiking": {
+      "word": "hiking",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "徒步旅行；远足"
+        },
+        {
+          "pos": "v.",
+          "meaning": "徒步旅行；远足"
+        }
+      ]
+    },
+    "diving": {
+      "word": "diving",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "跳水；潜水"
+        },
+        {
+          "pos": "v.",
+          "meaning": "跳水；潜水"
+        }
+      ]
+    },
+    "basketball": {
+      "word": "basketball",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "篮球；篮球运动"
+        }
+      ]
+    },
+    "ache": {
+      "word": "ache",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "疼痛；酸痛"
+        },
+        {
+          "pos": "v.",
+          "meaning": "疼痛；隐隐作痛"
+        }
+      ]
+    },
+    "furniture": {
+      "word": "furniture",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "家具"
+        }
+      ]
+    },
+    "gate": {
+      "word": "gate",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "大门；入口；闸门"
+        }
+      ]
+    },
+    "bike": {
+      "word": "bike",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "自行车；摩托车"
+        },
+        {
+          "pos": "v.",
+          "meaning": "骑自行车"
+        }
+      ]
+    },
+    "bicycle": {
+      "word": "bicycle",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "自行车"
+        },
+        {
+          "pos": "v.",
+          "meaning": "骑自行车"
+        }
+      ]
+    },
+    "taxi": {
+      "word": "taxi",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "出租车；计程车"
+        },
+        {
+          "pos": "v.",
+          "meaning": "乘出租车；用出租车运送"
+        }
+      ]
+    },
+    "suger": {
+      "word": "suger",
+      "defs": [],
+      "typo_of": "sugar"
+    },
+    "disturbing": {
+      "word": "disturbing",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "令人不安的；令人烦恼的"
+        }
+      ]
+    },
+    "angry": {
+      "word": "angry",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "生气的；愤怒的"
+        }
+      ]
+    },
+    "clarinet": {
+      "word": "clarinet",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "单簧管"
+        }
+      ]
+    },
+    "adaptation": {
+      "word": "adaptation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "适应；改编；改编作品"
+        }
+      ]
+    },
+    "advertising": {
+      "word": "advertising",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "广告业；广告活动"
+        }
+      ]
+    },
+    "accommodate": {
+      "word": "accommodate",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "容纳；提供住宿；适应"
+        }
+      ]
+    },
+    "advances": {
+      "word": "advances",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "进步；进展；预付款"
+        },
+        {
+          "pos": "v.",
+          "meaning": "推进；促进；前进"
+        }
+      ]
+    },
+    "beaches": {
+      "word": "beaches",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "海滩；沙滩"
+        }
+      ]
+    },
+    "breath": {
+      "word": "breath",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "呼吸；气息"
+        }
+      ]
+    },
+    "cognitive": {
+      "word": "cognitive",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "认知的；认识的"
+        }
+      ]
+    },
+    "combination": {
+      "word": "combination",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "结合；组合；联合"
+        }
+      ]
+    },
+    "charge": {
+      "word": "charge",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "费用；负责；指控；充电"
+        },
+        {
+          "pos": "v.",
+          "meaning": "收费；控告；使充电；冲锋"
+        }
+      ]
+    },
+    "constant": {
+      "word": "constant",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "持续不断的；恒定的；经常的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "常量；不变量"
+        }
+      ]
+    },
+    "cloud": {
+      "word": "cloud",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "云；云状物；阴影"
+        },
+        {
+          "pos": "v.",
+          "meaning": "使变暗；使蒙上阴影"
+        }
+      ]
+    },
+    "capital": {
+      "word": "capital",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "首都；资本；大写字母"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "主要的；首要的"
+        }
+      ]
+    },
+    "chief executive officer": {
+      "word": "chief executive officer",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "首席执行官"
+        }
+      ]
+    },
+    "drone": {
+      "word": "drone",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "无人机；雄蜂"
+        },
+        {
+          "pos": "v.",
+          "meaning": "嗡嗡作响；单调地说"
+        }
+      ]
+    },
+    "disk": {
+      "word": "disk",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "磁盘；光盘；圆盘"
+        }
+      ]
+    },
+    "exchanges": {
+      "word": "exchanges",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "交换；交易所；交流"
+        },
+        {
+          "pos": "v.",
+          "meaning": "交换；兑换"
+        }
+      ]
+    },
+    "electronic": {
+      "word": "electronic",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "电子的"
+        }
+      ]
+    },
+    "employment": {
+      "word": "employment",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "就业；雇用"
+        }
+      ]
+    },
+    "electricity": {
+      "word": "electricity",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "电；电力；电流"
+        }
+      ]
+    },
+    "exhibit": {
+      "word": "exhibit",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "展品；展览品"
+        },
+        {
+          "pos": "v.",
+          "meaning": "展出；表现；显示"
+        }
+      ]
+    },
+    "extend": {
+      "word": "extend",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "延长；扩大；伸展；提供"
+        }
+      ]
+    },
+    "extension": {
+      "word": "extension",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "延长；扩展；分机；扩展部分"
+        }
+      ]
+    },
+    "entrepreneur": {
+      "word": "entrepreneur",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "企业家；创业者"
+        }
+      ]
+    },
+    "fall": {
+      "word": "fall",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "下降；跌倒；落下；变成"
+        },
+        {
+          "pos": "n.",
+          "meaning": "下降；秋天；跌落"
+        }
+      ]
+    },
+    "fertilizer": {
+      "word": "fertilizer",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "肥料"
+        }
+      ]
+    },
+    "fences": {
+      "word": "fences",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "围栏；栅栏"
+        },
+        {
+          "pos": "v.",
+          "meaning": "用栅栏围住；筑栅栏"
+        }
+      ]
+    },
+    "finance": {
+      "word": "finance",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "金融；财政；资金"
+        },
+        {
+          "pos": "v.",
+          "meaning": "为……提供资金；给……融资"
+        }
+      ]
+    },
+    "group": {
+      "word": "group",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "组；群；团体"
+        },
+        {
+          "pos": "v.",
+          "meaning": "把……分组；归类"
+        }
+      ]
+    },
+    "hotel": {
+      "word": "hotel",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "酒店；旅馆"
+        }
+      ]
+    },
+    "health": {
+      "word": "health",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "健康；卫生状况"
+        }
+      ]
+    },
+    "insurance": {
+      "word": "insurance",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "保险；保障"
+        }
+      ]
+    },
+    "invited": {
+      "word": "invited",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "邀请；请来"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "受邀请的"
+        }
+      ]
+    },
+    "invitation": {
+      "word": "invitation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "邀请；请柬"
+        }
+      ]
+    },
+    "lifting": {
+      "word": "lifting",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "举起；抬升；提升"
+        },
+        {
+          "pos": "v.",
+          "meaning": "举起；抬起；提升"
+        }
+      ]
+    },
+    "lamp": {
+      "word": "lamp",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "灯；台灯"
+        }
+      ]
+    },
+    "machine": {
+      "word": "machine",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "机器；机械装置"
+        }
+      ]
+    },
+    "necessary": {
+      "word": "necessary",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "必要的；必需的"
+        }
+      ]
+    },
+    "organize": {
+      "word": "organize",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "组织；安排；筹划"
+        }
+      ]
+    },
+    "picture": {
+      "word": "picture",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "图片；照片；图画"
+        },
+        {
+          "pos": "v.",
+          "meaning": "想象；描绘"
+        }
+      ]
+    },
+    "price": {
+      "word": "price",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "价格；代价"
+        },
+        {
+          "pos": "v.",
+          "meaning": "给……定价"
+        }
+      ]
+    },
+    "pregnant": {
+      "word": "pregnant",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "怀孕的；妊娠的"
+        }
+      ]
+    },
+    "predicate": {
+      "word": "predicate",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "谓语；述语"
+        },
+        {
+          "pos": "v.",
+          "meaning": "断言；使基于"
+        }
+      ]
+    },
+    "parent": {
+      "word": "parent",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "父亲或母亲；家长"
+        }
+      ]
+    },
+    "participants": {
+      "word": "participants",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "参与者；参加者"
+        }
+      ]
+    },
+    "pupils": {
+      "word": "pupils",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "学生；小学生；瞳孔"
+        }
+      ]
+    },
+    "question": {
+      "word": "question",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "问题；疑问"
+        },
+        {
+          "pos": "v.",
+          "meaning": "询问；质疑"
+        }
+      ]
+    },
+    "rose": {
+      "word": "rose",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "玫瑰；蔷薇"
+        },
+        {
+          "pos": "v.",
+          "meaning": "上升；升起"
+        }
+      ]
+    },
+    "roof": {
+      "word": "roof",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "屋顶；顶部"
+        }
+      ]
+    },
+    "rectangular": {
+      "word": "rectangular",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "矩形的；长方形的"
+        }
+      ]
+    },
+    "reservation": {
+      "word": "reservation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "预订；预约；保留"
+        }
+      ]
+    },
+    "rise": {
+      "word": "rise",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "上升；升起；增加"
+        },
+        {
+          "pos": "n.",
+          "meaning": "上升；增长；提高"
+        }
+      ]
+    },
+    "snake": {
+      "word": "snake",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "蛇"
+        },
+        {
+          "pos": "v.",
+          "meaning": "蜿蜒前行；曲折延伸"
+        }
+      ]
+    },
+    "steam": {
+      "word": "steam",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "蒸汽；水汽"
+        },
+        {
+          "pos": "v.",
+          "meaning": "蒸；用蒸汽处理"
+        }
+      ]
+    },
+    "society": {
+      "word": "society",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "社会；社团；协会"
+        }
+      ]
+    },
+    "storage": {
+      "word": "storage",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "储存；存储；仓储"
+        }
+      ]
+    },
+    "statements": {
+      "word": "statements",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "陈述；声明；说法"
+        }
+      ]
+    },
+    "survival": {
+      "word": "survival",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "生存；存活；幸存"
+        }
+      ]
+    },
+    "science": {
+      "word": "science",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "科学；自然科学"
+        }
+      ]
+    },
+    "stamps": {
+      "word": "stamps",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "邮票；印花；戳记"
+        }
+      ]
+    },
+    "telegraph": {
+      "word": "telegraph",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "电报；电报机"
+        },
+        {
+          "pos": "v.",
+          "meaning": "发电报；电告"
+        }
+      ]
+    },
+    "transport": {
+      "word": "transport",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "运输；交通运输"
+        },
+        {
+          "pos": "v.",
+          "meaning": "运输；运送"
+        }
+      ]
+    },
+    "vegan": {
+      "word": "vegan",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "严格素食者；纯素食者"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "纯素的；严格素食的"
+        }
+      ]
+    },
+    "weapons": {
+      "word": "weapons",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "武器；兵器"
+        }
+      ]
+    },
+    "tourist": {
+      "word": "tourist",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "游客；观光客"
+        }
+      ]
+    },
+    "roses": {
+      "word": "roses",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "玫瑰；玫瑰花"
+        }
+      ]
+    },
+    "cabins": {
+      "word": "cabins",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "小木屋；船舱；机舱"
+        }
+      ]
+    },
+    "entertainment": {
+      "word": "entertainment",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "娱乐；娱乐活动"
+        }
+      ]
+    },
+    "spain": {
+      "word": "spain",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "西班牙"
+        }
+      ]
+    },
+    "catalog": {
+      "word": "catalog",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "目录；名录"
+        },
+        {
+          "pos": "v.",
+          "meaning": "编目录；登记"
+        }
+      ]
+    },
+    "choice": {
+      "word": "choice",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "选择；抉择；可供选择的事物"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "精选的；上等的"
+        }
+      ]
+    },
+    "chooce": {
+      "word": "chooce",
+      "defs": [],
+      "typo_of": "choose"
+    },
+    "bones/bone": {
+      "word": "bones/bone",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "骨头；骨骼；骨质"
+        }
+      ]
+    },
+    "advice": {
+      "word": "advice",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "建议；忠告"
+        }
+      ]
+    },
+    "cliffs": {
+      "word": "cliffs",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "悬崖；峭壁"
+        }
+      ]
+    },
+    "behavior": {
+      "word": "behavior",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "行为；举止；表现"
+        }
+      ]
+    },
+    "receive": {
+      "word": "receive",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "收到；接到；接受"
+        }
+      ]
+    },
+    "attention": {
+      "word": "attention",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "注意；关注；留意"
+        }
+      ]
+    },
+    "british": {
+      "word": "british",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "英国的；英国人的；大不列颠的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "英国人"
+        }
+      ]
+    },
+    "united states": {
+      "word": "united states",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "美国；美利坚合众国"
+        }
+      ]
+    },
+    "india": {
+      "word": "india",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "印度"
+        }
+      ]
+    },
+    "africa": {
+      "word": "africa",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "非洲"
+        }
+      ]
+    },
+    "telephone": {
+      "word": "telephone",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "电话；电话机"
+        },
+        {
+          "pos": "v.",
+          "meaning": "打电话给"
+        }
+      ]
+    },
+    "approximate": {
+      "word": "approximate",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "大约的；近似的"
+        },
+        {
+          "pos": "v.",
+          "meaning": "接近；近似"
+        }
+      ]
+    },
+    "identity": {
+      "word": "identity",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "身份；特征；同一性"
+        }
+      ]
+    },
+    "intend": {
+      "word": "intend",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "打算；意欲；计划"
+        }
+      ]
+    },
+    "neighbor": {
+      "word": "neighbor",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "邻居；邻国；邻近的人或物"
+        },
+        {
+          "pos": "v.",
+          "meaning": "与……相邻"
+        }
+      ]
+    },
+    "only": {
+      "word": "only",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "只；仅仅；才"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "唯一的；仅有的"
+        }
+      ]
+    },
+    "position": {
+      "word": "position",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "位置；职位；立场"
+        }
+      ]
+    },
+    "instead": {
+      "word": "instead",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "代替；反而"
+        }
+      ]
+    },
+    "pay": {
+      "word": "pay",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "支付；付出"
+        },
+        {
+          "pos": "n.",
+          "meaning": "工资；报酬"
+        }
+      ]
+    },
+    "extreme": {
+      "word": "extreme",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "极端的；非常的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "极端；极限"
+        }
+      ]
+    },
+    "ticket": {
+      "word": "ticket",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "票；罚单；入场券"
+        }
+      ]
+    },
+    "facilities": {
+      "word": "facilities",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "设施；设备；便利条件"
+        }
+      ]
+    },
+    "special": {
+      "word": "special",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "特殊的；专门的；特别的"
+        }
+      ]
+    },
+    "applicant": {
+      "word": "applicant",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "申请人；应征者"
+        }
+      ]
+    },
+    "destroy": {
+      "word": "destroy",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "破坏；摧毁；消灭"
+        }
+      ]
+    },
+    "infectious": {
+      "word": "infectious",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "传染性的；有感染力的"
+        }
+      ]
+    },
+    "internship": {
+      "word": "internship",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "实习；实习期"
+        }
+      ]
+    },
+    "stuffy nose": {
+      "word": "stuffy nose",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "鼻塞"
+        }
+      ]
+    },
+    "document": {
+      "word": "document",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "文件；文档；证件"
+        },
+        {
+          "pos": "v.",
+          "meaning": "记录；证明"
+        }
+      ]
+    },
+    "specialize": {
+      "word": "specialize",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "专攻；专门从事"
+        }
+      ]
+    },
+    "fider": {
+      "word": "fider",
+      "defs": [],
+      "typo_of": "fibre"
+    },
+    "public": {
+      "word": "public",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "公共的；公众的；公开的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "公众；民众"
+        }
+      ]
+    },
+    "period": {
+      "word": "period",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "时期；阶段；句号；月经期"
+        }
+      ]
+    },
+    "commerce": {
+      "word": "commerce",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "商业；贸易"
+        }
+      ]
+    },
+    "states": {
+      "word": "states",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "国家；州；状态"
+        }
+      ]
+    },
+    "statement": {
+      "word": "statement",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "陈述；声明；报表"
+        }
+      ]
+    },
+    "academic": {
+      "word": "academic",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "学术的；学院的"
+        }
+      ]
+    },
+    "lecture": {
+      "word": "lecture",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "讲座；演讲"
+        },
+        {
+          "pos": "v.",
+          "meaning": "讲授；训斥"
+        }
+      ]
+    },
+    "tutorial": {
+      "word": "tutorial",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "辅导课；教程；教程式讲解"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "辅导的；教程的"
+        }
+      ]
+    },
+    "qualified": {
+      "word": "qualified",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "有资格的；合格的；胜任的"
+        }
+      ]
+    },
+    "simple": {
+      "word": "simple",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "简单的；朴素的；单纯的"
+        }
+      ]
+    },
+    "control": {
+      "word": "control",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "控制；管理；控制权"
+        },
+        {
+          "pos": "v.",
+          "meaning": "控制；管理；支配"
+        }
+      ]
+    },
+    "though": {
+      "word": "though",
+      "defs": [
+        {
+          "pos": "conj.",
+          "meaning": "虽然；尽管"
+        },
+        {
+          "pos": "adv.",
+          "meaning": "不过；然而"
+        }
+      ]
+    },
+    "thought": {
+      "word": "thought",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "想法；思考；思想"
+        },
+        {
+          "pos": "v.",
+          "meaning": "认为；思考"
+        }
+      ]
+    },
+    "although": {
+      "word": "although",
+      "defs": [
+        {
+          "pos": "conj.",
+          "meaning": "虽然；尽管"
+        }
+      ]
+    },
+    "through": {
+      "word": "through",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "通过；穿过；经由"
+        },
+        {
+          "pos": "adv.",
+          "meaning": "从头到尾；彻底；一直到结束"
+        }
+      ]
+    },
+    "regular": {
+      "word": "regular",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "定期的；有规律的；经常的"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "普通的；常规的"
+        }
+      ]
+    },
+    "systematic": {
+      "word": "systematic",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "系统的；有条理的；有计划的"
+        }
+      ]
+    },
+    "micro": {
+      "word": "micro",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "微小的；微观的"
+        }
+      ]
+    },
+    "macro": {
+      "word": "macro",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "宏观的；大规模的"
+        }
+      ]
+    },
+    "rapid": {
+      "word": "rapid",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "快速的；迅速的"
+        }
+      ]
+    },
+    "agency": {
+      "word": "agency",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "机构；代理处；中介机构"
+        }
+      ]
+    },
+    "disposal": {
+      "word": "disposal",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "处理；处置；清除"
+        }
+      ]
+    },
+    "classification": {
+      "word": "classification",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "分类；归类"
+        }
+      ]
+    },
+    "temples": {
+      "word": "temples",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "寺庙；庙宇"
+        }
+      ]
+    },
+    "utilities": {
+      "word": "utilities",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "公用事业；公共设施"
+        }
+      ]
+    },
+    "graden": {
+      "word": "graden",
+      "defs": [],
+      "typo_of": "garden"
+    },
+    "absence": {
+      "word": "absence",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "缺席；不在；缺乏"
+        }
+      ]
+    },
+    "mediator": {
+      "word": "mediator",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "调解人；中间人"
+        }
+      ]
+    },
+    "island": {
+      "word": "island",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "岛；岛屿"
+        }
+      ]
+    },
+    "actually": {
+      "word": "actually",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "实际上；事实上"
+        }
+      ]
+    },
+    "realize": {
+      "word": "realize",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "意识到；实现"
+        }
+      ]
+    },
+    "teenager": {
+      "word": "teenager",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "青少年；十几岁的孩子"
+        }
+      ]
+    },
+    "serious": {
+      "word": "serious",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "严重的；严肃的；认真的"
+        }
+      ]
+    },
+    "value": {
+      "word": "value",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "价值；重要性；数值"
+        },
+        {
+          "pos": "v.",
+          "meaning": "重视；评价"
+        }
+      ]
+    },
+    "hundred": {
+      "word": "hundred",
+      "defs": [
+        {
+          "pos": "num.",
+          "meaning": "一百；许多"
+        }
+      ]
+    },
+    "thousand": {
+      "word": "thousand",
+      "defs": [
+        {
+          "pos": "num.",
+          "meaning": "一千；许多"
+        }
+      ]
+    },
+    "future": {
+      "word": "future",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "未来；将来"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "将来的；未来的"
+        }
+      ]
+    },
+    "development": {
+      "word": "development",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "发展；开发；进步"
+        }
+      ]
+    },
+    "asia": {
+      "word": "asia",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "亚洲"
+        }
+      ]
+    },
+    "enough": {
+      "word": "enough",
+      "defs": [
+        {
+          "pos": "det.",
+          "meaning": "足够的；充足的"
+        },
+        {
+          "pos": "adv.",
+          "meaning": "足够地；充分地"
+        }
+      ]
+    },
+    "efficiency": {
+      "word": "efficiency",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "效率；效能"
+        }
+      ]
+    },
+    "temporary": {
+      "word": "temporary",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "暂时的；临时的"
+        }
+      ]
+    },
+    "worst": {
+      "word": "worst",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "最差的；最糟的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "最坏的情况；最糟的部分"
+        }
+      ]
+    },
+    "slides": {
+      "word": "slides",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "幻灯片；滑道；滑坡"
+        },
+        {
+          "pos": "v.",
+          "meaning": "滑动；滑行"
+        }
+      ]
+    },
+    "several": {
+      "word": "several",
+      "defs": [
+        {
+          "pos": "det.",
+          "meaning": "几个；若干；数个"
+        }
+      ]
+    },
+    "month": {
+      "word": "month",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "月；月份"
+        }
+      ]
+    },
+    "against": {
+      "word": "against",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "反对；违背；倚靠；碰撞"
+        }
+      ]
+    },
+    "music": {
+      "word": "music",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "音乐"
+        }
+      ]
+    },
+    "decoration": {
+      "word": "decoration",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "装饰；装饰品"
+        }
+      ]
+    },
+    "shoes": {
+      "word": "shoes",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "鞋；鞋子"
+        }
+      ]
+    },
+    "consumption": {
+      "word": "consumption",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "消费；消耗"
+        }
+      ]
+    },
+    "hostal": {
+      "word": "hostal",
+      "defs": [],
+      "typo_of": "hostel"
+    },
+    "satisfied": {
+      "word": "satisfied",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "满意的；满足的"
+        }
+      ]
+    },
+    "comfortable": {
+      "word": "comfortable",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "舒适的；舒服的"
+        }
+      ]
+    },
+    "analysis": {
+      "word": "analysis",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "分析；解析"
+        }
+      ]
+    },
+    "clothes": {
+      "word": "clothes",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "衣服；服装"
+        }
+      ]
+    },
+    "activity": {
+      "word": "activity",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "活动；活跃"
+        }
+      ]
+    },
+    "afraid": {
+      "word": "afraid",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "害怕的；担心的"
+        }
+      ]
+    },
+    "behind": {
+      "word": "behind",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "在……后面；落后于"
+        }
+      ]
+    },
+    "beyond": {
+      "word": "beyond",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "超出；在……之外"
+        }
+      ]
+    },
+    "theme": {
+      "word": "theme",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "主题；题目"
+        }
+      ]
+    },
+    "extra": {
+      "word": "extra",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "额外的；附加的"
+        }
+      ]
+    },
+    "definitely": {
+      "word": "definitely",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "肯定地；当然；明确地"
+        }
+      ]
+    },
+    "conclusion": {
+      "word": "conclusion",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "结论；结束"
+        }
+      ]
+    },
+    "wise": {
+      "word": "wise",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "明智的；聪明的"
+        }
+      ]
+    },
+    "bright": {
+      "word": "bright",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "明亮的；聪明的；有希望的"
+        }
+      ]
+    },
+    "aspiration": {
+      "word": "aspiration",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "抱负；志向；渴望"
+        }
+      ]
+    },
+    "intact": {
+      "word": "intact",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "完整无损的；未受影响的"
+        }
+      ]
+    },
+    "large": {
+      "word": "large",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "大的；大量的"
+        }
+      ]
+    },
+    "whole": {
+      "word": "whole",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "整个的；全部的"
+        }
+      ]
+    },
+    "convenient": {
+      "word": "convenient",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "方便的；便利的"
+        }
+      ]
+    },
+    "conversation": {
+      "word": "conversation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "对话；交谈"
+        }
+      ]
+    },
+    "description": {
+      "word": "description",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "描述；描写"
+        }
+      ]
+    },
+    "separated": {
+      "word": "separated",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "分开的；分离的"
+        }
+      ]
+    },
+    "occupies": {
+      "word": "occupies",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "占据；占用；居住于"
+        }
+      ]
+    },
+    "advanced": {
+      "word": "advanced",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "高级的；先进的；进阶的"
+        }
+      ]
+    },
+    "possible": {
+      "word": "possible",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "可能的；有可能的"
+        }
+      ]
+    },
+    "occupy": {
+      "word": "occupy",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "占据；占用；使忙于"
+        }
+      ]
+    },
+    "obvious": {
+      "word": "obvious",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "明显的；显而易见的"
+        }
+      ]
+    },
+    "apparent": {
+      "word": "apparent",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "明显的；表面上的"
+        }
+      ]
+    },
+    "secret": {
+      "word": "secret",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "秘密的；保密的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "秘密；机密"
+        }
+      ]
+    },
+    "except": {
+      "word": "except",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "除……之外"
+        },
+        {
+          "pos": "conj.",
+          "meaning": "除了；除非"
+        }
+      ]
+    },
+    "based": {
+      "word": "based",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "以……为基础的；总部设在……的"
+        }
+      ]
+    },
+    "difficult": {
+      "word": "difficult",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "困难的；难懂的"
+        }
+      ]
+    },
+    "permission": {
+      "word": "permission",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "许可；允许"
+        }
+      ]
+    },
+    "heavy": {
+      "word": "heavy",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "重的；大量的；严重的"
+        }
+      ]
+    },
+    "percentage": {
+      "word": "percentage",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "百分比；比例"
+        }
+      ]
+    },
+    "until": {
+      "word": "until",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "直到……为止"
+        },
+        {
+          "pos": "conj.",
+          "meaning": "直到……时"
+        }
+      ]
+    },
+    "continue": {
+      "word": "continue",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "继续；持续"
+        }
+      ]
+    },
+    "young": {
+      "word": "young",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "年轻的；幼小的"
+        }
+      ]
+    },
+    "professional": {
+      "word": "professional",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "专业的；职业的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "专业人士；职业选手"
+        }
+      ]
+    },
+    "wide": {
+      "word": "wide",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "宽的；广泛的"
+        }
+      ]
+    },
+    "high": {
+      "word": "high",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "高的；高级的；高水平的"
+        },
+        {
+          "pos": "adv.",
+          "meaning": "高地；高高地"
+        }
+      ]
+    },
+    "higher": {
+      "word": "higher",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "更高的；较高的"
+        }
+      ]
+    },
+    "answer": {
+      "word": "answer",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "答案；回答"
+        },
+        {
+          "pos": "v.",
+          "meaning": "回答；答复"
+        }
+      ]
+    },
+    "theater": {
+      "word": "theater",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "剧院；戏院；电影院"
+        }
+      ]
+    },
+    "email": {
+      "word": "email",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "电子邮件"
+        },
+        {
+          "pos": "v.",
+          "meaning": "给……发电子邮件"
+        }
+      ]
+    },
+    "cooperation": {
+      "word": "cooperation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "合作；协作"
+        }
+      ]
+    },
+    "peace": {
+      "word": "peace",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "和平；平静"
+        }
+      ]
+    },
+    "impossible": {
+      "word": "impossible",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "不可能的；办不到的"
+        }
+      ]
+    },
+    "trust": {
+      "word": "trust",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "信任；信赖"
+        },
+        {
+          "pos": "v.",
+          "meaning": "信任；相信"
+        }
+      ]
+    },
+    "domestic": {
+      "word": "domestic",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "国内的；家庭的；家用的"
+        }
+      ]
+    },
+    "responsibility": {
+      "word": "responsibility",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "责任；职责"
+        }
+      ]
+    },
+    "response": {
+      "word": "response",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "回应；反应；答复"
+        }
+      ]
+    },
+    "worth": {
+      "word": "worth",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "值得的；有……价值的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "价值；作用"
+        }
+      ]
+    },
+    "ignore": {
+      "word": "ignore",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "忽视；不理睬"
+        }
+      ]
+    },
+    "comprehensive": {
+      "word": "comprehensive",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "全面的；综合的"
+        }
+      ]
+    },
+    "advantages": {
+      "word": "advantages",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "优点；优势"
+        }
+      ]
+    },
+    "according": {
+      "word": "according",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "根据；按照"
+        }
+      ]
+    },
+    "europe": {
+      "word": "europe",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "欧洲"
+        }
+      ]
+    },
+    "insulation": {
+      "word": "insulation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "隔热；隔音；绝缘"
+        }
+      ]
+    },
+    "guide": {
+      "word": "guide",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "指南；导游；手册"
+        },
+        {
+          "pos": "v.",
+          "meaning": "指导；引导"
+        }
+      ]
+    },
+    "analyze": {
+      "word": "analyze",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "分析；解析"
+        }
+      ]
+    },
+    "tiger": {
+      "word": "tiger",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "老虎"
+        }
+      ]
+    },
+    "variety": {
+      "word": "variety",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "多样性；种类"
+        }
+      ]
+    },
+    "calender": {
+      "word": "calender",
+      "defs": [],
+      "typo_of": "calendar"
+    },
+    "meditation": {
+      "word": "meditation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "冥想；沉思"
+        }
+      ]
+    },
+    "bilingual": {
+      "word": "bilingual",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "双语的"
+        }
+      ]
+    },
+    "bay": {
+      "word": "bay",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "海湾"
+        }
+      ]
+    },
+    "boots": {
+      "word": "boots",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "靴子"
+        }
+      ]
+    },
+    "family": {
+      "word": "family",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "家庭；家人"
+        }
+      ]
+    },
+    "vocational": {
+      "word": "vocational",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "职业的；职业教育的"
+        }
+      ]
+    },
+    "dependence": {
+      "word": "dependence",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "依赖；依靠"
+        }
+      ]
+    },
+    "communication": {
+      "word": "communication",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "交流；沟通；通信"
+        }
+      ]
+    },
+    "well-off": {
+      "word": "well-off",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "富裕的；生活宽裕的"
+        }
+      ]
+    },
+    "student": {
+      "word": "student",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "学生；学员"
+        }
+      ]
+    },
+    "know": {
+      "word": "know",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "知道；了解；认识"
+        }
+      ]
+    },
+    "adept": {
+      "word": "adept",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "熟练的；擅长的"
+        }
+      ]
+    },
+    "accept": {
+      "word": "accept",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "接受；认可"
+        }
+      ]
+    },
+    "drive": {
+      "word": "drive",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "驾驶；驱动；推动"
+        },
+        {
+          "pos": "n.",
+          "meaning": "驱动力；冲劲；车程"
+        }
+      ]
+    },
+    "ability": {
+      "word": "ability",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "能力；才能"
+        }
+      ]
+    },
+    "criticize": {
+      "word": "criticize",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "批评；评论"
+        }
+      ]
+    },
+    "equal": {
+      "word": "equal",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "平等的；相等的"
+        },
+        {
+          "pos": "v.",
+          "meaning": "等于；比得上"
+        }
+      ]
+    },
+    "rich": {
+      "word": "rich",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "富有的；丰富的"
+        }
+      ]
+    },
+    "distraction": {
+      "word": "distraction",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "分心；干扰；消遣"
+        }
+      ]
+    },
+    "motivation": {
+      "word": "motivation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "动机；动力；积极性"
+        }
+      ]
+    },
+    "frustrated": {
+      "word": "frustrated",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "沮丧的；受挫的；不满的"
+        }
+      ]
+    },
+    "media": {
+      "word": "media",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "媒体；传播媒介"
+        }
+      ]
+    },
+    "galler": {
+      "word": "galler",
+      "defs": [],
+      "typo_of": "gallery"
+    },
+    "visit": {
+      "word": "visit",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "参观；访问；拜访"
+        },
+        {
+          "pos": "n.",
+          "meaning": "参观；访问；拜访"
+        }
+      ]
+    },
+    "watch": {
+      "word": "watch",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "观看；注视；留意"
+        },
+        {
+          "pos": "n.",
+          "meaning": "手表；观看；监视"
+        }
+      ]
+    },
+    "autonomy": {
+      "word": "autonomy",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "自主权；自治；独立性"
+        }
+      ]
+    },
+    "passion": {
+      "word": "passion",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "热情；激情；强烈爱好"
+        }
+      ]
+    },
+    "satisfy": {
+      "word": "satisfy",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "使满意；满足；符合"
+        }
+      ]
+    },
+    "consumer": {
+      "word": "consumer",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "消费者；用户"
+        }
+      ]
+    },
+    "balance": {
+      "word": "balance",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "平衡；均衡；余额"
+        },
+        {
+          "pos": "v.",
+          "meaning": "使平衡；权衡"
+        }
+      ]
+    },
+    "bill": {
+      "word": "bill",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "账单；法案；钞票"
+        }
+      ]
+    },
+    "flood": {
+      "word": "flood",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "洪水；大量涌入"
+        },
+        {
+          "pos": "v.",
+          "meaning": "淹没；大量涌入"
+        }
+      ]
+    },
+    "insight": {
+      "word": "insight",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "洞察力；深刻见解"
+        }
+      ]
+    },
+    "calories": {
+      "word": "calories",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "卡路里；热量"
+        }
+      ]
+    },
+    "reach": {
+      "word": "reach",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "到达；达到；伸手够到"
+        },
+        {
+          "pos": "n.",
+          "meaning": "范围；影响力"
+        }
+      ]
+    },
+    "最终": {
+      "word": "最终",
+      "defs": [],
+      "skip": "non-English term"
+    },
+    "among": {
+      "word": "among",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "在……中间；在……之中"
+        }
+      ]
+    },
+    "outlets": {
+      "word": "outlets",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "出口；渠道；销售点"
+        }
+      ]
+    },
+    "children": {
+      "word": "children",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "孩子们；儿童"
+        }
+      ]
+    },
+    "child": {
+      "word": "child",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "儿童；小孩"
+        }
+      ]
+    },
+    "significant": {
+      "word": "significant",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "重要的；显著的；有意义的"
+        }
+      ]
+    },
+    "website": {
+      "word": "website",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "网站"
+        }
+      ]
+    },
+    "药": {
+      "word": "药",
+      "defs": [],
+      "skip": "non-English term"
+    },
+    "feasible": {
+      "word": "feasible",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "可行的；切实可行的"
+        }
+      ]
+    },
+    "justice": {
+      "word": "justice",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "正义；公平；司法"
+        }
+      ]
+    },
+    "theft": {
+      "word": "theft",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "盗窃；偷窃行为"
+        }
+      ]
+    },
+    "punish": {
+      "word": "punish",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "惩罚；处罚"
+        }
+      ]
+    },
+    "strength": {
+      "word": "strength",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "力量；实力；优点"
+        }
+      ]
+    },
+    "supplie": {
+      "word": "supplie",
+      "defs": [],
+      "typo_of": "supply"
+    },
+    "pride": {
+      "word": "pride",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "自豪；骄傲；自尊"
+        },
+        {
+          "pos": "n.",
+          "meaning": "引以为豪的人或物；得意之处"
+        }
+      ]
+    },
+    "popular": {
+      "word": "popular",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "受欢迎的；流行的；通俗的"
+        }
+      ]
+    },
+    "resistance": {
+      "word": "resistance",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "抵抗；反抗；阻力"
+        },
+        {
+          "pos": "n.",
+          "meaning": "抗性；抵抗力"
+        }
+      ]
+    },
+    "construction": {
+      "word": "construction",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "建造；施工；建筑物"
+        },
+        {
+          "pos": "n.",
+          "meaning": "结构；构造"
+        }
+      ]
+    },
+    "unban": {
+      "word": "unban",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "解除禁令；解禁"
+        }
+      ]
+    },
+    "unbanization": {
+      "word": "unbanization",
+      "defs": [],
+      "typo_of": "urbanization"
+    },
+    "authorities": {
+      "word": "authorities",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "当局；官方；权威机构"
+        }
+      ]
+    },
+    "budget": {
+      "word": "budget",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "预算；经费"
+        },
+        {
+          "pos": "v.",
+          "meaning": "编预算；节省开支"
+        }
+      ]
+    },
+    "dangerous": {
+      "word": "dangerous",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "危险的；有害的"
+        }
+      ]
+    },
+    "international": {
+      "word": "international",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "国际的；世界性的"
+        }
+      ]
+    },
+    "listen": {
+      "word": "listen",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "听；倾听；听从"
+        }
+      ]
+    },
+    "ear": {
+      "word": "ear",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "耳朵；听力"
+        },
+        {
+          "pos": "n.",
+          "meaning": "倾听能力；听觉"
+        }
+      ]
+    },
+    "advertisement": {
+      "word": "advertisement",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "广告；宣传"
+        }
+      ]
+    },
+    "satellite": {
+      "word": "satellite",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "卫星；人造卫星"
+        }
+      ]
+    },
+    "leisure": {
+      "word": "leisure",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "闲暇；空闲时间"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "休闲的；非正式的"
+        }
+      ]
+    },
+    "impression": {
+      "word": "impression",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "印象；感觉；影响"
+        }
+      ]
+    },
+    "audience": {
+      "word": "audience",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "观众；听众；受众"
+        }
+      ]
+    },
+    "national": {
+      "word": "national",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "国家的；全国的；民族的"
+        }
+      ]
+    },
+    "offensive": {
+      "word": "offensive",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "冒犯的；无礼的；攻击性的"
+        },
+        {
+          "pos": "n.",
+          "meaning": "进攻；攻势"
+        }
+      ]
+    },
+    "festivals": {
+      "word": "festivals",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "节日；庆典；节庆活动"
+        }
+      ]
+    },
+    "cultural": {
+      "word": "cultural",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "文化的；与文化有关的"
+        }
+      ]
+    },
+    "globalize": {
+      "word": "globalize",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "使全球化；使国际化"
+        }
+      ]
+    },
+    "impressive": {
+      "word": "impressive",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "令人印象深刻的；给人深刻印象的"
+        }
+      ]
+    },
+    "curiosity": {
+      "word": "curiosity",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "好奇心；求知欲"
+        },
+        {
+          "pos": "n.",
+          "meaning": "奇物；珍奇"
+        }
+      ]
+    },
+    "profit": {
+      "word": "profit",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "利润；收益；好处"
+        },
+        {
+          "pos": "v.",
+          "meaning": "获利；受益"
+        }
+      ]
+    },
+    "addictive": {
+      "word": "addictive",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "使人上瘾的；使人沉迷的"
+        }
+      ]
+    },
+    "pollute": {
+      "word": "pollute",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "污染；弄脏"
+        }
+      ]
+    },
+    "biodiversity": {
+      "word": "biodiversity",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "生物多样性"
+        }
+      ]
+    },
+    "verge": {
+      "word": "verge",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "边缘；边界；濒临状态"
+        }
+      ]
+    },
+    "river": {
+      "word": "river",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "河；河流"
+        }
+      ]
+    },
+    "pure": {
+      "word": "pure",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "纯的；纯净的；不掺杂的"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "完全的；十足的"
+        }
+      ]
+    },
+    "aware": {
+      "word": "aware",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "知道的；意识到的"
+        }
+      ]
+    },
+    "bottle": {
+      "word": "bottle",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "瓶子；一瓶的量"
+        },
+        {
+          "pos": "v.",
+          "meaning": "装入瓶中；瓶装"
+        }
+      ]
+    },
+    "conserve": {
+      "word": "conserve",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "保护；节约；保存"
+        }
+      ]
+    },
+    "forest": {
+      "word": "forest",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "森林；林区"
+        }
+      ]
+    },
+    "medication": {
+      "word": "medication",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "药物；药物治疗"
+        }
+      ]
+    },
+    "mother": {
+      "word": "mother",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "母亲；妈妈"
+        },
+        {
+          "pos": "v.",
+          "meaning": "像母亲一样照料；养育"
+        }
+      ]
+    },
+    "decade": {
+      "word": "decade",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "十年；十年期"
+        }
+      ]
+    },
+    "smell": {
+      "word": "smell",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "气味；嗅觉"
+        },
+        {
+          "pos": "v.",
+          "meaning": "闻起来；嗅"
+        }
+      ]
+    },
+    "taste": {
+      "word": "taste",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "味道；品味；审美"
+        },
+        {
+          "pos": "v.",
+          "meaning": "尝；有……味道"
+        }
+      ]
+    },
+    "suit": {
+      "word": "suit",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "套装；西装"
+        },
+        {
+          "pos": "v.",
+          "meaning": "适合；使满意"
+        }
+      ]
+    },
+    "repair": {
+      "word": "repair",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "修理；修补"
+        },
+        {
+          "pos": "n.",
+          "meaning": "修理；修补"
+        }
+      ]
+    },
+    "unlimited": {
+      "word": "unlimited",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "无限的；不受限制的"
+        }
+      ]
+    },
+    "unbalanced": {
+      "word": "unbalanced",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "不平衡的；失衡的；不稳定的"
+        }
+      ]
+    },
+    "instantly": {
+      "word": "instantly",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "立即；马上"
+        }
+      ]
+    },
+    "long-term": {
+      "word": "long-term",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "长期的"
+        }
+      ]
+    },
+    "reason": {
+      "word": "reason",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "原因；理由；道理"
+        },
+        {
+          "pos": "v.",
+          "meaning": "推理；思考"
+        }
+      ]
+    },
+    "wire": {
+      "word": "wire",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "电线；金属丝；线"
+        },
+        {
+          "pos": "v.",
+          "meaning": "用电线连接；给……发电报"
+        }
+      ]
+    },
+    "irrigation": {
+      "word": "irrigation",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "灌溉；灌溉系统"
+        }
+      ]
+    },
+    "delivery": {
+      "word": "delivery",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "递送；送货；分娩"
+        }
+      ]
+    },
+    "tidy": {
+      "word": "tidy",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "整洁的；整齐的"
+        },
+        {
+          "pos": "v.",
+          "meaning": "整理；收拾"
+        }
+      ]
+    },
+    "dance": {
+      "word": "dance",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "舞蹈；舞会"
+        },
+        {
+          "pos": "v.",
+          "meaning": "跳舞"
+        }
+      ]
+    },
+    "publicity": {
+      "word": "publicity",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "宣传；公众关注"
+        }
+      ]
+    },
+    "commodity": {
+      "word": "commodity",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "商品；日用品"
+        }
+      ]
+    },
+    "obviously": {
+      "word": "obviously",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "显然；明显地"
+        }
+      ]
+    },
+    "comets": {
+      "word": "comets",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "彗星"
+        }
+      ]
+    },
+    "advocate": {
+      "word": "advocate",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "提倡；支持；拥护"
+        },
+        {
+          "pos": "n.",
+          "meaning": "提倡者；拥护者；辩护律师"
+        }
+      ]
+    },
+    "planet": {
+      "word": "planet",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "行星"
+        }
+      ]
+    },
+    "really": {
+      "word": "really",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "真正地；确实；非常"
+        }
+      ]
+    },
+    "vitamins": {
+      "word": "vitamins",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "维生素"
+        }
+      ]
+    },
+    "specific": {
+      "word": "specific",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "具体的；特定的；明确的"
+        }
+      ]
+    },
+    "nowadays": {
+      "word": "nowadays",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "如今；现今"
+        }
+      ]
+    },
+    "in spite of": {
+      "word": "in spite of",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "尽管；不管"
+        }
+      ]
+    },
+    "for instance": {
+      "word": "for instance",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "例如；比如"
+        }
+      ]
+    },
+    "due to": {
+      "word": "due to",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "由于；因为"
+        }
+      ]
+    },
+    "by contrast": {
+      "word": "by contrast",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "相比之下；相反地"
+        }
+      ]
+    },
+    "as a result of": {
+      "word": "as a result of",
+      "defs": [
+        {
+          "pos": "prep.",
+          "meaning": "由于；作为……的结果"
+        }
+      ]
+    },
+    "ensure": {
+      "word": "ensure",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "确保；保证"
+        }
+      ]
+    },
+    "hence": {
+      "word": "hence",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "因此；所以"
+        }
+      ]
+    },
+    "invaluable": {
+      "word": "invaluable",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "极有价值的；非常宝贵的"
+        }
+      ]
+    },
+    "abundant": {
+      "word": "abundant",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "大量的；充足的；丰富的"
+        }
+      ]
+    },
+    "widespread": {
+      "word": "widespread",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "广泛的；普遍的"
+        }
+      ]
+    },
+    "crucial": {
+      "word": "crucial",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "至关重要的；关键的"
+        }
+      ]
+    },
+    "emphasize": {
+      "word": "emphasize",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "强调；着重指出"
+        }
+      ]
+    },
+    "someone implement something": {
+      "word": "someone implement something",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "某人实施某事；执行某事"
+        }
+      ]
+    },
+    "sb/sth indicate sth": {
+      "word": "sb/sth indicate sth",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "某人/某物表明；显示某事"
+        }
+      ]
+    },
+    "validate": {
+      "word": "validate",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "证实；验证；确认"
+        }
+      ]
+    },
+    "prevalent": {
+      "word": "prevalent",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "普遍存在的；流行的"
+        }
+      ]
+    },
+    "simultaneously": {
+      "word": "simultaneously",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "同时地；同步地"
+        }
+      ]
+    },
+    "viable": {
+      "word": "viable",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "可行的；切实可行的"
+        }
+      ]
+    },
+    "themselves": {
+      "word": "themselves",
+      "defs": [
+        {
+          "pos": "pron.",
+          "meaning": "他们自己；她们自己；它们自己"
+        }
+      ]
+    },
+    "wine": {
+      "word": "wine",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "葡萄酒；酒"
+        }
+      ]
+    },
+    "smile": {
+      "word": "smile",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "微笑；笑"
+        },
+        {
+          "pos": "n.",
+          "meaning": "微笑；笑容"
+        }
+      ]
+    },
+    "further": {
+      "word": "further",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "进一步地；更远地"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "更多的；进一步的"
+        }
+      ]
+    },
+    "decision": {
+      "word": "decision",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "决定；决策"
+        }
+      ]
+    },
+    "talent": {
+      "word": "talent",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "才能；天赋；人才"
+        }
+      ]
+    },
+    "forward": {
+      "word": "forward",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "向前；前进地"
+        },
+        {
+          "pos": "adj.",
+          "meaning": "向前的；前面的"
+        }
+      ]
+    },
+    "in the past": {
+      "word": "in the past",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "过去；以前"
+        }
+      ]
+    },
+    "today": {
+      "word": "today",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "今天；如今"
+        },
+        {
+          "pos": "n.",
+          "meaning": "今天；当今"
+        }
+      ]
+    },
+    "disadvantages": {
+      "word": "disadvantages",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "缺点；不利条件；劣势"
+        }
+      ]
+    },
+    "outweigh": {
+      "word": "outweigh",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "比……更重要；超过……的重量/影响"
+        }
+      ]
+    },
+    "people": {
+      "word": "people",
+      "defs": [
+        {
+          "pos": "n.",
+          "meaning": "人们；人民；群众"
+        }
+      ]
+    },
+    "should": {
+      "word": "should",
+      "defs": [
+        {
+          "pos": "modal v.",
+          "meaning": "应该；理应；有必要"
+        }
+      ]
+    },
+    "because": {
+      "word": "because",
+      "defs": [
+        {
+          "pos": "conj.",
+          "meaning": "因为；由于"
+        }
+      ]
+    },
+    "so / therefore": {
+      "word": "so / therefore",
+      "defs": [
+        {
+          "pos": "conj.",
+          "meaning": "所以；因此；因而"
+        }
+      ]
+    },
+    "important": {
+      "word": "important",
+      "defs": [
+        {
+          "pos": "adj.",
+          "meaning": "重要的；重大的；关键的"
+        }
+      ]
+    },
+    "more and more": {
+      "word": "more and more",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "越来越；愈发"
+        }
+      ]
+    },
+    "be bad for": {
+      "word": "be bad for",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "对……有害；不利于……"
+        }
+      ]
+    },
+    "many": {
+      "word": "many",
+      "defs": [
+        {
+          "pos": "det.",
+          "meaning": "许多；很多"
+        }
+      ]
+    },
+    "use (v.)": {
+      "word": "use (v.)",
+      "defs": [
+        {
+          "pos": "v.",
+          "meaning": "使用；利用；运用"
+        }
+      ]
+    },
+    "i agree/disagree with this view, from my perspective, i perceive it as, i would argue that": {
+      "word": "i agree/disagree with this view, from my perspective, i perceive it as, i would argue that",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "我同意/不同意这一观点；在我看来；我认为；我主张"
+        }
+      ]
+    },
+    "an increasing/growing number of, increasingly popular, be prevalent among, a rising number of": {
+      "word": "an increasing/growing number of, increasingly popular, be prevalent among, a rising number of",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "越来越多的；日益流行的；在……中普遍存在；不断增加的"
+        }
+      ]
+    },
+    "great/a considerable/substantial/significant number of, numerous, a multitude of": {
+      "word": "great/a considerable/substantial/significant number of, numerous, a multitude of",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "大量的；许多的；众多的"
+        }
+      ]
+    },
+    "mostly, a large proportion of, the vast/overwhelming majority of": {
+      "word": "mostly, a large proportion of, the vast/overwhelming majority of",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "大多数；主要地；绝大部分"
+        }
+      ]
+    },
+    "currently, today, recently, at present": {
+      "word": "currently, today, recently, at present",
+      "defs": [
+        {
+          "pos": "adv.",
+          "meaning": "目前；现在；当今；最近"
+        }
+      ]
+    },
+    "fail to, be unlikely to, seldom, scarcely": {
+      "word": "fail to, be unlikely to, seldom, scarcely",
+      "defs": [
+        {
+          "pos": "",
+          "meaning": "未能；不太可能；很少；几乎不"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "batch_size": 30,
+    "failures": []
+  }
+}

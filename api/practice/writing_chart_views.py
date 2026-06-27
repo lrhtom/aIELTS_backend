@@ -15,12 +15,27 @@ from api.core.ai_client import AIClient, refund_at
 from api.core.rate_limit import check_rate_limit
 from api.models import AIQuestion
 from api.practice.ai_question_views import create_ai_question
+from api.practice.map_renderer import (
+    MAP_IR_VERSION,
+    MAP_ICON_WHITELIST,
+    build_map_title,
+    pick_composition_hint,
+    pick_fallback_ir,
+    pick_story_seed,
+    render_map_ir,
+    validate_map_ir,
+)
 
 
-def _save_chart_question(user, chart_type: str, prompt_text: str, payload: dict) -> dict:
-    """Persist a chart-generation payload to AIQuestion and inject aiQuestionId."""
+def _save_chart_question(user, chart_type: str, prompt_text: str, payload: dict, title_override: str | None = None) -> dict:
+    """Persist a chart-generation payload to AIQuestion and inject aiQuestionId.
+
+    For map questions the caller passes `title_override` derived from the IR
+    so the AIBank list shows e.g. "地图 · A coastal town · Before & After"
+    instead of the prompt's first line (which is generic across all maps).
+    """
     try:
-        title = (prompt_text or 'Task 1').strip().splitlines()[0][:200] or 'Task 1 图表'
+        title = (title_override or (prompt_text or 'Task 1').strip().splitlines()[0])[:200] or 'Task 1 图表'
         ai_question = create_ai_question(
             user=user,
             skill=AIQuestion.SKILL_WRITING,
@@ -63,6 +78,9 @@ CHART_SUBJECT_AREAS = [
 ]
 
 MAP_SCENARIO_TYPES = ('geographical_change', 'site_selection')
+# Real IELTS map questions are predominantly before/after comparison.
+# Site-selection appears but is much rarer — bias the sampler accordingly.
+MAP_SCENARIO_WEIGHTS = {'geographical_change': 80, 'site_selection': 20}
 MAP_ENV_TYPES = ('indoor', 'outdoor')
 
 MAP_LOCATION_CANDIDATES = [
@@ -354,7 +372,8 @@ def _scene_catalog_prompt_text(max_items: int = 80) -> str:
 
 
 def _pick_map_generation_profile() -> dict[str, str]:
-    question_type = random.choice(MAP_SCENARIO_TYPES)
+    weights = [MAP_SCENARIO_WEIGHTS.get(s, 1) for s in MAP_SCENARIO_TYPES]
+    question_type = random.choices(MAP_SCENARIO_TYPES, weights=weights, k=1)[0]
     environment_type = random.choice(MAP_ENV_TYPES)
     scene_pool = _candidate_scenes_for_env(environment_type)
     scene_name = random.choice(scene_pool) if scene_pool else random.choice(MAP_LOCATION_CANDIDATES)
@@ -849,13 +868,18 @@ def _fallback_map_svg(
     )
 
 
-def _build_map_prompt_payload(
+def _generate_map_ir(
     client: AIClient,
     user,
     subject_area: str,
     map_profile: dict[str, str],
-) -> tuple[dict, float]:
-    icon_keys = [i['key'] for i in MAP_ICON_DEFINITIONS]
+    max_retries: int = 1,
+) -> tuple[dict, float, bool]:
+    """Ask GPT-5.4 (or any provider) for a Map IR; validate; retry once with
+    error feedback; if still invalid, fall back to a pre-authored IR.
+
+    Returns (ir, total_at_cost, used_fallback).
+    """
     scenario = (map_profile.get('questionType') or 'site_selection').strip().lower()
     environment = (map_profile.get('environmentType') or 'outdoor').strip().lower()
     scene_name = map_profile.get('sceneName') or 'A city centre'
@@ -867,26 +891,87 @@ def _build_map_prompt_payload(
 
     scenario_desc = 'geographical-change map (before vs after)' if scenario == 'geographical_change' else 'site-selection map (candidate locations)'
     environment_desc = 'indoor floor-plan style' if environment == 'indoor' else 'outdoor town/area style'
-    location_catalog = _scene_catalog_prompt_text(max_items=90)
+    story_seed = pick_story_seed(scenario)
+    composition_hint = pick_composition_hint(scenario)
+    icon_whitelist = sorted(MAP_ICON_WHITELIST)
+    # site_selection → single big map with A/B/C markers
+    # geographical_change → before/after twin maps
+    view_model = 'single' if scenario == 'site_selection' else 'before_after'
 
-    map_prompt = skill_writing_chart_map(
+    system_prompt = skill_writing_chart_map(
         scenario=scenario, environment=environment, scene_name=scene_name,
         scenario_desc=scenario_desc, environment_desc=environment_desc,
-        location_catalog=location_catalog, icon_keys=icon_keys,
         subject_area=subject_area,
+        view_model=view_model,
+        story_seed=story_seed,
+        composition_hint=composition_hint,
+        icon_whitelist=icon_whitelist,
     )
 
-    messages = [
-        {'role': 'system', 'content': map_prompt},
-        {'role': 'user', 'content': 'Generate a complete map question now.'}
-    ]
+    total_at = 0.0
+    last_errors: list[str] = []
+    last_ir: dict | None = None
 
-    return client.generate(
-        messages,
-        expect_json=True,
-        user_id=user.id,
-        singleflight_scope='writing_chart_generate',
-    )
+    for attempt in range(max_retries + 1):
+        messages: list[dict] = [
+            {'role': 'system', 'content': system_prompt},
+        ]
+        if attempt == 0 or not last_errors:
+            messages.append({'role': 'user', 'content': 'Generate a complete map IR now.'})
+        else:
+            err_lines = '\n'.join(f'- {e}' for e in last_errors[:8])
+            messages.append({
+                'role': 'user',
+                'content': (
+                    'Your previous IR failed validation with the following issues:\n'
+                    f'{err_lines}\n'
+                    'Emit a corrected IR (JSON only) that fixes ALL of the above.'
+                ),
+            })
+
+        try:
+            ir, at_cost = client.generate(
+                messages,
+                expect_json=True,
+                user_id=user.id,
+                # Only the first attempt deduplicates via singleflight;
+                # retries should always reach the model.
+                singleflight_scope='writing_chart_generate' if attempt == 0 else None,
+            )
+            total_at += float(at_cost or 0)
+        except Exception as e:
+            print(f'[Map IR] attempt {attempt} call failed: {e}', flush=True)
+            break
+
+        if not isinstance(ir, dict):
+            last_errors = ['AI did not return a JSON object']
+            last_ir = None
+            continue
+
+        ok, errors = validate_map_ir(ir)
+        if ok:
+            return ir, total_at, False
+
+        last_errors = errors
+        last_ir = ir
+        print(f'[Map IR] attempt {attempt} validation failed: {errors[:3]}', flush=True)
+
+    # All AI attempts exhausted → fallback IR (no extra AT cost)
+    fallback_ir = pick_fallback_ir(scenario, environment, scene_name)
+    print(f'[Map IR] using fallback IR for scenario={scenario} env={environment}', flush=True)
+    return fallback_ir, total_at, True
+
+
+# Kept for any external callers; thin wrapper around the new IR pipeline.
+# Returns raw IR dict + cost; HTML rendering happens at the view layer.
+def _build_map_prompt_payload(
+    client: AIClient,
+    user,
+    subject_area: str,
+    map_profile: dict[str, str],
+) -> tuple[dict, float]:
+    ir, at_cost, _ = _generate_map_ir(client, user, subject_area, map_profile)
+    return ir, at_cost
 
 
 def _strip_code_fences(text: str) -> str:
@@ -1087,64 +1172,34 @@ def generate_chart(request):
             }
             return Response(_save_chart_question(user, chart_type, prompt_text, fc_payload))
 
-        # ── MAP: generate HTML + SVG (no matplotlib execution) ──
+        # ── MAP: IR pipeline (AI emits structured JSON, backend renders HTML) ──
         if chart_type == 'map':
             subject_area = random.choice(CHART_SUBJECT_AREAS)
             map_profile = _pick_map_generation_profile()
 
-            chosen_question_type = map_profile['questionType']
-            chosen_environment_type = map_profile['environmentType']
-            chosen_scene_name = map_profile['sceneName']
-
             try:
-                map_data, at_cost = _build_map_prompt_payload(client, user, subject_area, map_profile)
+                ir, at_cost, used_fallback = _generate_map_ir(client, user, subject_area, map_profile)
             except Exception as map_err:
                 return Response({'error': f'AI map generation failed: {map_err}'}, status=500)
 
-            question_type = str(map_data.get('mapScenarioType', '') or '').strip().lower()
-            if question_type not in MAP_SCENARIO_TYPES:
-                question_type = chosen_question_type
+            # Renderer is deterministic on a validated IR; we still guard for
+            # the unlikely case that a fallback IR has been corrupted.
+            try:
+                html_content = render_map_ir(ir, version=MAP_IR_VERSION)
+            except Exception as render_err:
+                return Response({'error': f'Map renderer failed: {render_err}'}, status=500)
 
-            environment_type = str(map_data.get('environmentType', '') or '').strip().lower()
-            if environment_type not in MAP_ENV_TYPES:
-                environment_type = chosen_environment_type
-
-            location_name = str(map_data.get('locationName', '') or '').strip()[:100]
-            if not location_name:
-                location_name = chosen_scene_name
-
-            prompt_text = str(map_data.get('prompt', '') or '').strip()
-            html_content = str(map_data.get('htmlContent', '') or '').strip()
-
-            layout_summary = str(map_data.get('layoutSummary', '') or '').strip()
-            if not layout_summary:
-                if question_type == 'geographical_change':
-                    layout_summary = (
-                        f'The map compares before-and-after changes in {location_name}.'
-                    )
-                else:
-                    layout_summary = (
-                        f'The map presents candidate sites in {location_name}.'
-                    )
-
-            if not prompt_text:
-                if question_type == 'geographical_change':
-                    prompt_text = (
-                        f'The maps below show how {location_name} has changed over time. '
-                        'Summarise the information by selecting and reporting the main features, and make comparisons where relevant.'
-                    )
-                else:
-                    prompt_text = (
-                        f'The map below shows three possible sites for development in {location_name}. '
-                        'Summarise the information by selecting and reporting the main features, and make comparisons where relevant.'
-                    )
+            prompt_text = str(ir.get('prompt') or '').strip()
+            title_override = build_map_title(ir)
 
             reference_payload = {
-                'type': 'map-html',
-                'questionType': question_type,
-                'environmentType': environment_type,
-                'locationName': location_name,
-                'layoutSummary': layout_summary,
+                'type': 'map-ir',
+                'irVersion': MAP_IR_VERSION,
+                'questionType': ir.get('scenarioType'),
+                'environmentType': ir.get('environment'),
+                'locationName': ir.get('locationName'),
+                'layoutSummary': ir.get('layoutSummary'),
+                'usedFallback': used_fallback,
             }
 
             map_payload = {
@@ -1152,13 +1207,22 @@ def generate_chart(request):
                 'mermaidCode': None,
                 'prompt': prompt_text,
                 'htmlContent': html_content,
+                # `pythonCode` is the historical "reference data" slot that
+                # writing/generate consumes for evaluation grounding. Keep
+                # JSON-encoded so the writing evaluator can read it.
                 'pythonCode': json.dumps(reference_payload, ensure_ascii=False),
-                'mapScenarioType': question_type,
-                'mapEnvironmentType': environment_type,
-                'mapLocationName': location_name,
+                # Persist the IR itself so we can re-render with future
+                # template/style improvements, or build new modes off it.
+                'mapIR': ir,
+                'mapIRVersion': MAP_IR_VERSION,
+                'mapScenarioType': ir.get('scenarioType'),
+                'mapEnvironmentType': ir.get('environment'),
+                'mapLocationName': ir.get('locationName'),
                 'atConsumed': at_cost,
             }
-            return Response(_save_chart_question(user, chart_type, prompt_text, map_payload))
+            return Response(_save_chart_question(
+                user, chart_type, prompt_text, map_payload, title_override=title_override
+            ))
 
         # 鈹€鈹€ OTHER CHART TYPES: JSON mode + Matplotlib sandbox ┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢
         subject_area = random.choice(CHART_SUBJECT_AREAS)
