@@ -13,3 +13,11 @@ uvicorn
 httpx
 edge-tts
 Pillow
+
+# ── Test stack (dev / CI only) ────────────────────────────────────────────────
+pytest>=8.0
+pytest-django>=4.8
+pytest-cov>=5.0
+responses>=0.25
+factory-boy>=3.3
+fakeredis>=2.20
