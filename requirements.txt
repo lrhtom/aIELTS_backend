@@ -1,8 +1,7 @@
-django>=6.0
+django>=5.0
 requests
 python-dotenv
 django-cors-headers
-mysqlclient
 djangorestframework
 djangorestframework-simplejwt
 matplotlib

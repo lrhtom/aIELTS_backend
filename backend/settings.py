@@ -24,7 +24,19 @@ if not SECRET_KEY:
     else:
         raise RuntimeError('DJANGO_SECRET_KEY environment variable is required in production')
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# ALLOWED_HOSTS: in DEBUG we default to loopback; in production we require the
+# operator to set DJANGO_ALLOWED_HOSTS explicitly. Falling back to 'localhost'
+# in prod would silently 400 every real request.
+_default_hosts = 'localhost,127.0.0.1' if DEBUG else ''
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', _default_hosts).split(',') if h.strip()]
+if not DEBUG and not ALLOWED_HOSTS:
+    raise RuntimeError(
+        'DJANGO_ALLOWED_HOSTS must be set in production (e.g. "47.85.195.208,yourdomain.com").'
+    )
+if not DEBUG and set(ALLOWED_HOSTS).issubset({'localhost', '127.0.0.1'}):
+    raise RuntimeError(
+        'DJANGO_ALLOWED_HOSTS is loopback-only but DEBUG=False — refusing to start with dev config in production.'
+    )
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -55,13 +67,20 @@ MIDDLEWARE = [
 # 因此在开发环境也显式列出 origin，而不是开 ALLOW_ALL_ORIGINS。
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
+# Loopback origins are always allowed (needed for local dev + operator health probes).
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
 ]
-# 生产环境前端地址（ClawCloud / 自定义域名）
-if os.environ.get('CORS_ORIGIN'):
-    CORS_ALLOWED_ORIGINS.append(os.environ['CORS_ORIGIN'])
+# Production frontend origins — comma-separated in CORS_ORIGIN
+# (e.g. "http://47.85.195.208,https://ielts.example.com").
+_cors_origin = os.environ.get('CORS_ORIGIN', '').strip()
+if _cors_origin:
+    CORS_ALLOWED_ORIGINS.extend(o.strip() for o in _cors_origin.split(',') if o.strip())
+if not DEBUG and not _cors_origin:
+    # Don't crash — a misconfigured CORS still lets same-origin (nginx reverse proxy) work.
+    # But warn loudly so the operator notices before a browser bug report arrives.
+    print('[settings] WARNING: DEBUG=False but CORS_ORIGIN unset — cross-origin frontend calls will be blocked by the browser.')
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-ai-provider",
