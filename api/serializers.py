@@ -5,7 +5,7 @@ User = get_user_model()
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-    email = serializers.EmailField(required=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = User
@@ -13,23 +13,31 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         username = data.get('username')
-        email = data.get('email')
+        email = (data.get('email') or '').strip().lower() or None
+        data['email'] = email  # normalise for create()
 
-        # 同时检查用户名和邮箱的唯一性
-        if User.objects.filter(username=username).exists() or User.objects.filter(email=email).exists():
-            # 这里抛出一个非字段相关的错误，前端可以统一通过 t.auth.errorRegisterTaken 展示
-            # 也可以改为返回特定的字段错误，但用户要求“相同姓名或者邮箱都视作为有人注册”，统一提示更符合要求
+        if User.objects.filter(username=username).exists():
             raise serializers.ValidationError("REGISTER_TAKEN")
-        
+        # Email uniqueness only when provided — empty email is allowed for many users.
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError("REGISTER_TAKEN")
+
         return data
 
     def create(self, validated_data):
-        user = User.objects.create_user(
+        # DO NOT use `User.objects.create_user()`. It normalises None → "",
+        # then INSERTs with `email=""`. MySQL's UNIQUE(email) collides on the
+        # second emailless registration ("Duplicate entry '' for key
+        # 'user_profiles.email'"). We construct the row directly so the
+        # column receives NULL, which multiple rows can hold under UNIQUE.
+        email_val = validated_data.get('email') or None
+        user = User(
             username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            nickname=validated_data.get('nickname', '')
+            email=email_val,
+            nickname=validated_data.get('nickname', ''),
         )
+        user.set_password(validated_data['password'])
+        user.save()
         return user
 
 class UserSerializer(serializers.ModelSerializer):

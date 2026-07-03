@@ -188,6 +188,8 @@ urlpatterns = [
     path('admin/users/<int:pk>/delete', admin_views.AdminUserDeleteView.as_view(), name='admin_user_delete'),
     path('admin/users/<int:pk>/adjust-at', admin_views.AdminUserAdjustATView.as_view(), name='admin_user_adjust_at'),
     path('admin/routes',                   AdminRoutesView.as_view(),                   name='admin_routes_live'),
+    path('admin/ai-usage',                 admin_views.AdminAIUsageView.as_view(),       name='admin_ai_usage'),
+    path('admin/users/search',             admin_views.AdminUserSearchView.as_view(),    name='admin_users_search'),
 
     # ---- 学习分析 API ----
     path('analytics/vocab',                 analytics_views.VocabAnalyticsView.as_view(),     name='analytics_vocab'),

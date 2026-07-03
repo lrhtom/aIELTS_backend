@@ -2,10 +2,12 @@ import json
 import os
 import re
 import random
+import hashlib
 import html
 import subprocess
 import tempfile
 from django.http import JsonResponse, HttpResponse
+from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from api.core.utils import call_ai_api
@@ -275,9 +277,17 @@ def generate_listening(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+LISTENING_AUDIO_SUBDIR = 'listening_audio'
+
+
 @api_view(['POST'])
 def generate_listening_audio(request):
-    """POST /api/listening/audio - 生成 Edge-TTS 的 mp3 文件。"""
+    """POST /api/listening/audio - 生成 Edge-TTS 的 mp3 文件。
+
+    音频按 md5(voice + speak_text) 落盘到 media/listening_audio/{hash}.mp3；
+    同样文本 + 同样声音的后续请求直接从磁盘读回,不再走 edge-tts。
+    好处: 一个题库题第一次点播放会生成一次 mp3,之后所有人所有次都命中缓存。
+    """
     try:
         text = request.data.get('text', '')
 
@@ -330,24 +340,47 @@ def generate_listening_audio(request):
         if not speak_text:
             speak_text = str(text).strip()
 
-        # 雅听力常选用的声音：英(鑻卞浗) Sonia
-        voice = "en-GB-SoniaNeural"
+        # 雅思听力常选用的声音: 英式 Sonia
+        voice = request.data.get('voice') or "en-GB-SoniaNeural"
 
-        # 写入临时文件
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-            temp_path = f.name
+        cache_key = hashlib.md5(f'{voice}|{speak_text}'.encode('utf-8')).hexdigest()
+        rel_path = f'{LISTENING_AUDIO_SUBDIR}/{cache_key}.mp3'
+        abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+
+        # Cache hit: return the on-disk mp3 without paying for edge-tts.
+        if os.path.exists(abs_path) and os.path.getsize(abs_path) > 0:
+            with open(abs_path, 'rb') as f:
+                resp = HttpResponse(f.read(), content_type='audio/mpeg')
+            resp['X-Audio-Cache'] = 'HIT'
+            return resp
+
+        # Cache miss: generate + persist. Write to a temp file first so an
+        # interrupted edge-tts doesn't leave a truncated mp3 masquerading as
+        # a valid cache entry on the next request.
+        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False, dir=os.path.dirname(abs_path)) as tmp:
+            temp_path = tmp.name
 
         try:
-            cmd = ["edge-tts", "--voice", voice, "--text", speak_text, "--write-media", temp_path]
-            subprocess.run(cmd, check=True)
-            
-            with open(temp_path, "rb") as f:
-                audio_data = f.read()
-                
-            return HttpResponse(audio_data, content_type="audio/mpeg")
+            subprocess.run(
+                ['edge-tts', '--voice', voice, '--text', speak_text, '--write-media', temp_path],
+                check=True,
+            )
+            if not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0:
+                raise RuntimeError('edge-tts produced empty output')
+            # Atomic rename into the cache location so partial writes never win.
+            os.replace(temp_path, abs_path)
+
+            with open(abs_path, 'rb') as f:
+                resp = HttpResponse(f.read(), content_type='audio/mpeg')
+            resp['X-Audio-Cache'] = 'MISS'
+            return resp
         finally:
             if os.path.exists(temp_path):
-                os.remove(temp_path)
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 

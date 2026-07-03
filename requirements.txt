@@ -12,6 +12,7 @@ uvicorn
 httpx
 edge-tts
 Pillow
+azure-cognitiveservices-speech
 
 # ── Test stack (dev / CI only) ────────────────────────────────────────────────
 pytest>=8.0

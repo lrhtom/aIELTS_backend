@@ -152,20 +152,21 @@ class UserRegistrationView(APIView):
         email = request.data.get('email', '').strip().lower()
         code = request.data.get('verification_code', '').strip()
 
-        # 校验验证码
-        if not code:
-            return Response({'error': 'VERIFICATION_CODE_REQUIRED'}, status=status.HTTP_400_BAD_REQUEST)
-        if not verify_code(email, code):
-            return Response({'error': 'INVALID_CODE'}, status=status.HTTP_400_BAD_REQUEST)
+        # Verification code is only required when an email address is provided.
+        # Users can register with just username + password.
+        if email:
+            if not code:
+                return Response({'error': 'VERIFICATION_CODE_REQUIRED'}, status=status.HTTP_400_BAD_REQUEST)
+            if not verify_code(email, code):
+                return Response({'error': 'INVALID_CODE'}, status=status.HTTP_400_BAD_REQUEST)
 
         # 验证码通过后执行注册
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            
-            # 验证码已校验 → 邮箱真实有效，直接标记为已验证
-            # 注册时也初始化 Token ID
-            user.is_email_verified = True
+
+            # 邮箱提供且验证码校验通过 → 邮箱已验证;否则 False
+            user.is_email_verified = bool(email)
             user.jwt_token_id = str(uuid.uuid4())
             user.save(update_fields=['is_email_verified', 'jwt_token_id'])
 
@@ -203,34 +204,39 @@ class UserProfileView(APIView):
 
 class DeleteAccountView(APIView):
     """
-    删除当前登录用户账户的视图。
+    删除当前登录用户账户 —— 硬删除（真正把 user_profiles 行从数据库里删掉）。
+
+    User 上大部分反向 FK 是 CASCADE，所以这一步会把该用户的 FSRS 卡片、笔记本、
+    学习计划、AI 题目、AT 币交易记录、购物车项、写作记录等一并连锁删除。
+    上传到磁盘的头像和背景图先手动清一遍，避免磁盘悬挂文件。
     """
     permission_classes = [IsAuthenticated]
 
     def delete(self, request):
+        user = request.user
+
+        # Clean up on-disk media before the row disappears. Skip external URLs
+        # (bg_image_url is polymorphic — users can paste https:// links).
+        for field in ('avatar_file', 'bg_image_url'):
+            value = getattr(user, field, None)
+            if value and not str(value).startswith(('http://', 'https://')):
+                try:
+                    if default_storage.exists(value):
+                        default_storage.delete(value)
+                except Exception as e:
+                    print(f'[DeleteAccount] failed to delete {field}={value}: {e}')
+
         try:
-            user = request.user
-            # 软删除：保留恢复窗口，避免误操作导致不可恢复的数据丢失
-            now = timezone.now()
-            if user.deletion_requested_at is None:
-                user.deletion_requested_at = now
-            user.is_active = False
-            user.is_banned = True
-            # 刷新 token id，立即使当前设备及其他设备 token 失效
-            user.jwt_token_id = str(uuid.uuid4())
-            user.save(update_fields=['deletion_requested_at', 'is_active', 'is_banned', 'jwt_token_id', 'updated_at'])
-
-            return Response({
-                'message': '账户已申请注销，30天内可联系管理员恢复',
-                'deletion_requested_at': user.deletion_requested_at.isoformat(),
-                'recoverable_until': (user.deletion_requested_at + timedelta(days=30)).isoformat(),
-            }, status=status.HTTP_200_OK)
-
+            user.delete()
         except Exception as e:
             return Response({
-                'error': '删除账户时出错',
-                'detail': str(e)
+                'error': 'DELETE_FAILED',
+                'detail': str(e),
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        response = Response({'message': 'ACCOUNT_DELETED'}, status=status.HTTP_200_OK)
+        clear_auth_cookies(response)
+        return response
 
 class AvatarUploadView(APIView):
     """
@@ -300,21 +306,11 @@ class AvatarUploadView(APIView):
             # 保存到存储
             file_path = default_storage.save(relative_path, ContentFile(img_io.read()))
 
-            # 构建 URL（根据存储配置）
-            if hasattr(settings, 'MEDIA_URL'):
-                avatar_url = f"{settings.MEDIA_URL}{file_path}"
-            else:
-                # 默认使用相对路径
-                avatar_url = f"/media/{file_path}"
-
-            # 在开发环境中生成包含服务器地址的完整 URL
-            # 确保前端可以直接访问头像
-            if settings.DEBUG:
-                # 生成包含服务器地址的完整 URL
-                avatar_url = f"http://127.0.0.1:8000{avatar_url}"
-
-
-            return True, avatar_url, file_path, None
+            # DB stores the relative media key (e.g. "avatars/user_1_ab12.jpg").
+            # Frontend composes the full URL with import.meta.env.VITE_MEDIA_BASE.
+            # Never bake the host origin into the DB — that value differs
+            # between dev / prod and the DB is shared.
+            return True, file_path, file_path, None
 
         except Exception as e:
             return False, None, None, f'图片处理失败: {str(e)}'
@@ -566,13 +562,20 @@ class ChangeUsernameView(APIView):
 
 class LogoutView(APIView):
     """End the session: rotate jwt_token_id so any stolen access token is dead,
-    and wipe the auth cookies on the response."""
-    permission_classes = [IsAuthenticated]
+    and wipe the auth cookies on the response.
+
+    AllowAny because logout must succeed even when the incoming cookies are
+    already stale — otherwise the browser is stuck with dead cookies and the
+    user thinks logout is broken. When the caller *is* authenticated we still
+    rotate jwt_token_id to invalidate any other sessions.
+    """
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        user = request.user
-        user.jwt_token_id = str(uuid.uuid4())
-        user.save(update_fields=['jwt_token_id'])
+        if request.user.is_authenticated:
+            user = request.user
+            user.jwt_token_id = str(uuid.uuid4())
+            user.save(update_fields=['jwt_token_id'])
         response = Response({'message': '已退出登录'}, status=status.HTTP_200_OK)
         clear_auth_cookies(response)
         return response

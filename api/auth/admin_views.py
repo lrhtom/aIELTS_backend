@@ -1,9 +1,13 @@
+from datetime import timedelta
 from django.contrib.auth import get_user_model
+from django.db.models import Sum, Count
+from django.db.models.functions import TruncDate
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from api.models import Feedback
+from api.models import Feedback, TransactionRecord
 from api.serializers import FeedbackSerializer, AdminUserManageSerializer
 
 User = get_user_model()
@@ -149,6 +153,140 @@ class AdminUserAdjustATView(APIView):
             'at_balance': target_user.at_balance,
             'delta': delta,
         }, status=status.HTTP_200_OK)
+
+
+class AdminAIUsageView(APIView):
+    """全站 AI 使用统计 (管理员)。
+
+    GET /api/admin/ai-usage?mode=all&days=30
+        → 全站每日 AT 币消耗 (所有用户求和)。
+    GET /api/admin/ai-usage?mode=user&user_id=13&days=30
+        → 指定用户每日 AT 币消耗。
+
+    数据源: TransactionRecord 里所有 amount<0 的 AT_COIN 交易 (即消耗)。
+    包含了 AI 生成 + 商店购买等所有 AT 出账 (AI 生成占绝大多数)。
+    描述字段被回传前端,如果日后要按 description 拆细维度可以在前端做二次分组。
+
+    响应格式:
+    {
+        "days": 30,
+        "series": [
+            {"date": "2026-06-04", "at_consumed": 1234, "call_count": 45},
+            ...
+        ],
+        "totals": {"at_consumed": 45678, "call_count": 890}
+    }
+
+    单用户模式额外附带 user 摘要供前端展示。
+    """
+    permission_classes = [IsAdminUser]
+
+    MAX_DAYS = 365
+    DEFAULT_DAYS = 30
+
+    def get(self, request):
+        mode = request.query_params.get('mode', 'all')
+        try:
+            days = int(request.query_params.get('days', self.DEFAULT_DAYS))
+        except ValueError:
+            days = self.DEFAULT_DAYS
+        days = max(1, min(self.MAX_DAYS, days))
+
+        since = timezone.now() - timedelta(days=days - 1)
+        # 只统计"负值 AT_COIN"(出账)。收入(签到/管理员发放)不算 AI 使用。
+        qs = TransactionRecord.objects.filter(
+            currency=TransactionRecord.Currency.AT_COIN,
+            amount__lt=0,
+            created_at__gte=since.replace(hour=0, minute=0, second=0, microsecond=0),
+        )
+
+        user_summary = None
+        if mode == 'user':
+            user_id = request.query_params.get('user_id')
+            if not user_id:
+                return Response({'error': 'MISSING_USER_ID'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                target = User.objects.get(pk=int(user_id))
+            except (User.DoesNotExist, ValueError, TypeError):
+                return Response({'error': 'USER_NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+            qs = qs.filter(user=target)
+            user_summary = {
+                'id': target.id,
+                'username': target.username,
+                'nickname': target.nickname or '',
+                'at_balance': target.at_balance,
+            }
+
+        agg = (
+            qs.annotate(day=TruncDate('created_at'))
+              .values('day')
+              .annotate(at_consumed=Sum('amount'), call_count=Count('id'))
+              .order_by('day')
+        )
+
+        # Fill missing days with zeros so the chart doesn't have gaps.
+        by_day = {row['day'].isoformat(): row for row in agg}
+        series = []
+        cursor = since.date()
+        end = timezone.now().date()
+        while cursor <= end:
+            key = cursor.isoformat()
+            if key in by_day:
+                row = by_day[key]
+                at_val = -int(row['at_consumed'] or 0)  # flip sign; expenses reported as positive
+                cnt = int(row['call_count'] or 0)
+            else:
+                at_val, cnt = 0, 0
+            series.append({'date': key, 'at_consumed': at_val, 'call_count': cnt})
+            cursor += timedelta(days=1)
+
+        totals = {
+            'at_consumed': sum(s['at_consumed'] for s in series),
+            'call_count': sum(s['call_count'] for s in series),
+        }
+
+        return Response({
+            'mode': mode,
+            'days': days,
+            'user': user_summary,
+            'series': series,
+            'totals': totals,
+        })
+
+
+class AdminUserSearchView(APIView):
+    """
+    GET /api/admin/users/search?q=xxx&limit=20
+    Lightweight user picker for the AI-usage single-user view. Returns id +
+    username + nickname only — the paginated /admin/users list is too heavy
+    for a live search-as-you-type input.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        q = (request.query_params.get('q') or '').strip()
+        try:
+            limit = min(50, max(1, int(request.query_params.get('limit', 20))))
+        except ValueError:
+            limit = 20
+
+        qs = User.objects.all()
+        if q:
+            from django.db.models import Q
+            qs = qs.filter(Q(username__icontains=q) | Q(nickname__icontains=q) | Q(email__icontains=q))
+        qs = qs.order_by('-date_joined')[:limit]
+
+        return Response({
+            'results': [
+                {
+                    'id': u.id,
+                    'username': u.username,
+                    'nickname': u.nickname or '',
+                    'is_staff': u.is_staff,
+                }
+                for u in qs
+            ],
+        })
 
 
 class AdminRoutesView(APIView):

@@ -17,12 +17,18 @@ class User(AbstractUser):
         PRO = 'PRO', _('专业会员')
         PREMIUM = 'PREMIUM', _('尊享会员')
 
-    email = models.EmailField(_('email address'), unique=True, error_messages={
+    # Email is optional. When provided, it stays unique across users.
+    # When absent, the user can only log in via username. `unique=True + null=True`
+    # keeps MySQL happy — multiple NULLs are allowed, only real values collide.
+    email = models.EmailField(_('email address'), blank=True, null=True, unique=True, error_messages={
         'unique': _("A user with that email already exists."),
     })
     phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="手机号", unique=True)
     nickname = models.CharField(max_length=50, blank=True, verbose_name="用户昵称")
-    avatar_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="头像URL")
+    # Stores a relative media key (e.g. "avatars/user_1_ab12.jpg"). Frontend
+    # composes the full URL with VITE_MEDIA_BASE. Not a URLField because the
+    # value is no longer a URL — kept the field name for API-contract stability.
+    avatar_url = models.CharField(max_length=500, blank=True, null=True, verbose_name="头像URL")
     avatar_file = models.CharField(max_length=255, blank=True, null=True, verbose_name="头像文件路径")
 
     target_score = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, verbose_name="目标分数(如: 7.5)")
@@ -58,7 +64,9 @@ class User(AbstractUser):
 
     # 外观偏好
     bg_color = models.CharField(max_length=200, blank=True, null=True, verbose_name="背景颜色/渐变值")
-    bg_image_url = models.URLField(max_length=1000, blank=True, null=True, verbose_name="背景图片URL")
+    # Polymorphic: holds either a relative media key ("bg_images/…") for
+    # uploads, or an external http(s):// URL pasted by the user.
+    bg_image_url = models.CharField(max_length=1000, blank=True, null=True, verbose_name="背景图片URL")
     bg_blur = models.FloatField(default=2.0, verbose_name="背景模糊度(px)")
 
     # AI生成相关设置

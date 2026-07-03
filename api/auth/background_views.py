@@ -12,15 +12,34 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 
 
-def _delete_media_file(url_or_path: str):
-    """删除 media 目录下的文件，接受完整 URL 或相对路径，失败时仅打印日志。"""
-    if not url_or_path:
+def _delete_media_file(key_or_url: str):
+    """Delete a locally-uploaded media file.
+
+    Accepts either a relative storage key (`bg_images/user_1_abc.jpg`) —
+    the new canonical form written to DB — or a legacy full URL that still
+    contains one of the historical `…/media/` prefixes (kept for one release
+    while old rows heal via migration).
+
+    External http(s):// URLs (user-pasted image links) are silently ignored;
+    we never delete files we didn't upload.
+    """
+    if not key_or_url:
         return
-    path = url_or_path
-    for prefix in [f'http://127.0.0.1:8000{settings.MEDIA_URL}', settings.MEDIA_URL]:
+    path = key_or_url
+    # Legacy heal: strip prefixes if they leaked through before migration ran.
+    legacy_prefixes = (
+        'http://127.0.0.1:8000/media/',
+        'http://47.85.195.208:8000/media/',
+        'https://47.85.195.208:8000/media/',
+        settings.MEDIA_URL,  # "/media/" — for relative-URL legacy rows
+    )
+    for prefix in legacy_prefixes:
         if path.startswith(prefix):
             path = path[len(prefix):]
             break
+    # If path still looks like an external URL, it isn't ours.
+    if path.startswith(('http://', 'https://')):
+        return
     if path and default_storage.exists(path):
         try:
             default_storage.delete(path)
@@ -135,25 +154,22 @@ class BackgroundImageUploadView(APIView):
             img_io.seek(0)
             saved_path = default_storage.save(filename, ContentFile(img_io.read()))
 
-            # 构建 URL
-            if settings.DEBUG:
-                image_url = f'http://127.0.0.1:8000{settings.MEDIA_URL}{saved_path}'
-            else:
-                image_url = f'{settings.MEDIA_URL}{saved_path}'
-
-            # 直接写入用户记录
-            old_url = user.bg_image_url
-            user.bg_image_url = image_url
+            # DB stores the relative media key only. The frontend prepends
+            # VITE_MEDIA_BASE to build the final URL. This lets dev and prod
+            # (which share the Aiven DB but have different origins) both
+            # resolve the same row without polluting each other.
+            old_key = user.bg_image_url
+            user.bg_image_url = saved_path
             user.bg_color = None  # 图片优先，清除纯色背景
             user.save(update_fields=['bg_image_url', 'bg_color'])
 
-            # 删除旧背景图文件
-            if old_url and 'bg_images/' in old_url:
-                _delete_media_file(old_url)
+            # 删除旧背景图文件（仅当上一版是自己上传的，判别标志是含 bg_images/）
+            if old_key and 'bg_images/' in old_key:
+                _delete_media_file(old_key)
 
             return Response({
                 'message': '背景图片上传成功',
-                'image_url': image_url,
+                'image_url': saved_path,
                 'user': UserSerializer(user).data,
             }, status=status.HTTP_200_OK)
 

@@ -1,6 +1,5 @@
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
-from django.conf import settings
 
 
 ACCESS_COOKIE_NAME = 'access_token'
@@ -23,21 +22,38 @@ class SingleDeviceJWTAuthentication(JWTAuthentication):
     must equal the `X-CSRF-Token` request header. This pattern is safe because
     a cross-origin attacker can plant the cookie via the browser but cannot read
     it (Same-Origin Policy), so cannot echo it back in the header.
+
+    Cookies are AMBIENT — browsers attach them to every request whether the user
+    is trying to authenticate or not — so a stale/expired/invalidated cookie is
+    treated as "not authenticated" (return None) rather than a hard 401. That
+    lets AllowAny endpoints (/auth/login, /auth/register, /auth/logout) keep
+    working when the user's cookies have gone bad, so they don't have to
+    manually clear cookies to recover. Protected endpoints still 401 through
+    IsAuthenticated because request.user ends up as AnonymousUser.
+    Header-based auth (Authorization: Bearer …) is the explicit path and stays
+    strict — a bad header token is a hard 401.
     """
 
     def authenticate(self, request):
         cookie_token = request.COOKIES.get(ACCESS_COOKIE_NAME)
-        if cookie_token:
-            validated_token = self.get_validated_token(cookie_token)
-            if request.method not in SAFE_METHODS:
-                cookie_csrf = request.COOKIES.get(CSRF_COOKIE_NAME, '')
-                header_csrf = request.META.get(CSRF_HEADER_NAME, '')
-                if not cookie_csrf or cookie_csrf != header_csrf:
-                    raise AuthenticationFailed('CSRF token mismatch', code='csrf_failed')
-            return self.get_user(validated_token), validated_token
+        if not cookie_token:
+            return super().authenticate(request)
 
-        # Legacy header-based path (kept for now so existing in-flight clients keep working).
-        return super().authenticate(request)
+        try:
+            validated_token = self.get_validated_token(cookie_token)
+            user = self.get_user(validated_token)
+        except (InvalidToken, AuthenticationFailed):
+            return None
+
+        if request.method not in SAFE_METHODS:
+            cookie_csrf = request.COOKIES.get(CSRF_COOKIE_NAME, '')
+            header_csrf = request.META.get(CSRF_HEADER_NAME, '')
+            if not cookie_csrf or cookie_csrf != header_csrf:
+                # Treat as anonymous — protected endpoints still reject via
+                # IsAuthenticated, AllowAny endpoints (login) still work.
+                return None
+
+        return user, validated_token
 
     def get_user(self, validated_token):
         user = super().get_user(validated_token)
