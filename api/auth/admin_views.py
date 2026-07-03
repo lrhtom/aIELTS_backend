@@ -120,6 +120,31 @@ class AdminUserDeleteView(APIView):
         return Response({'message': 'USER_DELETED'}, status=status.HTTP_200_OK)
 
 
+class AdminUserPromoteToggleView(APIView):
+    """
+    管理员晋升/降级用户 (切换 is_staff)。
+    - 不允许修改超级用户 (is_superuser)。
+    - 不允许操作自己 (防止把自己降级)。
+    """
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, pk: int):
+        try:
+            target_user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'USER_NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.is_superuser:
+            return Response({'error': 'CANNOT_MODIFY_SUPERUSER'}, status=status.HTTP_403_FORBIDDEN)
+
+        if target_user.pk == request.user.pk:
+            return Response({'error': 'CANNOT_MODIFY_SELF'}, status=status.HTTP_403_FORBIDDEN)
+
+        target_user.is_staff = not target_user.is_staff
+        target_user.save(update_fields=['is_staff', 'updated_at'])
+        return Response(AdminUserManageSerializer(target_user).data, status=status.HTTP_200_OK)
+
+
 class AdminUserAdjustATView(APIView):
     """管理员调整用户 AT 币余额。"""
     permission_classes = [IsAdminUser]

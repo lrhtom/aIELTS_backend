@@ -187,6 +187,7 @@ urlpatterns = [
     path('admin/users/<int:pk>/ban', admin_views.AdminUserBanToggleView.as_view(), name='admin_user_ban_toggle'),
     path('admin/users/<int:pk>/delete', admin_views.AdminUserDeleteView.as_view(), name='admin_user_delete'),
     path('admin/users/<int:pk>/adjust-at', admin_views.AdminUserAdjustATView.as_view(), name='admin_user_adjust_at'),
+    path('admin/users/<int:pk>/promote', admin_views.AdminUserPromoteToggleView.as_view(), name='admin_user_promote_toggle'),
     path('admin/routes',                   AdminRoutesView.as_view(),                   name='admin_routes_live'),
     path('admin/ai-usage',                 admin_views.AdminAIUsageView.as_view(),       name='admin_ai_usage'),
     path('admin/users/search',             admin_views.AdminUserSearchView.as_view(),    name='admin_users_search'),
