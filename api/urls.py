@@ -203,4 +203,5 @@ urlpatterns = [
     path('analytics/vocab',                 analytics_views.VocabAnalyticsView.as_view(),     name='analytics_vocab'),
     path('analytics/scheduled-words',       analytics_views.ScheduledWordsView.as_view(),     name='analytics_scheduled_words'),
     path('analytics/writing',               analytics_views.WritingAnalyticsView.as_view(),   name='analytics_writing'),
+    path('analytics/practice',              analytics_views.PracticeAnalyticsView.as_view(),  name='analytics_practice'),
 ]

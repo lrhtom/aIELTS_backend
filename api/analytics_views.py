@@ -7,7 +7,96 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.models import LearningPlan, VocabFSRS, WritingServiceRecord
+from api.models import LearningPlan, VocabFSRS, WritingServiceRecord, AIQuestion
+
+
+# ── AIQuestion scoring helpers (shared by PracticeAnalyticsView) ─────
+def _extract_questions_from_content(content):
+    """Return a flat list of question dicts from an AIQuestion.content_json.
+
+    Handles single-type reading/listening AND full-test formats (reading with
+    `passages[].sections[].questions`; listening with `sections[]` that may
+    hold flat `questions` or `subsections[].questions`).
+    """
+    if not isinstance(content, dict):
+        return []
+    out = []
+    # Reading full-test
+    if isinstance(content.get('passages'), list):
+        for p in content['passages']:
+            if not isinstance(p, dict):
+                continue
+            for sec in (p.get('sections') or []):
+                if isinstance(sec, dict):
+                    for q in (sec.get('questions') or []):
+                        if isinstance(q, dict):
+                            out.append(q)
+        return out
+    # Listening full-test
+    if content.get('type') == 'full' and isinstance(content.get('sections'), list):
+        for sec in content['sections']:
+            if not isinstance(sec, dict):
+                continue
+            flat = sec.get('questions')
+            if isinstance(flat, list) and flat:
+                for q in flat:
+                    if isinstance(q, dict):
+                        out.append(q)
+                continue
+            subs = sec.get('subsections')
+            if isinstance(subs, list):
+                for sub in subs:
+                    if isinstance(sub, dict):
+                        for q in (sub.get('questions') or []):
+                            if isinstance(q, dict):
+                                out.append(q)
+        return out
+    # Single-type
+    qs = content.get('questions')
+    if isinstance(qs, list):
+        return [q for q in qs if isinstance(q, dict)]
+    return []
+
+
+def _score_one(q, user_ans_str):
+    """True if the user's answer matches the question's expected answer(s).
+
+    Rules:
+      - If q has `answers` list (text-answer types): case-insensitive match to any variant.
+      - Else if q has `answer` (letter/keyword types): case-insensitive match.
+    """
+    if not user_ans_str:
+        return False
+    u = user_ans_str.strip().lower()
+    if not u:
+        return False
+    ans_list = q.get('answers')
+    if isinstance(ans_list, list) and ans_list:
+        return any(str(a).strip().lower() == u for a in ans_list)
+    correct = q.get('answer')
+    if correct is not None:
+        return str(correct).strip().lower() == u
+    return False
+
+
+def _score_content(content, user_answer):
+    """Return (correct, total) for one AIQuestion attempt."""
+    questions = _extract_questions_from_content(content)
+    total = len(questions)
+    if not isinstance(user_answer, dict) or total == 0:
+        return 0, total
+    correct = 0
+    for q in questions:
+        qid = q.get('id')
+        if qid is None:
+            continue
+        # user_answer may be keyed by int or str depending on JSON path.
+        ans = user_answer.get(qid)
+        if ans is None:
+            ans = user_answer.get(str(qid))
+        if _score_one(q, str(ans or '')):
+            correct += 1
+    return correct, total
 
 
 class VocabAnalyticsView(APIView):
@@ -245,3 +334,99 @@ class WritingAnalyticsView(APIView):
             'task2_skills_avg': task2_skills_avg,
             'total_corrections': t1_count + t2_count
         })
+
+
+# ── Reading + Listening practice accuracy analytics ──────────────────
+class PracticeAnalyticsView(APIView):
+    """GET /api/analytics/practice
+
+    Aggregates per-skill accuracy from AIQuestion attempts:
+      - Overall: total_questions, correct_questions, accuracy, attempts
+      - By subtype: attempts, total, correct, accuracy
+      - Recent attempts: last 20 with per-attempt correct/total/accuracy
+
+    Response shape:
+    {
+        "reading":  { total_questions, correct_questions, accuracy, attempts,
+                       by_type: [...], recent: [...] },
+        "listening": { ... },
+        "combined": { total_questions, correct_questions, accuracy, attempts }
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    RECENT_LIMIT = 20
+
+    def get(self, request):
+        results = {}
+        combined_total = 0
+        combined_correct = 0
+        combined_attempts = 0
+
+        for skill in (AIQuestion.SKILL_READING, AIQuestion.SKILL_LISTENING):
+            qs = (
+                AIQuestion.objects
+                .filter(user=request.user, skill=skill)
+                .exclude(user_answer_json__isnull=True)
+                .order_by('-answered_at')
+            )
+            attempts_list = list(qs)
+
+            total_questions = 0
+            total_correct = 0
+            recent = []
+            by_type = defaultdict(lambda: {'attempts': 0, 'correct': 0, 'total': 0})
+
+            for aq in attempts_list:
+                correct, total = _score_content(aq.content_json, aq.user_answer_json)
+                total_questions += total
+                total_correct += correct
+                subtype = (aq.subtype or 'unknown').strip() or 'unknown'
+                by_type[subtype]['attempts'] += 1
+                by_type[subtype]['correct'] += correct
+                by_type[subtype]['total'] += total
+                if len(recent) < self.RECENT_LIMIT:
+                    recent.append({
+                        'id': aq.id,
+                        'title': aq.title or '',
+                        'subtype': subtype,
+                        'date': aq.answered_at.isoformat() if aq.answered_at else None,
+                        'correct': correct,
+                        'total': total,
+                        'accuracy': round(correct / total, 4) if total > 0 else 0.0,
+                    })
+
+            attempts_count = len(attempts_list)
+            combined_total += total_questions
+            combined_correct += total_correct
+            combined_attempts += attempts_count
+
+            # Sort by_type descending by attempts for stable display
+            by_type_list = [
+                {
+                    'subtype': subtype,
+                    'attempts': stats['attempts'],
+                    'total': stats['total'],
+                    'correct': stats['correct'],
+                    'accuracy': round(stats['correct'] / stats['total'], 4) if stats['total'] > 0 else 0.0,
+                }
+                for subtype, stats in by_type.items()
+            ]
+            by_type_list.sort(key=lambda x: (-x['attempts'], x['subtype']))
+
+            results[skill] = {
+                'total_questions': total_questions,
+                'correct_questions': total_correct,
+                'accuracy': round(total_correct / total_questions, 4) if total_questions > 0 else 0.0,
+                'attempts': attempts_count,
+                'by_type': by_type_list,
+                'recent': recent,
+            }
+
+        results['combined'] = {
+            'total_questions': combined_total,
+            'correct_questions': combined_correct,
+            'accuracy': round(combined_correct / combined_total, 4) if combined_total > 0 else 0.0,
+            'attempts': combined_attempts,
+        }
+        return Response(results)
