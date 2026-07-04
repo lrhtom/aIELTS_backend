@@ -1269,8 +1269,10 @@ def generate_chart(request):
             }
             return Response(_save_chart_question(user, chart_type, prompt_text, fc_payload))
 
-        # ── MAP (raster): text model → prompt + image-prompt → FLUX.2-pro PNG ──
-        if chart_type == 'map' and (request.data.get('image_mode') or 'svg').lower() == 'raster':
+        # ── MAP: always FLUX.2-pro raster (SVG/IR pipeline retired 2026-07). ──
+        # The `image_mode` request param is ignored; every map generation now
+        # goes through text-model → FLUX.2-pro PNG.
+        if chart_type == 'map':
             try:
                 payload = _generate_raster_map(client, user)
                 return Response(_save_chart_question(
@@ -1280,59 +1282,7 @@ def generate_chart(request):
             except Exception as e:
                 import traceback
                 print(f'[Map Raster] [ERR] {traceback.format_exc()}', flush=True)
-                return Response({'error': f'AI 光栅地图生成失败: {e}'}, status=500)
-
-        # ── MAP (SVG): IR pipeline (AI emits structured JSON, backend renders HTML) ──
-        if chart_type == 'map':
-            subject_area = random.choice(CHART_SUBJECT_AREAS)
-            map_profile = _pick_map_generation_profile()
-
-            try:
-                ir, at_cost, used_fallback = _generate_map_ir(client, user, subject_area, map_profile)
-            except Exception as map_err:
-                return Response({'error': f'AI map generation failed: {map_err}'}, status=500)
-
-            # Renderer is deterministic on a validated IR; we still guard for
-            # the unlikely case that a fallback IR has been corrupted.
-            try:
-                html_content = render_map_ir(ir, version=MAP_IR_VERSION)
-            except Exception as render_err:
-                return Response({'error': f'Map renderer failed: {render_err}'}, status=500)
-
-            prompt_text = str(ir.get('prompt') or '').strip()
-            title_override = build_map_title(ir)
-
-            reference_payload = {
-                'type': 'map-ir',
-                'irVersion': MAP_IR_VERSION,
-                'questionType': ir.get('scenarioType'),
-                'environmentType': ir.get('environment'),
-                'locationName': ir.get('locationName'),
-                'layoutSummary': ir.get('layoutSummary'),
-                'usedFallback': used_fallback,
-            }
-
-            map_payload = {
-                'imageUrl': None,
-                'mermaidCode': None,
-                'prompt': prompt_text,
-                'htmlContent': html_content,
-                # `pythonCode` is the historical "reference data" slot that
-                # writing/generate consumes for evaluation grounding. Keep
-                # JSON-encoded so the writing evaluator can read it.
-                'pythonCode': json.dumps(reference_payload, ensure_ascii=False),
-                # Persist the IR itself so we can re-render with future
-                # template/style improvements, or build new modes off it.
-                'mapIR': ir,
-                'mapIRVersion': MAP_IR_VERSION,
-                'mapScenarioType': ir.get('scenarioType'),
-                'mapEnvironmentType': ir.get('environment'),
-                'mapLocationName': ir.get('locationName'),
-                'atConsumed': at_cost,
-            }
-            return Response(_save_chart_question(
-                user, chart_type, prompt_text, map_payload, title_override=title_override
-            ))
+                return Response({'error': f'AI 地图生成失败: {e}'}, status=500)
 
         # 鈹€鈹€ OTHER CHART TYPES: JSON mode + Matplotlib sandbox ┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢
         subject_area = random.choice(CHART_SUBJECT_AREAS)
