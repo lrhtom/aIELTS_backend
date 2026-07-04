@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from api.core.ai_client import AIClient
 from api.core.rate_limit import check_rate_limit
 from api.models import AIQuestion
-from api.practice.ai_question_views import create_ai_question
+from api.practice.ai_question_views import create_ai_question, spawn_ai_generation
 from api.skills.writing.task2 import (
     skill_writing_task2_generate,
     skill_writing_task2_opinion_generate,
@@ -265,38 +265,41 @@ def generate_task2(request):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate the Task 2 prompt."}
         ]
-        
-        response_data, at_cost = client.generate(
-            messages,
-            expect_json=True,
-            user_id=user.id,
-            singleflight_scope='writing_task2_generate',
-        )
-        prompt_text = response_data.get('prompt', '')
 
-        payload = {
-            'prompt': prompt_text,
-            'requestedTopicCategory': requested_topic_category,
-            'topicCategory': resolved_topic_category,
-            'topicArea': topic_area or 'innovation-generated',
-            'atConsumed': at_cost,
-        }
+        user_id = user.id
+        placeholder = f'✍️ Task 2 生成中... ({task_type})'
 
-        try:
-            title = (prompt_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
-            ai_question = create_ai_question(
-                user=user,
-                skill=AIQuestion.SKILL_WRITING,
-                subtype=f'task2:{task_type}',
-                title=title,
-                content={k: v for k, v in payload.items() if k != 'atConsumed'} | {'writingKind': 'task2', 'taskType': task_type},
+        def _generator(_row):
+            response_data, _at_cost = client.generate(
+                messages,
+                expect_json=True,
+                user_id=user_id,
+                singleflight_scope='writing_task2_generate',
             )
-            payload['aiQuestionId'] = ai_question.id
-        except Exception as save_err:
-            print(f'[Task2] ⚠️ AIQuestion 入库失败: {save_err}', flush=True)
-            payload['aiQuestionId'] = None
+            prompt_text = response_data.get('prompt', '')
+            payload = {
+                'prompt': prompt_text,
+                'requestedTopicCategory': requested_topic_category,
+                'topicCategory': resolved_topic_category,
+                'topicArea': topic_area or 'innovation-generated',
+                'writingKind': 'task2',
+                'taskType': task_type,
+            }
+            title = (prompt_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
+            return title, payload
 
-        return Response(payload)
+        row = spawn_ai_generation(
+            user=user,
+            skill=AIQuestion.SKILL_WRITING,
+            subtype=f'task2:{task_type}',
+            placeholder_title=placeholder,
+            generator=_generator,
+        )
+        return Response({
+            'aiQuestionId': row.id,
+            'status': row.status,
+            'title': row.title,
+        }, status=202)
     except Exception as e:
         import traceback
         return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)

@@ -549,6 +549,85 @@ class AIClient:
                     print(f"[AIClient Stream] [COST] 流式扣费失败: {e}")
 
 
+    def generate_image(
+        self,
+        prompt: str,
+        size: str = "1024x1024",
+        user_id: int = None,
+    ) -> tuple[bytes, int]:
+        """向 FLUX.2-pro（Azure Black Forest Labs）发起图片生成请求。
+
+        与 text 模型不同，图片生成没有 token 计量，按固定 AT 消耗扣费，
+        环境变量 FLUX2_PRO_AT_COST 控制（默认 200）。
+
+        :return: (PNG bytes, at_cost)
+        """
+        flux_url = os.environ.get('FLUX2_PRO_URL', '').strip()
+        flux_key = os.environ.get('FLUX2_PRO_KEY', '').strip()
+        flux_model = os.environ.get('FLUX2_PRO_MODEL', 'FLUX.2-pro').strip()
+        try:
+            at_cost = int(os.environ.get('FLUX2_PRO_AT_COST', '10000'))
+        except ValueError:
+            at_cost = 10000
+        if not flux_url or not flux_key:
+            raise ValueError('FLUX2_PRO_URL / FLUX2_PRO_KEY 未配置')
+
+        # 余额预检（同 generate 的强一致方案）
+        if user_id:
+            User = get_user_model()
+            from django.db import transaction as _txn
+            with _txn.atomic():
+                _u = User.objects.select_for_update().only('id', 'at_balance').get(id=user_id)
+                balance = float(_u.at_balance)
+            if balance < at_cost:
+                raise ValueError(f'您的AT币余额不足({balance})，图片生成需要 {at_cost} AT。')
+
+        print(f"[AIClient/Image] [START] FLUX.2-pro → {flux_url}")
+        print(f"[AIClient/Image]   prompt(≤80): {prompt[:80]}")
+
+        headers = {'api-key': flux_key, 'Content-Type': 'application/json'}
+        payload = {'model': flux_model, 'prompt': prompt, 'size': size, 'n': 1}
+        try:
+            r = requests.post(flux_url, headers=headers, json=payload, timeout=180)
+            r.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            print(f"[AIClient/Image] [ERR] HTTP {e.response.status_code}: {e.response.text[:400]}")
+            raise
+        data = r.json()
+        try:
+            b64 = data['data'][0]['b64_json']
+        except (KeyError, IndexError, TypeError) as parse_err:
+            print(f"[AIClient/Image] [ERR] 响应解析失败: {str(data)[:400]}")
+            raise ValueError(f'FLUX.2-pro 响应格式异常: {parse_err}') from parse_err
+
+        import base64 as _b64
+        png_bytes = _b64.b64decode(b64)
+
+        # 扣费
+        if user_id:
+            try:
+                User = get_user_model()
+                from api.models import TransactionRecord
+                u = User.objects.get(id=user_id)
+                TransactionRecord.record(
+                    u, TransactionRecord.Currency.AT_COIN, -at_cost,
+                    f"AI图片生成消耗 ({flux_model} {size})",
+                )
+                print(f"[AIClient/Image] [OK] 图片计费成功: -{at_cost}AT, 余额 {u.at_balance}")
+                try:
+                    from api.core.redis_client import get_redis
+                    get_redis().delete(f"balance:{user_id}")
+                except Exception:
+                    pass
+            except Exception as deduct_err:
+                print(
+                    f"[AIClient/Image] [CRITICAL] 扣费失败但图片已生成！"
+                    f" user_id={user_id} at_cost={at_cost} err={deduct_err!r}"
+                )
+                raise
+        return png_bytes, at_cost
+
+
 def _repair_json(json_str: str) -> str:
     """
     修复 AI 返回的常见 JSON 格式错误。

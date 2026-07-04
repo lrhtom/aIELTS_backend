@@ -384,6 +384,103 @@ def _pick_map_generation_profile() -> dict[str, str]:
     }
 
 
+# ── Raster (FLUX.2-pro) map generation ────────────────────────────────────
+# The user's text-model of choice writes both the IELTS prompt (English) and
+# a compact image-prompt for FLUX.2-pro. FLUX then renders a photorealistic
+# / illustrative IELTS-style map. PNG bytes are saved under
+#   <MEDIA_ROOT>/maps/<user_id>/<uuid>.png
+# and the relative path is stored on AIQuestion.content_json['mapImagePath']
+# so it can be unlinked on delete (see ai_question_views.ai_question_detail).
+
+_RASTER_MAP_SYSTEM = """You are an IELTS Task 1 map-question setter.
+Output ONLY a JSON object with exactly these keys:
+{
+  "prompt": "<the IELTS question prompt, English, one paragraph, 40-70 words>",
+  "titleOverride": "<short display title, ≤80 chars>",
+  "imagePrompt": "<English image-generation prompt for FLUX.2-pro, 60-140 words>"
+}
+Rules:
+- The question MUST be a Task 1 map task with EITHER a before/after comparison OR a site-selection layout.
+- prompt: standard IELTS phrasing, e.g. "The two maps below show ..." or "The map illustrates ...".
+- titleOverride: like "地图 · A coastal town · Before & After" or "地图 · University campus · Site plan".
+- imagePrompt: instruct a diffusion image model to render an IELTS Task 1 style map illustration.
+    * MUST specify: top-down map view; clean flat vector illustration; labelled buildings; roads with white centre-line; north arrow; scale bar if useful; two side-by-side panels labelled 'Before' / 'After' for change scenarios, or one panel with candidate sites A/B/C for site-selection scenarios.
+    * Keep style: minimal palette (light neutral background, sage/soft-blue accents), thin black outlines, bold sans-serif labels.
+    * Absolutely no photorealistic satellite imagery, no aerial photography, no ornate 3D — this is a schematic classroom map.
+    * Include real place names / building names from `prompt`.
+"""
+
+
+def _generate_raster_map(client, user) -> dict:
+    """Runs text model → FLUX.2-pro pipeline. Returns AIQuestion content payload."""
+    import os as _os
+    import uuid as _uuid
+    from django.conf import settings as _settings
+
+    profile = _pick_map_generation_profile()
+    user_hint = (
+        f"scene: {profile['sceneName']}, environment: {profile['environmentType']}, "
+        f"question type: {profile['questionType']}. "
+        "Now emit the JSON."
+    )
+    messages = [
+        {"role": "system", "content": _RASTER_MAP_SYSTEM},
+        {"role": "user", "content": user_hint},
+    ]
+    prompt_payload, text_at_cost = client.generate(
+        messages,
+        expect_json=True,
+        user_id=user.id,
+        singleflight_scope='writing_map_raster_prompt',
+    )
+    if not isinstance(prompt_payload, dict):
+        raise ValueError('文本模型返回结构异常')
+    ielts_prompt = str(prompt_payload.get('prompt') or '').strip()
+    image_prompt = str(prompt_payload.get('imagePrompt') or '').strip()
+    title_override = str(prompt_payload.get('titleOverride') or '').strip() or None
+    if not ielts_prompt or not image_prompt:
+        raise ValueError('文本模型未返回完整的 prompt / imagePrompt')
+
+    # FLUX.2-pro — always this model for raster mode (no user choice).
+    from api.core.ai_client import AIClient as _AIClient
+    image_client = _AIClient()
+    png_bytes, image_at_cost = image_client.generate_image(
+        prompt=image_prompt,
+        size='1024x1024',
+        user_id=user.id,
+    )
+
+    # Save under MEDIA_ROOT/maps/<user_id>/<uuid>.png
+    rel_dir = _os.path.join('maps', str(user.id))
+    abs_dir = _os.path.join(_settings.MEDIA_ROOT, rel_dir)
+    _os.makedirs(abs_dir, exist_ok=True)
+    file_id = _uuid.uuid4().hex
+    rel_path = _os.path.join(rel_dir, f'{file_id}.png').replace('\\', '/')
+    abs_path = _os.path.join(_settings.MEDIA_ROOT, rel_path)
+    with open(abs_path, 'wb') as f:
+        f.write(png_bytes)
+
+    media_url = getattr(_settings, 'MEDIA_URL', '/media/')
+    image_url = (media_url.rstrip('/') + '/' + rel_path).replace('//', '/')
+    if not image_url.startswith('/'):
+        image_url = '/' + image_url
+
+    at_total = int(text_at_cost or 0) + int(image_at_cost or 0)
+    return {
+        'imageUrl': image_url,
+        'mapImagePath': rel_path,          # relative to MEDIA_ROOT, used for delete-cleanup
+        'mapImageMode': 'raster',
+        'mapImageModel': 'FLUX.2-pro',
+        'mermaidCode': None,
+        'htmlContent': None,
+        'prompt': ielts_prompt,
+        'imagePrompt': image_prompt,
+        'pythonCode': None,
+        'atConsumed': at_total,
+        'titleOverride': title_override,
+    }
+
+
 def _safe_float(value, default: float) -> float:
     try:
         return float(value)
@@ -1172,7 +1269,20 @@ def generate_chart(request):
             }
             return Response(_save_chart_question(user, chart_type, prompt_text, fc_payload))
 
-        # ── MAP: IR pipeline (AI emits structured JSON, backend renders HTML) ──
+        # ── MAP (raster): text model → prompt + image-prompt → FLUX.2-pro PNG ──
+        if chart_type == 'map' and (request.data.get('image_mode') or 'svg').lower() == 'raster':
+            try:
+                payload = _generate_raster_map(client, user)
+                return Response(_save_chart_question(
+                    user, chart_type, payload['prompt'], payload,
+                    title_override=payload.get('titleOverride'),
+                ))
+            except Exception as e:
+                import traceback
+                print(f'[Map Raster] [ERR] {traceback.format_exc()}', flush=True)
+                return Response({'error': f'AI 光栅地图生成失败: {e}'}, status=500)
+
+        # ── MAP (SVG): IR pipeline (AI emits structured JSON, backend renders HTML) ──
         if chart_type == 'map':
             subject_area = random.choice(CHART_SUBJECT_AREAS)
             map_profile = _pick_map_generation_profile()

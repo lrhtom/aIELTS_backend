@@ -20,7 +20,7 @@ Layout:
 - ``assistant``  — UserTodoItem, UserShortcut, CreativeWorkshopPage, MarkdownNote
 """
 
-from .user import User
+from .user import User, BannedIP
 from .feedback import AIPrompt, Feedback
 from .vocab import (
     VocabBook,
@@ -53,7 +53,7 @@ from .assistant import (
 )
 
 __all__ = [
-    'User',
+    'User', 'BannedIP',
     'AIPrompt', 'Feedback',
     'VocabBook', 'Word', 'WordBookMembership',
     'Notebook', 'NotebookWord', 'NotebookWordTag',

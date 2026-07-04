@@ -78,7 +78,11 @@ urlpatterns = [
 
     # ---- 业务 API ----
     path('reading/generate', reading_views.generate_reading, name='generate_reading'),
+    path('reading/full', reading_views.generate_reading_full, name='generate_reading_full'),
+    path('reading/meta', reading_views.reading_meta, name='reading_meta'),
     path('listening/generate', listening_views.generate_listening, name='generate_listening'),
+    path('listening/full', listening_views.generate_listening_full, name='generate_listening_full'),
+    path('listening/meta', listening_views.listening_meta, name='listening_meta'),
     path('listening/audio', listening_views.generate_listening_audio, name='listening_audio'),
     path('speaking/chat', speaking_views.speaking_chat, name='speaking_chat'),
     path('speaking/transcribe', speaking_views.speaking_transcribe, name='speaking_transcribe'),
@@ -191,6 +195,9 @@ urlpatterns = [
     path('admin/routes',                   AdminRoutesView.as_view(),                   name='admin_routes_live'),
     path('admin/ai-usage',                 admin_views.AdminAIUsageView.as_view(),       name='admin_ai_usage'),
     path('admin/users/search',             admin_views.AdminUserSearchView.as_view(),    name='admin_users_search'),
+    path('admin/banned-ips',               admin_views.AdminBannedIPListView.as_view(),  name='admin_banned_ips'),
+    path('admin/banned-ips/<int:pk>',      admin_views.AdminBannedIPDeleteView.as_view(),name='admin_banned_ip_delete'),
+    path('admin/users/<int:pk>/ban-ip',    admin_views.AdminUserBanIPView.as_view(),     name='admin_user_ban_ip'),
 
     # ---- 学习分析 API ----
     path('analytics/vocab',                 analytics_views.VocabAnalyticsView.as_view(),     name='analytics_vocab'),

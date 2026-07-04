@@ -79,16 +79,17 @@ class CustomLoginView(APIView):
 
     def post(self, request):
         from django.contrib.auth import authenticate
+        from api.core.middleware import get_client_ip
         username = request.data.get('username', '')
         password = request.data.get('password', '')
 
         print(f"[Login] Attempt for user: {username}")
         user = authenticate(request, username=username, password=password)
-        
+
         if user is None:
             print(f"[Login] Failed: Invalid credentials for {username}")
             return Response({'error': 'INVALID_CREDENTIALS'}, status=status.HTTP_401_UNAUTHORIZED)
-        
+
         print(f"[Login] Success: User {username} authenticated")
 
         if user.is_banned:
@@ -98,7 +99,12 @@ class CustomLoginView(APIView):
         user.jwt_token_id = str(uuid.uuid4())
         # 自定义登录流程需手动维护最近登录时间
         user.last_login = timezone.now()
-        user.save(update_fields=['jwt_token_id', 'last_login'])
+        client_ip = get_client_ip(request)
+        update_fields = ['jwt_token_id', 'last_login']
+        if client_ip:
+            user.last_ip = client_ip
+            update_fields.append('last_ip')
+        user.save(update_fields=update_fields)
 
         refresh = RefreshToken.for_user(user)
         # 将 Token ID 注入到 JWT 负载中

@@ -7,8 +7,9 @@ from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from api.models import Feedback, TransactionRecord
+from api.models import Feedback, TransactionRecord, BannedIP
 from api.serializers import FeedbackSerializer, AdminUserManageSerializer
+from api.core.middleware import invalidate_ip_ban_cache
 
 User = get_user_model()
 
@@ -391,3 +392,103 @@ class AdminRoutesView(APIView):
                 for mod, routes in sorted(groups.items())
             ],
         })
+
+
+def _serialize_banned_ip(row: BannedIP) -> dict:
+    return {
+        'id': row.id,
+        'ip_address': row.ip_address,
+        'reason': row.reason,
+        'banned_at': row.banned_at.isoformat() if row.banned_at else None,
+        'banned_by': row.banned_by.username if row.banned_by_id else None,
+    }
+
+
+class AdminBannedIPListView(APIView):
+    """GET → list all banned IPs; POST → add a new one (idempotent)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        rows = BannedIP.objects.select_related('banned_by').all()
+        return Response({
+            'count': rows.count(),
+            'items': [_serialize_banned_ip(r) for r in rows],
+        })
+
+    def post(self, request):
+        ip = str(request.data.get('ip_address') or '').strip()
+        reason = str(request.data.get('reason') or '').strip()[:200]
+        if not ip:
+            return Response({'error': 'MISSING_IP'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate via GenericIPAddressField's built-in cleaner. Reject junk
+        # early so the DB doesn't have to.
+        from django.core.exceptions import ValidationError
+        from django.core.validators import validate_ipv46_address
+        try:
+            validate_ipv46_address(ip)
+        except ValidationError:
+            return Response({'error': 'INVALID_IP'}, status=status.HTTP_400_BAD_REQUEST)
+
+        row, created = BannedIP.objects.get_or_create(
+            ip_address=ip,
+            defaults={'reason': reason, 'banned_by': request.user},
+        )
+        # If the row already existed but the admin wants to update the reason,
+        # let them — it's a small quality-of-life detail so audit trail matches.
+        if not created and reason and row.reason != reason:
+            row.reason = reason
+            row.banned_by = request.user
+            row.save(update_fields=['reason', 'banned_by'])
+
+        invalidate_ip_ban_cache(ip)
+        return Response(
+            _serialize_banned_ip(row),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class AdminBannedIPDeleteView(APIView):
+    """DELETE /admin/banned-ips/<pk> — remove a ban entry."""
+    permission_classes = [IsAdminUser]
+
+    def delete(self, request, pk: int):
+        try:
+            row = BannedIP.objects.get(pk=pk)
+        except BannedIP.DoesNotExist:
+            return Response({'error': 'NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+        ip = row.ip_address
+        row.delete()
+        invalidate_ip_ban_cache(ip)
+        return Response({'message': 'DELETED', 'ip_address': ip})
+
+
+class AdminUserBanIPView(APIView):
+    """POST /admin/users/<pk>/ban-ip — ban the user's `last_ip` in one click.
+
+    Body: {"reason": "optional string"}. If the target user has never logged in
+    (no last_ip) we return 400 rather than silently no-op.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk: int):
+        try:
+            target = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'USER_NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target.is_staff or target.is_superuser:
+            return Response({'error': 'CANNOT_MODIFY_ADMIN'}, status=status.HTTP_403_FORBIDDEN)
+
+        ip = (target.last_ip or '').strip()
+        if not ip:
+            return Response({'error': 'USER_HAS_NO_IP'}, status=status.HTTP_400_BAD_REQUEST)
+
+        reason = str(request.data.get('reason') or f'关联用户 {target.username} (#{target.id})').strip()[:200]
+        row, created = BannedIP.objects.get_or_create(
+            ip_address=ip,
+            defaults={'reason': reason, 'banned_by': request.user},
+        )
+        invalidate_ip_ban_cache(ip)
+        return Response(_serialize_banned_ip(row),
+                        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

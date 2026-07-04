@@ -2,6 +2,7 @@
 
 `settings.AUTH_USER_MODEL = 'api.User'` resolves to this class.
 """
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -89,3 +90,26 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.get_membership_tier_display()})"
+
+
+class BannedIP(models.Model):
+    """Admin-maintained IP blocklist. Middleware rejects any request whose
+    client IP appears here (matches against a Redis-mirrored set when Redis is
+    available, otherwise falls back to a DB query).
+    """
+    ip_address = models.GenericIPAddressField(unique=True, verbose_name="被封禁IP")
+    reason = models.CharField(max_length=200, blank=True, default='', verbose_name="封禁原因")
+    banned_at = models.DateTimeField(auto_now_add=True, verbose_name="封禁时间")
+    banned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='banned_ip_actions', verbose_name="操作管理员"
+    )
+
+    class Meta:
+        verbose_name = "IP 封禁"
+        verbose_name_plural = "IP 封禁列表"
+        db_table = 'banned_ips'
+        ordering = ['-banned_at']
+
+    def __str__(self):
+        return f"{self.ip_address} ({self.reason or 'no reason'})"

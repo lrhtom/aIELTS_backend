@@ -88,6 +88,15 @@ class AIQuestion(models.Model):
         (SKILL_WRITING, '写作'),
     ]
 
+    STATUS_GENERATING = 'generating'
+    STATUS_READY = 'ready'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [
+        (STATUS_GENERATING, '生成中'),
+        (STATUS_READY, '已完成'),
+        (STATUS_FAILED, '生成失败'),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -100,6 +109,11 @@ class AIQuestion(models.Model):
     content_json = models.JSONField(default=dict, verbose_name='生成内容')
     user_answer_json = models.JSONField(null=True, blank=True, verbose_name='用户作答')
     ai_feedback_json = models.JSONField(null=True, blank=True, verbose_name='AI 反馈/评分')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_READY,
+        verbose_name='生成状态',
+    )
+    error_message = models.TextField(blank=True, default='', verbose_name='失败原因')
     answered_at = models.DateTimeField(null=True, blank=True, verbose_name='首次作答时间')
     last_attempt_at = models.DateTimeField(null=True, blank=True, verbose_name='最近作答时间')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='生成时间')
@@ -111,6 +125,7 @@ class AIQuestion(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user', 'skill', '-created_at'], name='idx_aiq_user_skill_created'),
+            models.Index(fields=['status', 'created_at'], name='idx_aiq_status_created'),
         ]
 
     def __str__(self):

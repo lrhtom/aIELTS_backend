@@ -81,6 +81,8 @@ class FeedbackSerializer(serializers.ModelSerializer):
 
 class AdminUserManageSerializer(serializers.ModelSerializer):
     atBalance = serializers.IntegerField(source='at_balance', read_only=True)
+    lastIp = serializers.CharField(source='last_ip', read_only=True, allow_null=True)
+    isIpBanned = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -88,8 +90,17 @@ class AdminUserManageSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'is_staff', 'is_superuser',
             'is_active', 'is_banned', 'is_email_verified',
             'date_joined', 'last_login', 'at_balance', 'atBalance',
+            'last_ip', 'lastIp', 'isIpBanned',
         )
         read_only_fields = fields
+
+    def get_isIpBanned(self, obj) -> bool:
+        # Cheap per-row lookup — admin list is ≤ 20/page. Prefetch into a set()
+        # in the view if this list ever gets much bigger.
+        if not obj.last_ip:
+            return False
+        from .models import BannedIP
+        return BannedIP.objects.filter(ip_address=obj.last_ip).exists()
 
 from .models import UserTodoItem, UserShortcut
 
