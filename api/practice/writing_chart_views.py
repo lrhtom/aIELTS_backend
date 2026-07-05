@@ -27,21 +27,36 @@ from api.practice.map_renderer import (
 )
 
 
-def _save_chart_question(user, chart_type: str, prompt_text: str, payload: dict, title_override: str | None = None) -> dict:
+def _save_chart_question(
+    user,
+    chart_type: str,
+    prompt_text: str,
+    payload: dict,
+    title_override: str | None = None,
+    custom_title: str | None = None,
+    custom_description: str | None = None,
+) -> dict:
     """Persist a chart-generation payload to AIQuestion and inject aiQuestionId.
 
     For map questions the caller passes `title_override` derived from the IR
     so the AIBank list shows e.g. "地图 · A coastal town · Before & After"
     instead of the prompt's first line (which is generic across all maps).
+
+    custom_title 非空时优先使用，覆盖 title_override 和 AI 生成的默认 title。
+    custom_description 非空时写入 content.description。
     """
     try:
         title = (title_override or (prompt_text or 'Task 1').strip().splitlines()[0])[:200] or 'Task 1 图表'
+        content = {k: v for k, v in payload.items() if k != 'atConsumed'} | {'writingKind': 'chart', 'chartType': chart_type}
+        if custom_description:
+            content['description'] = custom_description
         ai_question = create_ai_question(
             user=user,
             skill=AIQuestion.SKILL_WRITING,
             subtype=f'chart:{chart_type}',
             title=title,
-            content={k: v for k, v in payload.items() if k != 'atConsumed'} | {'writingKind': 'chart', 'chartType': chart_type},
+            content=content,
+            custom_title=custom_title,
         )
         payload['aiQuestionId'] = ai_question.id
     except Exception as save_err:
@@ -1132,6 +1147,8 @@ def generate_chart(request):
         limit_resp = check_rate_limit(user.id, 'chart_generate', max_calls=5, window=60)
         if limit_resp: return limit_resp
         chart_type = request.data.get('type', 'line')
+        custom_title = (request.data.get('customName') or request.data.get('customTitle') or '').strip() or None
+        custom_description = (request.data.get('customDescription') or request.data.get('description') or '').strip() or None
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         client = AIClient(provider=provider)
@@ -1267,7 +1284,7 @@ def generate_chart(request):
                 'pythonCode':  mermaid_code,
                 'atConsumed':  at_cost,
             }
-            return Response(_save_chart_question(user, chart_type, prompt_text, fc_payload))
+            return Response(_save_chart_question(user, chart_type, prompt_text, fc_payload, custom_title=custom_title, custom_description=custom_description))
 
         # ── MAP: always FLUX.2-pro raster (SVG/IR pipeline retired 2026-07). ──
         # The `image_mode` request param is ignored; every map generation now
@@ -1278,6 +1295,8 @@ def generate_chart(request):
                 return Response(_save_chart_question(
                     user, chart_type, payload['prompt'], payload,
                     title_override=payload.get('titleOverride'),
+                    custom_title=custom_title,
+                    custom_description=custom_description,
                 ))
             except Exception as e:
                 import traceback
@@ -1355,7 +1374,7 @@ def generate_chart(request):
             'pythonCode': python_code,
             'atConsumed': at_cost,
         }
-        return Response(_save_chart_question(user, chart_type, prompt_text, std_payload))
+        return Response(_save_chart_question(user, chart_type, prompt_text, std_payload, custom_title=custom_title, custom_description=custom_description))
     except Exception as e:
         import traceback
         return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)

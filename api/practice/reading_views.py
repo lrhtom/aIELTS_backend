@@ -377,6 +377,8 @@ def generate_reading(request):
         topic_key, topic_instruction = _norm_topic(data.get('topic'))
         word_count_min = data.get('wordCountMin', 1)
         word_count_max = data.get('wordCountMax', 3)
+        custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
+        custom_description = (data.get('customDescription') or data.get('description') or '').strip()
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         tone_instruction = (
@@ -440,6 +442,8 @@ def generate_reading(request):
                 missing = _count_answers_missing_from_passage(payload['questions'], passage)
                 if missing:
                     payload['answerVerificationWarnings'] = missing
+            if custom_description:
+                payload['description'] = custom_description
             return title, payload
 
         row = spawn_ai_generation(
@@ -448,6 +452,7 @@ def generate_reading(request):
             subtype=question_type,
             placeholder_title=placeholder,
             generator=_generator,
+            custom_title=custom_title,
         )
         return JsonResponse({
             'aiQuestionId': row.id,
@@ -526,19 +531,104 @@ def _build_full_passage_prompt(
     return prompt, section_plan
 
 
+_READING_QT_ALIASES = {
+    'mcq': 'multiple_choice',
+    'multiplechoice': 'multiple_choice',
+    'multiple-choice': 'multiple_choice',
+    'multiple choice': 'multiple_choice',
+    'tf': 'true_false',
+    't/f': 'true_false',
+    'tfng': 'true_false',
+    'true/false': 'true_false',
+    'true false': 'true_false',
+    'true_false_notgiven': 'true_false',
+    'yn': 'yes_no',
+    'y/n': 'yes_no',
+    'yesno': 'yes_no',
+    'yes/no': 'yes_no',
+    'yes no': 'yes_no',
+    'ynng': 'yes_no',
+    'headings': 'matching_headings',
+    'match_headings': 'matching_headings',
+    'matching-headings': 'matching_headings',
+    'matchingheadings': 'matching_headings',
+    'info': 'matching_info',
+    'match_info': 'matching_info',
+    'features': 'matching_features',
+    'match_features': 'matching_features',
+    'sentence_endings': 'matching_sentence',
+    'match_sentence': 'matching_sentence',
+    'matching_sentence_endings': 'matching_sentence',
+    'sentence': 'sentence_completion',
+    'sentence_completion': 'sentence_completion',
+    'summary': 'summary_completion',
+    'summary_completion': 'summary_completion',
+    'note': 'note_completion',
+    'notes': 'note_completion',
+    'note_completion': 'note_completion',
+    'short': 'short_answer',
+    'short_answer': 'short_answer',
+    'shortanswer': 'short_answer',
+}
+
+
+def _canonical_qt(raw: Any) -> str:
+    s = str(raw or '').strip().lower()
+    if not s:
+        return ''
+    if s in _READING_QT_ALIASES:
+        return _READING_QT_ALIASES[s]
+    # Compact form (no separators) for fuzzy match
+    compact = s.replace(' ', '').replace('-', '').replace('_', '')
+    return _READING_QT_ALIASES.get(compact, s)
+
+
 def _normalize_full_passage(result: dict, section_plan: list[dict], *, passage_num: int, topic_key: str) -> dict:
     title = str(result.get('title') or '').strip() or f'Passage {passage_num}'
     passage = str(result.get('passage') or '').strip()
     raw_sections = result.get('sections') if isinstance(result.get('sections'), list) else []
 
+    # 建立 index: {canonical_qt: [raw_sec, ...]} 用来按题型顺序取；
+    # 同题型可能被 AI 拆成多个 sub-section (e.g. 两组 MCQ)，用队列消费避免重复
+    indexed_by_qt: dict[str, list[dict]] = {}
+    unmatched_by_order: list[dict] = []
+    for raw_sec in raw_sections:
+        if not isinstance(raw_sec, dict):
+            continue
+        can = _canonical_qt(raw_sec.get('questionType'))
+        if can:
+            indexed_by_qt.setdefault(can, []).append(raw_sec)
+        else:
+            unmatched_by_order.append(raw_sec)
+
     sections_out: list[dict] = []
-    for plan in section_plan:
+    for plan_idx, plan in enumerate(section_plan):
         qt = plan['questionType']
-        # Find matching raw section by questionType key
-        raw_sec = next((s for s in raw_sections if isinstance(s, dict) and str(s.get('questionType') or '').strip().lower() == qt), None) or {}
+        bucket = indexed_by_qt.get(qt) or []
+        raw_sec = bucket.pop(0) if bucket else {}
+        # 位置兜底：AI 返回 sections 数量与 plan 一致但 questionType 全对不上时，
+        # 按 plan 顺序取原始 sections 里的第 N 个。
+        if not raw_sec and plan_idx < len(raw_sections) and isinstance(raw_sections[plan_idx], dict):
+            fallback_sec = raw_sections[plan_idx]
+            fallback_can = _canonical_qt(fallback_sec.get('questionType'))
+            if fallback_can != qt:
+                raw_sec = fallback_sec
         payload = raw_sec.get('payload') if isinstance(raw_sec.get('payload'), dict) else {}
-        merged: dict[str, Any] = {'questions': raw_sec.get('questions')}
+        # 兼容 AI 把 questions 放到 payload 里的情况
+        raw_qs = raw_sec.get('questions')
+        if not (isinstance(raw_qs, list) and raw_qs):
+            raw_qs = payload.get('questions') if isinstance(payload.get('questions'), list) else raw_qs
+        if not (isinstance(raw_qs, list) and raw_qs):
+            print(
+                f'[Reading Full] ⚠️ passage {passage_num} section {plan_idx + 1} ({qt}): '
+                f'AI 未提供 questions，将 fill placeholders ({plan["count"]} items). '
+                f'raw_sections keys={[list(s.keys()) for s in raw_sections if isinstance(s, dict)]}',
+                flush=True,
+            )
+        merged: dict[str, Any] = {'questions': raw_qs}
         for k, v in payload.items():
+            if k == 'questions':
+                continue  # 已上面处理过，别覆盖回去
             merged[k] = v
         # Lift specific fields into merged so preserve_fields can find them
         for k in ('headings_bank', 'paragraph_labels', 'features_bank', 'endings_bank',
@@ -599,6 +689,8 @@ def generate_reading_full(request):
         difficulty = str(data.get('difficulty', '7.0'))
         absurd_mode = str(data.get('absurdMode', 'false')).lower() == 'true'
         topic_key, topic_instruction = _norm_topic(data.get('topic'))
+        custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
+        custom_description = (data.get('customDescription') or data.get('description') or '').strip()
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         # ── 单篇 override ──
@@ -699,6 +791,8 @@ def generate_reading_full(request):
                 'singlePassage': is_single,
                 'passages': passages_out,
             }
+            if custom_description:
+                payload['description'] = custom_description
             return title, payload
 
         row = spawn_ai_generation(
@@ -707,6 +801,7 @@ def generate_reading_full(request):
             subtype=subtype,
             placeholder_title=placeholder,
             generator=_generator,
+            custom_title=custom_title,
         )
         return JsonResponse({
             'aiQuestionId': row.id,

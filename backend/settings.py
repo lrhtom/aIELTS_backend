@@ -176,7 +176,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # 媒体文件配置
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_ROOT is env-overridable so prod can keep uploads OUTSIDE the backend/
+# tree (which pack.py deploys wipe & replace). Local dev leaves it unset and
+# gets the historical backend/media path.
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT') or os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

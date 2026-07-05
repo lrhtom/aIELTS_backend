@@ -235,6 +235,8 @@ def generate_task2(request):
         if limit_resp: return limit_resp
         task_type = request.data.get('type', 'opinion')
         topic_category = request.data.get('topic_category', TASK2_TOPIC_ALL)
+        custom_title = (request.data.get('customName') or request.data.get('customTitle') or '').strip()
+        custom_description = (request.data.get('customDescription') or request.data.get('description') or '').strip()
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         client = AIClient(provider=provider)
@@ -285,6 +287,8 @@ def generate_task2(request):
                 'writingKind': 'task2',
                 'taskType': task_type,
             }
+            if custom_description:
+                payload['description'] = custom_description
             title = (prompt_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
             return title, payload
 
@@ -294,6 +298,7 @@ def generate_task2(request):
             subtype=f'task2:{task_type}',
             placeholder_title=placeholder,
             generator=_generator,
+            custom_title=custom_title,
         )
         return Response({
             'aiQuestionId': row.id,

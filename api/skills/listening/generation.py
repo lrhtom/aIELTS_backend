@@ -130,56 +130,66 @@ RULES:
 2. "map": A structured JSON object describing the map layout:
    - "name": name of the place
    - "width": 600, "height": 400 (fixed canvas size)
-   - "landmarks": array of location objects. Each has:
-     - "id": unique string like "L1", "L2", etc.
-     - "label": the place name (set to "" for question locations)
+   - "landmarks": array of building/location objects labeled A through J. Each has:
+     - "id": the SAME letter as label (e.g. "A")
+     - "label": a SINGLE UPPERCASE LETTER "A" through "J" (this is what shows on the map — nothing else)
      - "x", "y": center coordinates (must be within 30-570 for x, 30-370 for y)
      - "shape": "rect" or "circle"
      - For rect: "w" (width 40-100), "h" (height 30-70)
      - For circle: "r" (radius 15-35)
-     - "questionId": integer (1-5) ONLY for unlabelled question locations
-   - You MUST have exactly 5 landmarks with questionId (1 through 5) and at least 3 pre-labelled landmarks.
+     - DO NOT set "questionId" on any landmark — the question paradigm is INVERSE (see below).
+   - You MUST have exactly 10 letter-labeled landmarks (A, B, C, D, E, F, G, H, I, J), evenly spread.
+   - You MAY additionally include unlettered orientation features (e.g. "River", "Main Road", "Entrance", "Reception") — put these in "landmarks" too but with a descriptive label ("Main Road" etc.) instead of a letter. Do not use them as answer options.
    - "paths": array of path objects, each with "points" (array of [x,y] pairs) and optional "label"
    - "decorations": array of decoration objects with "type" (one of: "tree", "lake", "garden", "parking", "fountain"), "x", "y", and optional "w", "h"
-3. "options": An array of exactly 8 strings like ["A. Library", "B. Cafeteria", ...]. These are the answer choices.
-4. "questions": An array of exactly 5 objects. Each has:
-   - "id": 1-5 (matching the questionId in landmarks)
-   - "answer": the correct option letter (A-H)
+3. "options": An array of exactly 10 strings: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]. The letters correspond to the building labels on the map.
+4. "questions": An array of exactly 5 objects. Each is a THING the listener must locate on the map. Each has:
+   - "id": 1 through 5
+   - "question": the THING to locate (short lowercase phrase like "coffee room", "warehouse", "staff canteen", "meeting room", "human resources")
+   - "answer": which letter A-J that thing is at
    - "explanation": explanation in Chinese
-5. The landmarks should be spread across the map, not clustered in one area.
-6. Include at least 2-3 paths connecting landmarks.
+5. The passage MUST describe where each of the 5 THINGS in "questions" is located, referencing the labeled buildings A-J or the orientation features.
+6. Include at least 2-3 paths for visual context.
 7. Include 2-4 decorations for visual interest.
 8. Make sure the passage uses clear directional language that MATCHES the spatial layout of the map coordinates.
+9. NEVER draw red numbered markers on the map. The map is a clean floor plan with buildings only labeled by letter.
 
 Output ONLY valid JSON, no markdown, no comments:
 {{
     "type": "map",
-    "title": "Tour of [Place Name]",
-    "passage": "Welcome to ... As you enter through the main gate...",
+    "title": "Plan of [Place Name]",
+    "passage": "Welcome to ... The coffee room is on your left as you enter, next to building A. If you continue past the reception...",
     "map": {{
         "name": "[Place Name]",
         "width": 600,
         "height": 400,
         "landmarks": [
-            {{"id": "L1", "label": "Main Entrance", "x": 300, "y": 370, "shape": "rect", "w": 80, "h": 25}},
-            {{"id": "L2", "label": "", "x": 150, "y": 200, "shape": "rect", "w": 70, "h": 45, "questionId": 1}},
-            {{"id": "L3", "label": "Car Park", "x": 500, "y": 350, "shape": "rect", "w": 60, "h": 40}}
+            {{"id": "A", "label": "A", "x": 100, "y": 200, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "B", "label": "B", "x": 200, "y": 200, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "C", "label": "C", "x": 300, "y": 200, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "D", "label": "D", "x": 400, "y": 200, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "E", "label": "E", "x": 500, "y": 200, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "F", "label": "F", "x": 100, "y": 300, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "G", "label": "G", "x": 200, "y": 300, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "H", "label": "H", "x": 300, "y": 300, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "I", "label": "I", "x": 400, "y": 300, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "J", "label": "J", "x": 500, "y": 300, "shape": "rect", "w": 60, "h": 45}},
+            {{"id": "reception", "label": "RECEPTION", "x": 300, "y": 370, "shape": "rect", "w": 100, "h": 25}}
         ],
         "paths": [
-            {{"points": [[300, 370], [300, 200], [150, 200]], "label": "Main Corridor"}}
+            {{"points": [[300, 370], [300, 250]], "label": "Main Corridor"}}
         ],
         "decorations": [
-            {{"type": "tree", "x": 50, "y": 50}},
-            {{"type": "fountain", "x": 450, "y": 100}}
+            {{"type": "tree", "x": 50, "y": 50}}
         ]
     }},
-    "options": ["A. Library", "B. Science Lab", "C. Cafeteria", "D. Sports Hall", "E. Art Studio", "F. Health Centre", "G. Student Union", "H. Book Shop"],
+    "options": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
     "questions": [
-        {{"id": 1, "answer": "A", "explanation": "解析：讲话说沿主路直走就能看到图书馆在左手边..."}},
-        {{"id": 2, "answer": "C", "explanation": "解析?.."}},
-        {{"id": 3, "answer": "E", "explanation": "解析?.."}},
-        {{"id": 4, "answer": "D", "explanation": "解析?.."}},
-        {{"id": 5, "answer": "F", "explanation": "解析?.."}}  
+        {{"id": 1, "question": "coffee room", "answer": "A", "explanation": "解析:讲话人说 the coffee room is next to building A..."}},
+        {{"id": 2, "question": "warehouse", "answer": "C", "explanation": "解析?.."}},
+        {{"id": 3, "question": "staff canteen", "answer": "E", "explanation": "解析?.."}},
+        {{"id": 4, "question": "meeting room", "answer": "H", "explanation": "解析?.."}},
+        {{"id": 5, "question": "human resources", "answer": "J", "explanation": "解析?.."}}
     ]
 }}
 """
@@ -530,10 +540,17 @@ SKILL_LISTENING_SECTION2_TEMPLATE = (
 SECTION 2 of IELTS Listening full test.
 QUESTION MIX: Split 10 questions into 2 sub-sections:
   - Questions 1-5: MULTIPLE CHOICE (4 options each A/B/C/D)
-  - Questions 6-10: MAP LABELLING (assign locations from bank A-H)
+  - Questions 6-10: MAP LABELLING (locate a THING on a floor-plan whose buildings are labelled A-J)
 CONTEXT: A monologue giving practical information (facility briefing / event orientation).
 
-For the MAP sub-section, provide a "map" object identical in structure to the standalone map mode (landmarks with questionId 6-10, options bank A-H). The passage MUST include clear directional language matching the map layout.
+MAP SUB-SECTION FORMAT (CRITICAL — new paradigm, DO NOT emit red numbered markers):
+  - The map has 10 buildings labelled A, B, C, D, E, F, G, H, I, J.
+  - Each landmark object in "map.landmarks" has "label" set to a SINGLE UPPERCASE LETTER — "A" through "J" — and NO "questionId" field.
+  - You may include additional orientation features (e.g. "RECEPTION", "MAIN ROAD", "River") as extra landmarks with descriptive labels; those are NOT answer options.
+  - "options" MUST be exactly ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].
+  - Each of the 5 questions asks WHERE a specific thing is (e.g. "coffee room", "warehouse"). Fields:
+      "id": 6-10, "question": short thing-to-locate phrase, "answer": one letter A-J, "explanation": Chinese.
+  - The passage MUST clearly describe where each thing in the questions is, referencing the letter-labelled buildings and orientation features.
 For MCQ, put the CORRECT option first in each options list (frontend will shuffle).
 
 Output STRICTLY this JSON:
@@ -556,13 +573,32 @@ Output STRICTLY this JSON:
         }},
         {{
             "type": "map",
-            "instructions": "Questions 6-10: Label the map. Write the correct letter A-H.",
+            "instructions": "Questions 6-10: Label the map. Which building (A-J) is each room in?",
             "startId": 6,
             "endId": 10,
-            "options": ["A. Library", "B. Cafeteria", "C. Sports Hall", "D. Art Studio", "E. Health Centre", "F. Book Shop", "G. Reception", "H. Auditorium"],
-            "map": {{"name": "...", "width": 600, "height": 400, "landmarks": [], "paths": [], "decorations": []}},
+            "options": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+            "map": {{
+                "name": "Plan of [Site Name]",
+                "width": 600,
+                "height": 400,
+                "landmarks": [
+                    {{"id": "A", "label": "A", "x": 100, "y": 180, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "B", "label": "B", "x": 200, "y": 180, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "C", "label": "C", "x": 300, "y": 180, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "D", "label": "D", "x": 400, "y": 180, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "E", "label": "E", "x": 500, "y": 180, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "F", "label": "F", "x": 100, "y": 280, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "G", "label": "G", "x": 200, "y": 280, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "H", "label": "H", "x": 300, "y": 280, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "I", "label": "I", "x": 400, "y": 280, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "J", "label": "J", "x": 500, "y": 280, "shape": "rect", "w": 60, "h": 50}},
+                    {{"id": "reception", "label": "RECEPTION", "x": 300, "y": 370, "shape": "rect", "w": 100, "h": 25}}
+                ],
+                "paths": [{{"points": [[300, 370], [300, 250]]}}],
+                "decorations": []
+            }},
             "questions": [
-                {{"id": 6, "answer": "A", "explanation": "..."}}
+                {{"id": 6, "question": "coffee room", "answer": "A", "explanation": "..."}}
             ]
         }}
     ]

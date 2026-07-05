@@ -47,6 +47,97 @@ LISTENING_AUDIO_SUBDIR = 'listening_audio'
 _LEGACY_TYPES = {'article', 'sentence', 'multiple_choice', 'map'}
 _NEW_TYPES = {'form', 'table', 'flowchart', 'matching', 'short_answer'}
 
+# 前端在 fetchAudioForPassage 里给 passage 前加的引导语；后端预热音频时必须
+# 用完全一致的拼接方式，才能让缓存 hash 命中，用户首次打开题目零等待。
+LISTENING_AUDIO_INTRO = 'The IELTS listening test is about to begin. Please listen carefully.'
+LISTENING_AUDIO_DEFAULT_VOICE = 'en-GB-SoniaNeural'
+
+
+def _markdown_to_tts_text(value: str) -> str:
+    """把 markdown 富文本清成纯 TTS 文本（供 hash 和 edge-tts 用）。
+
+    与 generate_listening_audio 里的内嵌函数保持完全一致 —— 后者会调这个模块
+    级实现，避免双份逻辑漂移导致 hash 不一致。
+    """
+    raw = html.unescape(str(value or ''))
+    if not raw:
+        return ''
+    out = raw.replace('\r\n', '\n').replace('\r', '\n')
+    out = re.sub(r'^\s*```[^\n]*\n?', '', out, flags=re.MULTILINE)
+    out = out.replace('```', '')
+    out = re.sub(r'!\[([^\]]*)\]\([^\)]*\)', r'\1', out)
+    out = re.sub(r'\[([^\]]+)\]\([^\)]*\)', r'\1', out)
+    out = re.sub(r'^\s{0,3}#{1,6}\s*', '', out, flags=re.MULTILINE)
+    out = re.sub(r'^\s{0,3}>\s?', '', out, flags=re.MULTILINE)
+    out = re.sub(r'^\s*[-*+]\s+', '', out, flags=re.MULTILINE)
+    out = re.sub(r'^\s*\d+\.\s+', '', out, flags=re.MULTILINE)
+    out = re.sub(r'\*\*([^*]+)\*\*', r'\1', out)
+    out = re.sub(r'__([^_]+)__', r'\1', out)
+    out = re.sub(r'\*([^*]+)\*', r'\1', out)
+    out = re.sub(r'_([^_]+)_', r'\1', out)
+    out = re.sub(r'~~([^~]+)~~', r'\1', out)
+    out = re.sub(r'`([^`]*)`', r'\1', out)
+    out = re.sub(r'<[^>]+>', ' ', out)
+    out = re.sub(r'https?://\S+', ' ', out)
+    out = re.sub(r'\[SPEAKER[_\s]*[A-Z]\]\s*', '', out, flags=re.IGNORECASE)
+    out = re.sub(r'\bSpeaker\s+[A-Z]\s*[:.-]\s*', '', out, flags=re.IGNORECASE)
+    out = re.sub(r'\bSpeaker\s+\d+\s*[:.-]\s*', '', out, flags=re.IGNORECASE)
+    out = re.sub(r'(?m)^\s*[A-Z]\s*:\s+', '', out)
+    out = re.sub(
+        r'(?m)^\s*(Tutor|Student\s*[A-Z]?|Interviewer|Interviewee|Examiner|Host|Guest|Presenter|Man|Woman|Lecturer|Professor|Customer|Agent|Staff|Assistant)\s*[:.-]\s+',
+        '',
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(r'[ \t]+', ' ', out)
+    out = re.sub(r'\n{3,}', '\n\n', out)
+    return out.strip()
+
+
+def _listening_audio_cache_path(voice: str, speak_text: str) -> str:
+    cache_key = hashlib.md5(f'{voice}|{speak_text}'.encode('utf-8')).hexdigest()
+    rel_path = f'{LISTENING_AUDIO_SUBDIR}/{cache_key}.mp3'
+    return os.path.join(settings.MEDIA_ROOT, rel_path)
+
+
+def ensure_listening_audio_cached(passage: str, voice: str = LISTENING_AUDIO_DEFAULT_VOICE) -> str | None:
+    """确保给定 passage 对应的 mp3 已经落盘；返回绝对路径 (miss 时新生成)。
+
+    daemon 在 AI 出题后立即调用一次，把首次访问的 TTS 等待时间从 ~15s 降到 0。
+    与前端 fetchAudioForPassage 走的拼接方式一致：intro + '\\n\\n\\n\\n' + stripMarkers(passage)。
+    """
+    if not passage:
+        return None
+    raw_text = f'{LISTENING_AUDIO_INTRO}\n\n\n\n{passage}'
+    speak_text = _markdown_to_tts_text(raw_text) or str(raw_text).strip()
+    if not speak_text:
+        return None
+    abs_path = _listening_audio_cache_path(voice, speak_text)
+    if os.path.exists(abs_path) and os.path.getsize(abs_path) > 0:
+        return abs_path
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False, dir=os.path.dirname(abs_path)) as tmp:
+            tmp_path = tmp.name
+        subprocess.run(
+            ['edge-tts', '--voice', voice, '--text', speak_text, '--write-media', tmp_path],
+            check=True,
+        )
+        if not os.path.exists(tmp_path) or os.path.getsize(tmp_path) == 0:
+            raise RuntimeError('edge-tts produced empty output')
+        os.replace(tmp_path, abs_path)
+        return abs_path
+    except Exception as exc:  # noqa: BLE001 — pre-warm should never fail the AI generation
+        print(f'[Listening] audio pre-warm failed: {exc}', flush=True)
+        return None
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
 
 # ── 参数归一化 ─────────────────────────────────────────
 def _norm_type(value: Any) -> str:
@@ -131,6 +222,47 @@ def _norm_letter(raw: Any, letters: list[str], fallback: str) -> str:
     return a if a in letters else fallback
 
 
+_LISTENING_SUBTYPE_ALIASES = {
+    'mcq': 'multiple_choice',
+    'multiplechoice': 'multiple_choice',
+    'multiple-choice': 'multiple_choice',
+    'multiple choice': 'multiple_choice',
+    'match': 'matching',
+    'matching': 'matching',
+    'map_labelling': 'map',
+    'maplabel': 'map',
+    'maplabelling': 'map',
+}
+
+
+def _canonical_subtype(raw: Any) -> str:
+    s = str(raw or '').strip().lower()
+    if not s:
+        return ''
+    if s in _LISTENING_SUBTYPE_ALIASES:
+        return _LISTENING_SUBTYPE_ALIASES[s]
+    compact = s.replace(' ', '').replace('-', '').replace('_', '')
+    return _LISTENING_SUBTYPE_ALIASES.get(compact, s)
+
+
+def _pick_subsection(subs: list, want_type: str) -> dict:
+    """按 canonical subtype 找 subsection，找不到就返回空 dict。"""
+    for s in subs:
+        if isinstance(s, dict) and _canonical_subtype(s.get('type')) == want_type:
+            return s
+    return {}
+
+
+def _extract_questions(container: dict) -> list:
+    """优先从 container['questions'] 取；空的话回退到 container['payload']['questions']。"""
+    qs = container.get('questions')
+    if isinstance(qs, list) and qs:
+        return qs
+    payload = container.get('payload') if isinstance(container.get('payload'), dict) else {}
+    qs2 = payload.get('questions')
+    return qs2 if isinstance(qs2, list) else []
+
+
 def _normalize_new_type(question_type: str, result: dict) -> dict:
     """Normalize AI response for v2 new question types."""
     questions = result.get('questions')
@@ -187,6 +319,8 @@ def generate_listening(request):
         practice_type = _norm_type(data.get('practiceType'))
         absurd_mode = str(data.get('absurdMode', 'false')).lower() == 'true'
         scenario_key = str(data.get('scenario', '') or 'random').strip().lower()
+        custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
+        custom_description = (data.get('customDescription') or data.get('description') or '').strip()
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         tone_instruction = (
@@ -287,9 +421,17 @@ def generate_listening(request):
                 result,
                 practice_type=practice_type_snapshot,
                 resolved_scenario=resolved_scenario_snapshot,
+                user_id=user_id,
             )
             title = str(result.get('title') or '').strip() or '听力练习'
-            return title, {k: v for k, v in result.items() if k != 'atConsumed'}
+            # 预热音频：题目一生成完就把 mp3 落盘，用户首次点开题目直接从缓存返回。
+            passage = str(result.get('passage') or '').strip()
+            if passage:
+                ensure_listening_audio_cached(passage)
+            payload = {k: v for k, v in result.items() if k != 'atConsumed'}
+            if custom_description:
+                payload['description'] = custom_description
+            return title, payload
 
         row = spawn_ai_generation(
             user=request.user,
@@ -297,6 +439,7 @@ def generate_listening(request):
             subtype=practice_type,
             placeholder_title=placeholder_title,
             generator=_generator,
+            custom_title=custom_title,
         )
         return JsonResponse({
             'aiQuestionId': row.id,
@@ -308,7 +451,13 @@ def generate_listening(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-def _post_process_listening_single(result: dict, *, practice_type: str, resolved_scenario: str) -> None:
+def _post_process_listening_single(
+    result: dict,
+    *,
+    practice_type: str,
+    resolved_scenario: str,
+    user_id: int | None = None,
+) -> None:
     """Extracted so the async worker can run the same normalisation pipeline
     that used to live inline in generate_listening. Mutates result in place.
     """
@@ -359,10 +508,29 @@ def _post_process_listening_single(result: dict, *, practice_type: str, resolved
             for lm in landmarks:
                 lm['x'] = max(30, min(mw - 30, lm.get('x', 300)))
                 lm['y'] = max(30, min(mh - 30, lm.get('y', 200)))
-            q_ids_in_map = {lm['questionId'] for lm in landmarks if 'questionId' in lm}
-            result['questions'] = [q for q in result.get('questions', []) if q.get('id') in q_ids_in_map]
+            # New paradigm: landmarks are letter-labelled A-J (no questionId).
+            # Strip legacy questionId if AI still emits it.
+            for lm in landmarks:
+                if isinstance(lm, dict) and 'questionId' in lm:
+                    lm.pop('questionId', None)
             if not isinstance(result.get('options'), list):
                 result['options'] = []
+
+            # Force map image via FLUX.2-pro regardless of the user's chosen text model.
+            # rel_path is a media-relative key (frontend prepends VITE_MEDIA_BASE via mediaUrl()).
+            rel_path, _at = _generate_listening_map_image(
+                map_data if isinstance(map_data, dict) else {},
+                result.get('options') or [],
+                user_id,
+            )
+            if rel_path:
+                if isinstance(map_data, dict):
+                    map_data['imagePath'] = rel_path
+                    map_data['imageModel'] = 'FLUX.2-pro'
+                    result['map'] = map_data
+                # Also surface at the top level so _cleanup_question_files can
+                # find it without walking the nested structure.
+                result['mapImagePath'] = rel_path
 
         elif practice_type == 'multiple_choice':
             for q in result.get('questions', []):
@@ -419,9 +587,117 @@ def _build_section_prompt(
     return tmpl.format(**ctx), resolved_key
 
 
-def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dict:
-    """Normalize AI response for a full-test section. Rewrites IDs to be globally unique."""
-    st = result.get('sectionType') or 'note'
+_SECTION_TYPE_BY_NUM = {1: 'form', 2: 'mixed', 3: 'mixed', 4: 'note'}
+
+
+def _generate_listening_map_image(
+    map_data: dict,
+    options: list,
+    user_id: int | None,
+    *,
+    question_id_offset: int = 0,
+) -> tuple[str | None, int]:
+    """Force map questions through FLUX.2-pro regardless of the user's chosen text model.
+
+    Returns (rel_path, at_cost) — rel_path is the media-relative key
+    (e.g. ``maps/2/abc.png``), NOT an absolute URL. Same convention as
+    avatars / bg_image: the frontend `mediaUrl(rel_path)` prepends the
+    env-driven `VITE_MEDIA_BASE`, so dev / prod paths stay unified.
+    On any failure returns ``(None, 0)`` so listening generation still
+    succeeds and the frontend falls back to the landmark-based SVG.
+
+    :param question_id_offset: shift applied to landmark questionIds so the map
+        image labels match the globally-numbered dropdowns (Section 2 map
+        subsection uses offset 15 → local 1-5 becomes 16-20).
+    """
+    import uuid as _uuid
+
+    from api.core.ai_client import AIClient as _AIClient
+
+    if not isinstance(map_data, dict):
+        return None, 0
+
+    place_name = str(map_data.get('name') or 'a place').strip() or 'a place'
+    landmarks = map_data.get('landmarks') if isinstance(map_data.get('landmarks'), list) else []
+
+    # New paradigm (reference: real IELTS floor plan):
+    #   - Each building is labelled with a SINGLE letter (A-J) — no names, no red markers.
+    #   - Extra orientation features (Reception / Main Road / River / Access Road)
+    #     may appear with descriptive labels; those are context, not answer options.
+    letter_labels = []
+    context_labels = []
+    for lm in landmarks:
+        if not isinstance(lm, dict):
+            continue
+        label = str(lm.get('label') or '').strip()
+        if not label:
+            continue
+        if len(label) == 1 and label.isalpha() and label.isupper():
+            letter_labels.append(label)
+        else:
+            context_labels.append(label)
+    letter_labels = sorted(set(letter_labels))[:10]
+    context_labels = context_labels[:6]
+
+    image_prompt = (
+        f"Clean IELTS listening exam floor plan / map of {place_name}. "
+        f"Top-down architectural drawing style, thin black outlines on white background, "
+        f"minimalist, exam-friendly, no perspective, no compass rose, no photo-realism, "
+        f"no shading, no colour fills. "
+        f"Draw {len(letter_labels) or 10} rectangular buildings arranged in a coherent layout, "
+        f"each labelled with a SINGLE large bold uppercase letter in the centre of the building "
+        f"(letters used: {', '.join(letter_labels) or 'A, B, C, D, E, F, G, H, I, J'}). "
+        f"NO other text or names inside the buildings — ONLY the single letter. "
+        f"Add orientation context around the buildings: {', '.join(context_labels) or 'Reception, Main Road'}. "
+        f"Include a few connecting corridors or paths as thin lines. "
+        f"ABSOLUTELY NO red circles, NO numbered markers, NO coloured dots — the map is unmarked. "
+        f"Layout should be clearly readable at a glance."
+    )
+
+    print(f'[Listening Map Image] 🎨 start user={user_id} place={place_name!r} letters={letter_labels}', flush=True)
+    try:
+        image_client = _AIClient()
+        png_bytes, at_cost = image_client.generate_image(
+            prompt=image_prompt,
+            size='1024x1024',
+            user_id=user_id,
+        )
+    except Exception as e:
+        import traceback
+        print(f'[Listening Map Image] ❌ FLUX call failed: {e}\n{traceback.format_exc()}', flush=True)
+        return None, 0
+
+    rel_dir = os.path.join('maps', str(user_id or 0))
+    abs_dir = os.path.join(settings.MEDIA_ROOT, rel_dir)
+    os.makedirs(abs_dir, exist_ok=True)
+    file_id = _uuid.uuid4().hex
+    rel_path = os.path.join(rel_dir, f'{file_id}.png').replace('\\', '/')
+    abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+    try:
+        with open(abs_path, 'wb') as f:
+            f.write(png_bytes)
+    except OSError as e:
+        print(f'[Listening Map Image] save failed: {e}', flush=True)
+        return None, int(at_cost or 0)
+
+    print(f'[Listening Map Image] ✅ done user={user_id} path={rel_path} at_cost={at_cost}', flush=True)
+    return rel_path, int(at_cost or 0)
+
+
+def _normalize_section(
+    section_num: int,
+    result: dict,
+    *,
+    id_offset: int,
+    user_id: int | None = None,
+) -> dict:
+    """Normalize AI response for a full-test section. Rewrites IDs to be globally unique.
+
+    sectionType is derived from section_num rather than trusting the AI response —
+    if the model omits or fabricates the field the frontend would route the data
+    into the wrong renderer (e.g. note-renderer on a mixed section = blank UI).
+    """
+    st = _SECTION_TYPE_BY_NUM.get(section_num, 'note')
     passage = str(result.get('passage') or '').strip()
     title = str(result.get('title') or f'Section {section_num}').strip()
 
@@ -436,7 +712,7 @@ def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dic
     if section_num == 1:
         out['form_intro'] = result.get('form_intro') or 'Complete the form.'
         out['form_content'] = result.get('form_content') or ''
-        questions = result.get('questions') if isinstance(result.get('questions'), list) else []
+        questions = _extract_questions(result)
         normalized = []
         for idx in range(LISTENING_FULL_QUESTIONS_PER_SECTION):
             item = questions[idx] if idx < len(questions) and isinstance(questions[idx], dict) else {}
@@ -451,8 +727,8 @@ def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dic
         subsections = result.get('subsections') if isinstance(result.get('subsections'), list) else []
         norm_subs = []
         # sub 1: MCQ (5 questions, ids 1-5 relative → offset+1..offset+5)
-        mcq_sub = next((s for s in subsections if isinstance(s, dict) and s.get('type') == 'multiple_choice'), {})
-        mcq_qs = mcq_sub.get('questions') if isinstance(mcq_sub.get('questions'), list) else []
+        mcq_sub = _pick_subsection(subsections, 'multiple_choice')
+        mcq_qs = _extract_questions(mcq_sub)
         mcq_norm = []
         for idx in range(5):
             item = mcq_qs[idx] if idx < len(mcq_qs) and isinstance(mcq_qs[idx], dict) else {}
@@ -493,7 +769,7 @@ def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dic
         })
 
         # sub 2: MAP (5 questions, ids 6-10 relative → offset+6..offset+10)
-        map_sub = next((s for s in subsections if isinstance(s, dict) and s.get('type') == 'map'), {})
+        map_sub = _pick_subsection(subsections, 'map')
         map_data = map_sub.get('map') if isinstance(map_sub.get('map'), dict) else {}
         landmarks = map_data.get('landmarks') if isinstance(map_data.get('landmarks'), list) else []
         mw = map_data.get('width', 600)
@@ -501,24 +777,47 @@ def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dic
         for lm in landmarks:
             lm['x'] = max(30, min(mw - 30, lm.get('x', 300)))
             lm['y'] = max(30, min(mh - 30, lm.get('y', 200)))
-        map_qs = map_sub.get('questions') if isinstance(map_sub.get('questions'), list) else []
+
+        # New paradigm: landmarks are labelled A-J only, no questionId.
+        # If AI still emits legacy questionId (drift), strip it — frontend
+        # and FLUX no longer use it.
+        for lm in landmarks:
+            if isinstance(lm, dict) and 'questionId' in lm:
+                lm.pop('questionId', None)
+
+        map_qs = _extract_questions(map_sub)
         map_norm = []
         options = map_sub.get('options') if isinstance(map_sub.get('options'), list) else []
-        letters_available = [str(opt).strip()[:1].upper() for opt in options if str(opt).strip()][:8] or ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        # New paradigm: options are just letters A-J (10). Fall back to A-H for
+        # legacy AI drift where it still emits ["A. Library", ...] style entries.
+        letters_available = [str(opt).strip()[:1].upper() for opt in options if str(opt).strip()][:10] or ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
         for idx in range(5):
             item = map_qs[idx] if idx < len(map_qs) and isinstance(map_qs[idx], dict) else {}
             map_norm.append({
                 'id': id_offset + 6 + idx,
+                'question': str(item.get('question') or '').strip(),
                 'answer': _norm_letter(item.get('answer'), letters_available, letters_available[0]),
                 'explanation': str(item.get('explanation') or '').strip() or '',
             })
+        # Force map image via FLUX.2-pro. No offset needed — landmarks are
+        # letter-labelled (A-J) and FLUX renders those letters directly.
+        final_map = {**map_data, 'landmarks': landmarks}
+        map_image_path, _at = _generate_listening_map_image(
+            final_map,
+            options,
+            user_id,
+        )
+        if map_image_path:
+            final_map['imagePath'] = map_image_path
+            final_map['imageModel'] = 'FLUX.2-pro'
+            out['mapImagePath'] = map_image_path
         norm_subs.append({
             'type': 'map',
             'instructions': map_sub.get('instructions') or 'Questions 6-10: Label the map.',
             'startId': id_offset + 6,
             'endId': id_offset + 10,
             'options': options,
-            'map': {**map_data, 'landmarks': landmarks},
+            'map': final_map,
             'questions': map_norm,
         })
 
@@ -529,8 +828,8 @@ def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dic
         subsections = result.get('subsections') if isinstance(result.get('subsections'), list) else []
         norm_subs = []
         # MCQ 1-5
-        mcq_sub = next((s for s in subsections if isinstance(s, dict) and s.get('type') == 'multiple_choice'), {})
-        mcq_qs = mcq_sub.get('questions') if isinstance(mcq_sub.get('questions'), list) else []
+        mcq_sub = _pick_subsection(subsections, 'multiple_choice')
+        mcq_qs = _extract_questions(mcq_sub)
         mcq_norm = []
         for idx in range(5):
             item = mcq_qs[idx] if idx < len(mcq_qs) and isinstance(mcq_qs[idx], dict) else {}
@@ -570,10 +869,10 @@ def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dic
         })
 
         # Matching 6-10
-        match_sub = next((s for s in subsections if isinstance(s, dict) and s.get('type') == 'matching'), {})
+        match_sub = _pick_subsection(subsections, 'matching')
         bank = match_sub.get('options_bank') if isinstance(match_sub.get('options_bank'), dict) else {}
         letters_available = [k.upper() for k in bank.keys()] or ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-        match_qs = match_sub.get('questions') if isinstance(match_sub.get('questions'), list) else []
+        match_qs = _extract_questions(match_sub)
         match_norm = []
         for idx in range(5):
             item = match_qs[idx] if idx < len(match_qs) and isinstance(match_qs[idx], dict) else {}
@@ -598,7 +897,7 @@ def _normalize_section(section_num: int, result: dict, *, id_offset: int) -> dic
     elif section_num == 4:
         out['note_intro'] = result.get('note_intro') or 'Complete the notes.'
         out['note_content'] = result.get('note_content') or ''
-        questions = result.get('questions') if isinstance(result.get('questions'), list) else []
+        questions = _extract_questions(result)
         normalized = []
         for idx in range(LISTENING_FULL_QUESTIONS_PER_SECTION):
             item = questions[idx] if idx < len(questions) and isinstance(questions[idx], dict) else {}
@@ -636,6 +935,8 @@ def generate_listening_full(request):
             3: str(data.get('scenarioS3') or 'random').strip().lower(),
             4: str(data.get('scenarioS4') or 'random').strip().lower(),
         }
+        custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
+        custom_description = (data.get('customDescription') or data.get('description') or '').strip()
         provider = request.headers.get('X-AI-Provider', 'deepseek')
 
         # ── 单段 override ──
@@ -693,7 +994,7 @@ def generate_listening_full(request):
                 num, prompt = prompts_snapshot[0][0], prompts_snapshot[0][1]
                 _n, r = _run(num, prompt)
                 id_offset = (num - 1) * LISTENING_FULL_QUESTIONS_PER_SECTION
-                sections_out.append(_normalize_section(num, r, id_offset=id_offset))
+                sections_out.append(_normalize_section(num, r, id_offset=id_offset, user_id=user_id))
             else:
                 results_by_num: dict[int, dict] = {}
                 with ThreadPoolExecutor(max_workers=len(prompts_snapshot)) as pool:
@@ -703,7 +1004,7 @@ def generate_listening_full(request):
                         results_by_num[n] = r
                 for n in section_nums_snapshot:
                     id_offset = (n - 1) * LISTENING_FULL_QUESTIONS_PER_SECTION
-                    sections_out.append(_normalize_section(n, results_by_num[n], id_offset=id_offset))
+                    sections_out.append(_normalize_section(n, results_by_num[n], id_offset=id_offset, user_id=user_id))
 
             payload: dict[str, Any] = {
                 'type': 'full',
@@ -711,6 +1012,28 @@ def generate_listening_full(request):
                 'singleSection': is_single,
                 'sections': sections_out,
             }
+            # Surface any map image path at the top level so the delete-cleanup
+            # hook (which only reads content_json.mapImagePath) finds it.
+            for _sec in sections_out:
+                _mp = _sec.get('mapImagePath')
+                if _mp:
+                    payload['mapImagePath'] = _mp
+                    break
+            if custom_description:
+                payload['description'] = custom_description
+            # 预热每个 section 的音频；用户切 Section 时也秒开。
+            # 并行合成 —— edge-tts 是子进程各自跑不共享全局锁，4 个 section
+            # 并行大概能把 ~60s 串行压缩到 ~15s (取决于最慢那段)。
+            passages_to_warm = [
+                str(sec.get('passage') or '').strip()
+                for sec in sections_out
+            ]
+            passages_to_warm = [p for p in passages_to_warm if p]
+            if len(passages_to_warm) == 1:
+                ensure_listening_audio_cached(passages_to_warm[0])
+            elif passages_to_warm:
+                with ThreadPoolExecutor(max_workers=len(passages_to_warm)) as pool:
+                    list(pool.map(ensure_listening_audio_cached, passages_to_warm))
             return title, payload
 
         row = spawn_ai_generation(
@@ -719,6 +1042,7 @@ def generate_listening_full(request):
             subtype=subtype,
             placeholder_title=placeholder,
             generator=_generator,
+            custom_title=custom_title,
         )
         return JsonResponse({
             'aiQuestionId': row.id,
@@ -764,90 +1088,46 @@ def listening_meta(request):
 
 @api_view(['POST'])
 def generate_listening_audio(request):
-    """POST /api/listening/audio - 生成 Edge-TTS 的 mp3 文件.
+    """POST /api/listening/audio - 从磁盘/缓存返回 mp3；miss 时现合成。
 
-    音频按 md5(voice + speak_text) 落盘到 media/listening_audio/{hash}.mp3;
-    同样文本 + 同样声音的后续请求直接从磁盘读回, 不再走 edge-tts.
+    daemon 端在题目生成后已经预热了同一文本的音频，正常调用是 100% HIT。
+    仍保留 miss 分支作为回退（旧题、缓存被清等场景）。
     """
     try:
         text = request.data.get('text', '')
-
-        def markdown_to_tts_text(value: str) -> str:
-            raw = html.unescape(str(value or ''))
-            if not raw:
-                return ''
-            out = raw.replace('\r\n', '\n').replace('\r', '\n')
-            out = re.sub(r'^\s*```[^\n]*\n?', '', out, flags=re.MULTILINE)
-            out = out.replace('```', '')
-            out = re.sub(r'!\[([^\]]*)\]\([^\)]*\)', r'\1', out)
-            out = re.sub(r'\[([^\]]+)\]\([^\)]*\)', r'\1', out)
-            out = re.sub(r'^\s{0,3}#{1,6}\s*', '', out, flags=re.MULTILINE)
-            out = re.sub(r'^\s{0,3}>\s?', '', out, flags=re.MULTILINE)
-            out = re.sub(r'^\s*[-*+]\s+', '', out, flags=re.MULTILINE)
-            out = re.sub(r'^\s*\d+\.\s+', '', out, flags=re.MULTILINE)
-            out = re.sub(r'\*\*([^*]+)\*\*', r'\1', out)
-            out = re.sub(r'__([^_]+)__', r'\1', out)
-            out = re.sub(r'\*([^*]+)\*', r'\1', out)
-            out = re.sub(r'_([^_]+)_', r'\1', out)
-            out = re.sub(r'~~([^~]+)~~', r'\1', out)
-            out = re.sub(r'`([^`]*)`', r'\1', out)
-            out = re.sub(r'<[^>]+>', ' ', out)
-            out = re.sub(r'https?://\S+', ' ', out)
-            # v2: strip speaker labels so TTS doesn't read them aloud.
-            # Covers: [SPEAKER_A]  Speaker A:  Speaker 1:  A:  (single-letter at line start)
-            out = re.sub(r'\[SPEAKER[_\s]*[A-Z]\]\s*', '', out, flags=re.IGNORECASE)
-            out = re.sub(r'\bSpeaker\s+[A-Z]\s*[:.-]\s*', '', out, flags=re.IGNORECASE)
-            out = re.sub(r'\bSpeaker\s+\d+\s*[:.-]\s*', '', out, flags=re.IGNORECASE)
-            # Line-leading single-letter speaker markers: "A:", "B:", "C:" at start of a line
-            out = re.sub(r'(?m)^\s*[A-Z]\s*:\s+', '', out)
-            # "Tutor:", "Student A:", "Interviewer:" — role labels
-            out = re.sub(r'(?m)^\s*(Tutor|Student\s*[A-Z]?|Interviewer|Interviewee|Examiner|Host|Guest|Presenter|Man|Woman|Lecturer|Professor|Customer|Agent|Staff|Assistant)\s*[:.-]\s+', '', out, flags=re.IGNORECASE)
-            out = re.sub(r'[ \t]+', ' ', out)
-            out = re.sub(r'\n{3,}', '\n\n', out)
-            return out.strip()
-
         if not text:
             return JsonResponse({'error': 'No text provided'}, status=400)
 
-        speak_text = markdown_to_tts_text(text)
-        if not speak_text:
-            speak_text = str(text).strip()
+        voice = request.data.get('voice') or LISTENING_AUDIO_DEFAULT_VOICE
+        speak_text = _markdown_to_tts_text(text) or str(text).strip()
+        abs_path = _listening_audio_cache_path(voice, speak_text)
 
-        voice = request.data.get('voice') or "en-GB-SoniaNeural"
+        was_hit = os.path.exists(abs_path) and os.path.getsize(abs_path) > 0
+        if not was_hit:
+            # 与 daemon 预热走完全相同的合成路径（用 raw text 让 helper 自己做 intro 拼接兼容），
+            # 但这里 text 已经是完整前端拼接过的了，所以直接落到 abs_path。
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False, dir=os.path.dirname(abs_path)) as tmp:
+                temp_path = tmp.name
+            try:
+                subprocess.run(
+                    ['edge-tts', '--voice', voice, '--text', speak_text, '--write-media', temp_path],
+                    check=True,
+                )
+                if not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0:
+                    raise RuntimeError('edge-tts produced empty output')
+                os.replace(temp_path, abs_path)
+            finally:
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
 
-        cache_key = hashlib.md5(f'{voice}|{speak_text}'.encode('utf-8')).hexdigest()
-        rel_path = f'{LISTENING_AUDIO_SUBDIR}/{cache_key}.mp3'
-        abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
-
-        if os.path.exists(abs_path) and os.path.getsize(abs_path) > 0:
-            with open(abs_path, 'rb') as f:
-                resp = HttpResponse(f.read(), content_type='audio/mpeg')
-            resp['X-Audio-Cache'] = 'HIT'
-            return resp
-
-        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False, dir=os.path.dirname(abs_path)) as tmp:
-            temp_path = tmp.name
-
-        try:
-            subprocess.run(
-                ['edge-tts', '--voice', voice, '--text', speak_text, '--write-media', temp_path],
-                check=True,
-            )
-            if not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0:
-                raise RuntimeError('edge-tts produced empty output')
-            os.replace(temp_path, abs_path)
-
-            with open(abs_path, 'rb') as f:
-                resp = HttpResponse(f.read(), content_type='audio/mpeg')
-            resp['X-Audio-Cache'] = 'MISS'
-            return resp
-        finally:
-            if os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except OSError:
-                    pass
+        with open(abs_path, 'rb') as f:
+            resp = HttpResponse(f.read(), content_type='audio/mpeg')
+        resp['X-Audio-Cache'] = 'HIT' if was_hit else 'MISS'
+        return resp
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 

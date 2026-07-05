@@ -28,41 +28,78 @@ from api.models import AIQuestion
 def _cleanup_question_files(q: AIQuestion) -> None:
     """Delete media files owned by this AIQuestion.
 
-    Currently only raster-map questions (writing/chart:map with mapImagePath) hold
-    on-disk artifacts — other question types embed base64 or SVG in content_json.
+    Handles both writing/chart:map (top-level mapImagePath) and listening/map
+    questions (top-level mapImagePath surfaced by the listening pipeline plus
+    nested map.imagePath entries as a defensive walk).
     Safe-path guard: only unlink files that resolve under MEDIA_ROOT/maps/.
     """
     content = q.content_json or {}
-    rel_path = content.get('mapImagePath')
-    if not rel_path:
+    paths: set[str] = set()
+
+    top = content.get('mapImagePath') if isinstance(content, dict) else None
+    if isinstance(top, str) and top:
+        paths.add(top)
+    elif isinstance(top, list):
+        for p in top:
+            if isinstance(p, str) and p:
+                paths.add(p)
+
+    # Walk nested structure: listening single map stores it at
+    # content.map.imagePath; full-test at content.sections[i].subsections[j].map.imagePath.
+    def _walk(node) -> None:
+        if isinstance(node, dict):
+            m = node.get('map')
+            if isinstance(m, dict):
+                p = m.get('imagePath')
+                if isinstance(p, str) and p:
+                    paths.add(p)
+            for v in node.values():
+                _walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                _walk(v)
+
+    _walk(content)
+
+    if not paths:
         return
-    try:
-        media_root = os.path.realpath(settings.MEDIA_ROOT)
-        maps_root = os.path.realpath(os.path.join(media_root, 'maps'))
-        target = os.path.realpath(os.path.join(media_root, rel_path))
-        # Ensure target is strictly inside maps_root (defence against ../ paths)
-        if not target.startswith(maps_root + os.sep) and target != maps_root:
-            return
-        if os.path.isfile(target):
-            os.unlink(target)
-            # Best-effort: remove empty user dir
-            parent = os.path.dirname(target)
-            if os.path.isdir(parent) and not os.listdir(parent):
-                os.rmdir(parent)
-    except Exception as e:
-        # Never let cleanup failure block the delete of the DB row.
-        print(f'[AIQuestion] [WARN] file cleanup failed for {rel_path}: {e}')
+
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    maps_root = os.path.realpath(os.path.join(media_root, 'maps'))
+    for rel_path in paths:
+        try:
+            target = os.path.realpath(os.path.join(media_root, rel_path))
+            # Ensure target is strictly inside maps_root (defence against ../ paths)
+            if not target.startswith(maps_root + os.sep) and target != maps_root:
+                continue
+            if os.path.isfile(target):
+                os.unlink(target)
+                # Best-effort: remove empty user dir
+                parent = os.path.dirname(target)
+                if os.path.isdir(parent) and not os.listdir(parent):
+                    os.rmdir(parent)
+        except Exception as e:
+            # Never let cleanup failure block the delete of the DB row.
+            print(f'[AIQuestion] [WARN] file cleanup failed for {rel_path}: {e}')
 
 
 _VALID_SKILLS = {AIQuestion.SKILL_READING, AIQuestion.SKILL_LISTENING, AIQuestion.SKILL_WRITING}
 
 
 def _serialize_summary(q: AIQuestion) -> dict:
+    # description 存在 content_json 里 (schema-free)，list 视图也需要展示给用户
+    content = q.content_json or {}
+    description = ''
+    if isinstance(content, dict):
+        raw_desc = content.get('description')
+        if isinstance(raw_desc, str):
+            description = raw_desc.strip()[:500]
     return {
         'id': q.id,
         'skill': q.skill,
         'subtype': q.subtype,
         'title': q.title,
+        'description': description,
         'status': q.status,
         'errorMessage': q.error_message or '',
         'isAnswered': q.user_answer_json is not None,
@@ -80,27 +117,35 @@ def _serialize_detail(q: AIQuestion) -> dict:
     return data
 
 
-def create_ai_question(*, user, skill: str, content: dict, title: str = '', subtype: str = '') -> AIQuestion:
-    """供 reading/listening/writing 生成视图调用：持久化生成结果，返回入库后的 AIQuestion。"""
+def create_ai_question(*, user, skill: str, content: dict, title: str = '', subtype: str = '', custom_title: str | None = None) -> AIQuestion:
+    """供 reading/listening/writing 生成视图调用：持久化生成结果，返回入库后的 AIQuestion。
+
+    custom_title 非空时覆盖 AI 生成的 title。
+    """
     if skill not in _VALID_SKILLS:
         raise ValueError(f'Invalid skill: {skill}')
+    effective = ((custom_title or '').strip() or title or '')[:300]
     return AIQuestion.objects.create(
         user=user,
         skill=skill,
         subtype=(subtype or '')[:50],
-        title=(title or '')[:300],
+        title=effective,
         content_json=content or {},
         status=AIQuestion.STATUS_READY,
     )
 
 
-def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: str, generator):
+def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: str, generator, custom_title: str | None = None):
     """Insert a placeholder AIQuestion row, kick off `generator` on a background
     daemon thread, return the row synchronously.
 
     :param generator: callable that receives the AIQuestion row and must return
         a `(title, content_dict)` tuple on success. Any raised exception marks
         the row as failed and stores the message.
+    :param custom_title: 用户自定义题目名称。有值时：
+        - 占位阶段就直接用它显示（"⏳ 生成中" 卡片上是用户起的名字）
+        - AI 出题后也用它覆盖 generator 返回的 title
+        没值 → 沿用旧行为（placeholder 生成中 → AI title）
 
     Thread rules:
       - We're not in Celery-land, so we borrow a daemon thread. Daemon = True
@@ -112,11 +157,14 @@ def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: st
     if skill not in _VALID_SKILLS:
         raise ValueError(f'Invalid skill: {skill}')
 
+    custom_title = (custom_title or '').strip()
+    effective_placeholder = (custom_title or placeholder_title or '生成中...')[:300]
+
     question = AIQuestion.objects.create(
         user=user,
         skill=skill,
         subtype=(subtype or '')[:50],
-        title=(placeholder_title or '生成中...')[:300],
+        title=effective_placeholder,
         content_json={},
         status=AIQuestion.STATUS_GENERATING,
     )
@@ -125,10 +173,10 @@ def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: st
     def _run():
         try:
             title, content = generator(question)
-            # Reload inside the thread — the caller may have moved on and
-            # closed its own connection.
+            # 有 custom_title 时以用户输入为准；否则用 AI 生成的 title 或占位
+            final_title = (custom_title or title or '')[:300] or question.title
             AIQuestion.objects.filter(pk=question_id).update(
-                title=(title or '')[:300] or question.title,
+                title=final_title,
                 content_json=content or {},
                 status=AIQuestion.STATUS_READY,
                 error_message='',
