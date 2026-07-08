@@ -336,6 +336,85 @@ class WritingAnalyticsView(APIView):
         })
 
 
+# ── Speaking session analytics ───────────────────────────────────────
+class SpeakingAnalyticsView(APIView):
+    """GET /api/analytics/speaking
+
+    数据源 = AI 题库里的 speaking 会话，且只统计已生成 summary 报告的行
+    （ai_feedback_json 非空）——聊到一半退出、没出总结界面的会话不计入。
+
+    ai_feedback_json 由前端报告页写入，schema:
+      { "mode": "part1", "overall": 6.5,
+        "dims": {"accuracy":6,"pronunciation":6.5,...}, "rounds": 8 }
+
+    Response:
+    {
+        "trend": [ {id, date, mode, overall, dims{...}} ... ]  # 时间升序
+        "skills_avg": { dim: 均分 },   # 各维度跨会话平均（>0 的才计）
+        "by_mode": { mode: 次数 },
+        "total_sessions": N
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        rows = AIQuestion.objects.filter(
+            user=request.user,
+            skill=AIQuestion.SKILL_SPEAKING,
+            ai_feedback_json__isnull=False,
+        ).order_by('created_at')
+
+        trend = []
+        dim_sums = defaultdict(float)
+        dim_counts = defaultdict(int)
+        by_mode = defaultdict(int)
+
+        for q in rows:
+            fb = q.ai_feedback_json
+            if not isinstance(fb, dict):
+                continue
+            try:
+                overall = float(fb.get('overall', 0))
+            except (TypeError, ValueError):
+                continue
+            if overall <= 0:
+                continue
+
+            raw_dims = fb.get('dims')
+            dims = {}
+            if isinstance(raw_dims, dict):
+                for k, v in raw_dims.items():
+                    if isinstance(v, (int, float)):
+                        dims[str(k)] = round(float(v), 1)
+
+            mode = q.subtype or str(fb.get('mode') or '')
+            when = q.last_attempt_at or q.answered_at or q.created_at
+            trend.append({
+                'id': q.id,
+                'date': when.strftime('%m-%d %H:%M'),
+                'mode': mode,
+                'overall': round(overall, 1),
+                'dims': dims,
+            })
+            by_mode[mode] += 1
+            for k, v in dims.items():
+                if v > 0:
+                    dim_sums[k] += v
+                    dim_counts[k] += 1
+
+        skills_avg = {
+            k: round(dim_sums[k] / dim_counts[k], 1)
+            for k in dim_sums if dim_counts[k] > 0
+        }
+
+        return Response({
+            'trend': trend,
+            'skills_avg': skills_avg,
+            'by_mode': dict(by_mode),
+            'total_sessions': len(trend),
+        })
+
+
 # ── Reading + Listening practice accuracy analytics ──────────────────
 class PracticeAnalyticsView(APIView):
     """GET /api/analytics/practice

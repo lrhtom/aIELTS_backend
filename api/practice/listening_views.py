@@ -353,7 +353,11 @@ def generate_listening(request):
         resolved_scenario = scenario_key
         if practice_type in _LEGACY_TYPES:
             if practice_type == 'map':
-                subtype_key = random.choice(list(MAP_SUBTYPES.keys()))
+                # Random pick only from the DETAILED subtype keys, not the
+                # legacy short aliases (indoor/outdoor/street) — they point to
+                # the same content and would just skew the distribution.
+                _detailed_keys = [k for k in MAP_SUBTYPES if k not in ('indoor', 'outdoor', 'street')]
+                subtype_key = random.choice(_detailed_keys)
                 subtype = MAP_SUBTYPES[subtype_key]
                 prompt = MAP_LABELLING_PROMPT_TEMPLATE.format(
                     difficulty=difficulty,
@@ -508,13 +512,13 @@ def _post_process_listening_single(
             for lm in landmarks:
                 lm['x'] = max(30, min(mw - 30, lm.get('x', 300)))
                 lm['y'] = max(30, min(mh - 30, lm.get('y', 200)))
-            # New paradigm: landmarks are letter-labelled A-J (no questionId).
-            # Strip legacy questionId if AI still emits it.
-            for lm in landmarks:
-                if isinstance(lm, dict) and 'questionId' in lm:
-                    lm.pop('questionId', None)
-            if not isinstance(result.get('options'), list):
-                result['options'] = []
+            # New paradigm: enforce 10 letter landmarks A-J + strip questionId.
+            _enforce_map_letter_landmarks(map_data)
+            # Options must be exactly A-J (frontend grid header).
+            result['options'] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+            # Sanitize passage: neutralise 'building A' / 'block C' etc.
+            if isinstance(result.get('passage'), str):
+                result['passage'] = _sanitize_map_passage(result['passage'])
 
             # Force map image via FLUX.2-pro regardless of the user's chosen text model.
             # rel_path is a media-relative key (frontend prepends VITE_MEDIA_BASE via mediaUrl()).
@@ -588,6 +592,75 @@ def _build_section_prompt(
 
 
 _SECTION_TYPE_BY_NUM = {1: 'form', 2: 'mixed', 3: 'mixed', 4: 'note'}
+
+
+# Regex: catches the common "letter leaks" — words like `building A`, `block C`,
+# `letter D`, `labelled E`, `marked F`. Replacement neutralises the letter.
+_LETTER_LEAK_RE = re.compile(
+    r"\b(building|block|letter|labelled|labeled|marked|point|location)\s+([A-J])\b",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_map_passage(passage: str) -> str:
+    """AI sometimes ignores 'never mention letter labels' rule. Strip leaked
+    references so the listener isn't handed the answer verbatim. Best-effort —
+    doesn't try to rewrite grammar, just removes the letter token.
+    """
+    if not passage:
+        return passage
+    return _LETTER_LEAK_RE.sub(lambda m: f"{m.group(1)} [—]", passage)
+
+
+def _enforce_map_letter_landmarks(map_data: dict) -> None:
+    """Guarantee EXACTLY 10 letter landmarks A-J exist (each letter appears
+    exactly once). If AI omitted letters, fill them in on a fallback grid;
+    if AI duplicated a letter, keep only the FIRST occurrence and drop the
+    rest. Non-letter (orientation feature) landmarks pass through unchanged.
+    Also strip any lingering 'questionId' fields left over from legacy prompts.
+    """
+    if not isinstance(map_data, dict):
+        return
+    landmarks = map_data.get('landmarks')
+    if not isinstance(landmarks, list):
+        landmarks = []
+        map_data['landmarks'] = landmarks
+
+    kept: list[dict] = []
+    seen_letters: set[str] = set()
+    for lm in landmarks:
+        if not isinstance(lm, dict):
+            continue
+        lm.pop('questionId', None)  # strip legacy
+        label = str(lm.get('label') or '').strip()
+        upper = label.upper()
+        # Single-letter A-J landmark: dedupe (first-write-wins)
+        if len(upper) == 1 and 'A' <= upper <= 'J':
+            if upper in seen_letters:
+                continue  # drop the duplicate
+            lm['label'] = upper  # normalise to uppercase
+            seen_letters.add(upper)
+            kept.append(lm)
+        else:
+            # Orientation feature or any non-A..J label — keep as-is
+            kept.append(lm)
+
+    # Fill in whichever letters were missing entirely
+    grid_positions = {
+        'A': (100, 180), 'B': (200, 180), 'C': (300, 180), 'D': (400, 180), 'E': (500, 180),
+        'F': (100, 280), 'G': (200, 280), 'H': (300, 280), 'I': (400, 280), 'J': (500, 280),
+    }
+    for letter in 'ABCDEFGHIJ':
+        if letter not in seen_letters:
+            x, y = grid_positions[letter]
+            kept.append({
+                'id': letter,
+                'label': letter,
+                'x': x, 'y': y,
+                'shape': 'rect', 'w': 60, 'h': 45,
+            })
+
+    map_data['landmarks'] = kept
 
 
 def _generate_listening_map_image(
@@ -699,6 +772,10 @@ def _normalize_section(
     """
     st = _SECTION_TYPE_BY_NUM.get(section_num, 'note')
     passage = str(result.get('passage') or '').strip()
+    # Only Section 2 hosts the map subsection — that's where letter leaks bite.
+    # For other sections the sub is a no-op (regex hits nothing).
+    if section_num == 2:
+        passage = _sanitize_map_passage(passage)
     title = str(result.get('title') or f'Section {section_num}').strip()
 
     out: dict[str, Any] = {
@@ -778,19 +855,19 @@ def _normalize_section(
             lm['x'] = max(30, min(mw - 30, lm.get('x', 300)))
             lm['y'] = max(30, min(mh - 30, lm.get('y', 200)))
 
-        # New paradigm: landmarks are labelled A-J only, no questionId.
-        # If AI still emits legacy questionId (drift), strip it — frontend
-        # and FLUX no longer use it.
-        for lm in landmarks:
-            if isinstance(lm, dict) and 'questionId' in lm:
-                lm.pop('questionId', None)
+        # New paradigm: enforce all 10 letter landmarks A-J are present, strip
+        # legacy questionId, and neutralise any letter leaks the AI slipped
+        # into the passage (e.g. "next to building A").
+        _enforce_map_letter_landmarks(map_data)
+        landmarks = map_data.get('landmarks', landmarks)
 
         map_qs = _extract_questions(map_sub)
         map_norm = []
-        options = map_sub.get('options') if isinstance(map_sub.get('options'), list) else []
-        # New paradigm: options are just letters A-J (10). Fall back to A-H for
-        # legacy AI drift where it still emits ["A. Library", ...] style entries.
-        letters_available = [str(opt).strip()[:1].upper() for opt in options if str(opt).strip()][:10] or ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+        # New paradigm: options must be exactly the 10 letters A-J. Ignore
+        # anything the AI actually returned — the FE grid header must match
+        # the enforced landmark letters (also A-J).
+        options = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+        letters_available = list(options)
         for idx in range(5):
             item = map_qs[idx] if idx < len(map_qs) and isinstance(map_qs[idx], dict) else {}
             map_norm.append({

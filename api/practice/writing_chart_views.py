@@ -1139,6 +1139,30 @@ def _build_singleflight_scope(scope_prefix: str, payload) -> str:
     digest = hashlib.sha256(payload_text.encode('utf-8')).hexdigest()[:16]
     return f"{scope_prefix}:{digest}"
 
+
+# ── 真题题干骨架 (剑桥 4-21 二十年不变的五件套, 见 雅思资料/蒸馏/writing_skill.md) ──
+_TASK1_SCAFFOLD_HEAD = 'You should spend about 20 minutes on this task.'
+_TASK1_SCAFFOLD_TAIL = (
+    'Summarise the information by selecting and reporting the main features, '
+    'and make comparisons where relevant.\n\nWrite at least 150 words.'
+)
+
+
+def _wrap_task1_prompt(core: str) -> str:
+    """把 AI 生成的核心描述句包进真题固定骨架; 先剥掉 AI 可能自带的骨架句避免重复."""
+    text = (core or '').strip()
+    text = re.sub(r'(?i)you should spend about 20 minutes on this task\.?', '', text)
+    text = re.sub(
+        r'(?i)summari[sz]e the information by selecting and reporting the main features'
+        r'(,? and make comparisons where relevant)?\.?',
+        '', text)
+    text = re.sub(r'(?i)write at least 150 words\.?', '', text)
+    text = re.sub(r'\n{3,}', '\n\n', text).strip()
+    if not text:
+        return core or ''
+    return f'{_TASK1_SCAFFOLD_HEAD}\n\n{text}\n\n{_TASK1_SCAFFOLD_TAIL}'
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_chart(request):
@@ -1154,52 +1178,49 @@ def generate_chart(request):
         client = AIClient(provider=provider)
 
         if chart_type == 'flowchart':
+            # 真题体裁 (剑桥 4-21 蒸馏): 流程图是描述性的工艺/自然/生物流程,
+            # 线性或环形, 6-9 步; 绝无判断菱形和 Yes/No 条件边 —— 描述条件逻辑
+            # 不是雅思考核的语言技能。见 雅思资料/蒸馏/writing_skill.md。
             chart_instructions = """
-   - The user requested a FLOWCHART (Process Diagram).
+   - The user requested an IELTS Task 1 PROCESS DIAGRAM (flow-chart).
    - You MUST NOT use matplotlib or python.
    - You MUST generate valid `mermaid.js` flowchart code.
-    - VARIETY IS REQUIRED - randomly pick one of these structural patterns each time:
-       A) LINEAR WITH BRANCH: a main chain that splits into 2-3 parallel paths, then reconverges (one-to-many then many-to-one).
-       B) LOOP/CYCLE: a decision diamond that loops back to an earlier step when the condition is not met (e.g. quality-check retry, feedback loop, resubmission cycle).
-       C) PARALLEL MERGE: two or more independent starting sub-processes that both feed into a shared downstream step.
-       D) MIXED: combine a loop AND a branch in the same diagram (most complex, use for longer processes).
-   - Use VARIED node shapes for semantic clarity:
-    A["label"]    - standard rectangular process step
-    A(("label"))  - circle, for key events
-    A{"label"}    - diamond, for decisions only
-    A(["label"])  - pill/stadium, for start or end
-   - For one-to-many branching use: A --> B & C & D
-   - For many-to-one merging  use: B & C --> D
-   - For a loop-back          use: D -->|No| B
-   - Direction: prefer flowchart TD for tall processes, flowchart LR for wide/parallel ones.
-   - Aim for 8-14 nodes total; label edges where it adds meaning (Yes/No, Approved/Rejected, etc.).
+   - AUTHENTIC IELTS GENRE (hard constraints):
+       * Depict a real-world manufacturing, natural, biological or recycling PROCESS
+         (e.g. how fabric is made from bamboo, the life cycle of a salmon, brick
+         production, how rainwater is reused, chocolate production).
+       * The process is DESCRIPTIVE — it always happens the same way. There must be
+         NO decisions, NO conditions, NO Yes/No edges, NO diamond nodes. Real IELTS
+         process diagrams never contain conditional logic.
+       * Structure: a LINEAR chain (Stage 1 → ... → Stage N), or a natural CYCLE
+         (the last stage loops back to the first, e.g. the water cycle). One simple
+         fork or merge for a by-product/input is allowed (e.g. waste returned for
+         recycling), but never a decision.
+       * 6-9 stages total. Each stage label is a short noun phrase or gerund
+         ("Harvesting", "Soaking in solution", "Spinning into yarn").
+   - Node shapes: A["label"] rectangles for stages; optionally S(["Raw material"]) and
+     E(["Finished product"]) pills for start/end. Do NOT use diamond {} nodes or circles.
+   - Direction: flowchart LR for manufacturing chains, flowchart TD for tall processes;
+     cycles loop back with a plain edge (no label).
    - CRITICAL SYNTAX RULES (violations cause parse errors):
        * Every node label MUST be in double quotes: A["Label text here"]
        * Never use unquoted labels containing spaces or : ( ) { }
-       * Edge labels use pipe syntax: A -->|Yes| B
-       * No spaces around & in parallel syntax: A --> B & C
-   - Example A (loop pattern):
-     flowchart TD
-       S(["Start"]) --> A["Submit Application"]
-       A --> B{"Complete?"}
-       B -->|No| C["Return for Revision"]
-       C --> A
-       B -->|Yes| D["Review Panel"]
-       D --> E{"Approved?"}
-       E -->|No| F["Notify Applicant"]
-       F --> A
-       E -->|Yes| G["Issue Certificate"]
-       G --> Z(["End"])
-   - Example B (branch and merge pattern):
+       * Plain edges only: A --> B  (edge labels are not needed in this genre)
+   - Example A (linear manufacturing):
      flowchart LR
-       S(["Raw Material"]) --> P["Pre-treatment"]
-       P --> Q & R & T
-       Q["Line A Cutting"] --> M["Assembly"]
-       R["Line B Moulding"] --> M
-       T["Line C Printing"] --> M
-       M --> I{"Quality Check"}
-       I -->|Pass| D(["Dispatch"])
-       I -->|Fail| X["Rework"] --> M"""
+       S(["Raw bamboo"]) --> A["Harvesting"]
+       A --> B["Crushing into pulp"]
+       B --> C["Soaking in solution"]
+       C --> D["Spinning into yarn"]
+       D --> E["Weaving"]
+       E --> F(["Finished fabric"])
+   - Example B (natural cycle):
+     flowchart TD
+       A["Evaporation from oceans"] --> B["Condensation into clouds"]
+       B --> C["Precipitation"]
+       C --> D["Runoff into rivers"]
+       D --> E["Collection in oceans"]
+       E --> A"""
         elif chart_type == 'map':
             chart_instructions = """
      - MAP mode is handled by the dedicated SVG + icon placement branch below.
@@ -1210,6 +1231,22 @@ def generate_chart(request):
    - The two charts should display related but different datasets about the same topic.
    - The code must generate its own random but plausible data arrays inline for the charts.
    - Use ONLY standard chart functions for data visualization."""
+        elif chart_type == 'table':
+            # 真题高频原生题型: 数据表格 (常为多表组合, 如 C20 NYC 人口 3 表)。
+            # 用 matplotlib ax.table 渲染成图片, 复用现有 image 管线。
+            chart_instructions = """
+   - The user requested a TABLE (authentic high-frequency IELTS Task 1 stimulus).
+   - Render ONE OR TWO clean data tables as an image using matplotlib's `ax.table` with axes hidden (`ax.axis('off')`).
+   - Structure like real Cambridge tables: 4-7 data rows x 3-5 columns, comparing categories
+     across 2-3 time points OR across 3-6 countries/groups (e.g. "proportion of households
+     in poverty by family type", "city population 1800/1900/2000").
+   - Include a clear title (plt.title or fig.suptitle), column headers, and a units note
+     (%, thousands, millions) either in headers or a caption.
+   - Numbers must be plausible and internally consistent (a total row should roughly equal
+     the sum of its parts); mix magnitudes like real data (79,216 vs 8,009,185).
+   - Style: white background, header row shaded light grey (use cellColours or set_facecolor),
+     readable font (table.set_fontsize(11); table.scale(1, 1.6)), thin cell edges.
+   - If TWO tables, use two stacked subplots sharing one topic (like Cambridge multi-table sets)."""
         else:
             chart_instructions = """
    - The code must generate its own random but plausible data arrays inline for the chart.
@@ -1219,10 +1256,9 @@ def generate_chart(request):
             code_requirement = '''Mermaid.js flowchart code ONLY.
        - Start with `flowchart TD` or `flowchart LR`.
        - Do NOT return Python, matplotlib, pseudocode, or markdown explanation.
-       - Use the structural variety described in the chart constraints (branch, loop, parallel, or mixed).
+       - Descriptive linear or cyclical process only — NO decision diamonds, NO Yes/No edges (authentic IELTS genre).
        - Node labels must be parser-safe: wrap multi-word labels in double quotes inside brackets, e.g. A["Raw Material Input"].
-       - Edge labels use the pipe syntax: A -->|Yes| B  or  A -- label --> B.
-       - For parallel edges use: A --> B & C  (no extra spaces around &).
+       - Plain edges only: A --> B.
        - Return pure Mermaid text in the `code` field.'''
         else:
             code_requirement = '''Python code using Matplotlib.
@@ -1274,8 +1310,8 @@ def generate_chart(request):
                 mermaid_code = _build_fallback_flowchart(prompt_text)
 
             if not prompt_text:
-                prompt_text = ('The diagram below shows the process illustrated in the flowchart. '
-                               'Summarise the information by selecting and reporting the main features.')
+                prompt_text = 'The diagram below shows the process illustrated in the flowchart.'
+            prompt_text = _wrap_task1_prompt(prompt_text)
 
             fc_payload = {
                 'imageUrl':    None,
@@ -1292,6 +1328,7 @@ def generate_chart(request):
         if chart_type == 'map':
             try:
                 payload = _generate_raster_map(client, user)
+                payload['prompt'] = _wrap_task1_prompt(payload.get('prompt') or '')
                 return Response(_save_chart_question(
                     user, chart_type, payload['prompt'], payload,
                     title_override=payload.get('titleOverride'),
@@ -1320,7 +1357,7 @@ def generate_chart(request):
                 user_id=user.id,
                 singleflight_scope='writing_chart_generate',
             )
-            prompt_text = response_data.get('prompt', '')
+            prompt_text = _wrap_task1_prompt(response_data.get('prompt', ''))
             python_code = response_data.get('code', '')
             if not python_code:
                 raise ValueError("No code generated")

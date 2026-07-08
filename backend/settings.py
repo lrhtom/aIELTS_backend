@@ -152,6 +152,13 @@ DATABASES = {
         'USER': os.environ.get('DB_USER', ''),
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'NAME': os.environ.get('DB_NAME', 'aielts_db'),
+        # Aiven MySQL is a remote host behind TLS — without persistent
+        # connections every request pays a fresh TCP+TLS+auth handshake
+        # (~100-300ms). Keep connections for 60s; health-check before reuse
+        # so a connection silently dropped by Aiven/firewall idle timeouts
+        # is rebuilt instead of raising mid-request.
+        'CONN_MAX_AGE': 60,
+        'CONN_HEALTH_CHECKS': True,
         'OPTIONS': {
             'charset': 'utf8mb4',
             'ssl': _get_database_ssl_options(),

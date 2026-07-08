@@ -54,9 +54,9 @@ Tone requirement:
 {mc_marker_rule}
 
 Then, create exactly 5 multiple-choice questions based on the passage.
-For each question, provide 4 options as a JSON array. 
-CRITICAL RULE: The VERY FIRST option in the "options" array (index 0) MUST ALWAYS BE THE CORRECT ANSWER. The remaining 3 options must be the incorrect distractors. 
-Our system will shuffle them automatically later. Do not assign A, B, C, D letters yourself.
+For each question, provide EXACTLY 3 options as a JSON array — authentic IELTS Listening MCQ is "Choose the correct letter, A, B or C" (3 options, NOT 4).
+CRITICAL RULE: The VERY FIRST option in the "options" array (index 0) MUST ALWAYS BE THE CORRECT ANSWER. The remaining 2 options must be incorrect distractors that ARE mentioned in the audio but are wrong (self-corrected by the speaker, rejected by another speaker, or attributed to the wrong thing).
+Our system will shuffle them automatically later. Do not assign A, B, C letters yourself.
 
 You MUST output your response strictly in the following JSON format without any markdown wrappers or extra text:
 {{
@@ -70,8 +70,7 @@ You MUST output your response strictly in the following JSON format without any 
             "options": [
                 "The EXACT text of the CORRECT option goes here FIRST",
                 "Wrong option distractor 1",
-                "Wrong option distractor 2",
-                "Wrong option distractor 3"
+                "Wrong option distractor 2"
             ],
             "explanation": "Detailed explanation using 中文. Explain why the correct option is right."
         }}
@@ -126,39 +125,47 @@ Tone requirement:
 {tone_instruction}
 
 RULES:
-1. "passage": A monologue of ~200-300 words. The speaker describes a place while the listener follows on a map/floor plan. Use rich directional language matching the subtype above.
+1. "passage": A monologue of ~200-300 words. The speaker describes where each THING in "questions" is located.
+   ── **HARD CONSTRAINT (zero tolerance): the passage MUST NOT contain ANY of the letters A, B, C, D, E, F, G, H, I, J used as a building reference**. Do NOT write phrases like "building A", "block C", "letter D", "labelled E", "next to F". The letter names of the buildings must NEVER be spoken.
+   ── The ONLY way to describe a location is by using ORIENTATION FEATURES (real English words like "reception", "main road", "river") and directional / spatial language ("opposite", "behind", "at the far end of", "on your left as you enter", "across the bridge").
+   ── **Every orientation feature you use in the passage MUST also exist as a text-labelled landmark on the map** (rule 2b). And **every text-labelled orientation feature on the map MUST be mentioned in the passage at least once** (both directions of the constraint).
+   ── Example acceptable phrasing: "The coffee room is opposite the reception, along the main corridor" (uses "reception" + "main corridor" — both must be on the map).
+   ── Example FORBIDDEN phrasing: "The coffee room is at building A" — mentions letter A. Reject and rewrite.
 2. "map": A structured JSON object describing the map layout:
    - "name": name of the place
    - "width": 600, "height": 400 (fixed canvas size)
-   - "landmarks": array of building/location objects labeled A through J. Each has:
-     - "id": the SAME letter as label (e.g. "A")
-     - "label": a SINGLE UPPERCASE LETTER "A" through "J" (this is what shows on the map — nothing else)
-     - "x", "y": center coordinates (must be within 30-570 for x, 30-370 for y)
-     - "shape": "rect" or "circle"
-     - For rect: "w" (width 40-100), "h" (height 30-70)
-     - For circle: "r" (radius 15-35)
-     - DO NOT set "questionId" on any landmark — the question paradigm is INVERSE (see below).
-   - You MUST have exactly 10 letter-labeled landmarks (A, B, C, D, E, F, G, H, I, J), evenly spread.
-   - You MAY additionally include unlettered orientation features (e.g. "River", "Main Road", "Entrance", "Reception") — put these in "landmarks" too but with a descriptive label ("Main Road" etc.) instead of a letter. Do not use them as answer options.
-   - "paths": array of path objects, each with "points" (array of [x,y] pairs) and optional "label"
+   - "landmarks": TWO KINDS of items in this single array:
+     a) LETTERED BUILDINGS: **exactly 10 items, one per letter — A, B, C, D, E, F, G, H, I, and J. All ten must be present. Each letter appears EXACTLY ONCE — no duplicates.** These are the answer candidates.
+        - "id": the letter (e.g. "A")
+        - "label": SINGLE UPPERCASE LETTER "A"-"J"
+        - "x","y","shape","w","h" or "r" as before
+     b) ORIENTATION FEATURES: 3-6 items, NOT answer options. Text labels the listener uses to reason about position. Examples: "Reception", "Main Entrance", "Main Road", "River", "Access Road", "Car Park", "Lake", "Bridge", "Playground".
+        - "id": lowercase kebab-case (e.g. "reception")
+        - "label": human-readable ENGLISH WORD(S) (e.g. "RECEPTION", "MAIN ROAD"). Must be at least 2 characters — never a single letter. This signals to the frontend it's an orientation feature, not an answer letter.
+        - Same coordinate/shape fields as (a).
+     DO NOT set "questionId" on ANY landmark.
+     Landmarks must NOT overlap: keep letter buildings spatially distinct from each other and from orientation features.
+   - "paths": array of path objects, each with "points" (array of [x,y] pairs) and optional "label" (e.g. "Access Road")
    - "decorations": array of decoration objects with "type" (one of: "tree", "lake", "garden", "parking", "fountain"), "x", "y", and optional "w", "h"
-3. "options": An array of exactly 10 strings: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]. The letters correspond to the building labels on the map.
-4. "questions": An array of exactly 5 objects. Each is a THING the listener must locate on the map. Each has:
-   - "id": 1 through 5
-   - "question": the THING to locate (short lowercase phrase like "coffee room", "warehouse", "staff canteen", "meeting room", "human resources")
-   - "answer": which letter A-J that thing is at
-   - "explanation": explanation in Chinese
-5. The passage MUST describe where each of the 5 THINGS in "questions" is located, referencing the labeled buildings A-J or the orientation features.
-6. Include at least 2-3 paths for visual context.
-7. Include 2-4 decorations for visual interest.
-8. Make sure the passage uses clear directional language that MATCHES the spatial layout of the map coordinates.
-9. NEVER draw red numbered markers on the map. The map is a clean floor plan with buildings only labeled by letter.
+3. "options": exactly ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] (all ten letters, matching rule 2a).
+4. "questions": exactly 5 objects. Each has:
+   - "id": 1-5
+   - "question": short lowercase phrase describing the thing to LOCATE (e.g. "coffee room")
+   - "answer": one letter A-J
+   - "explanation": Chinese explanation citing the ORIENTATION cue from the passage. It's OK for the explanation (Chinese, not spoken) to reference the letter — because the explanation is shown AFTER the user answers, so it can name the building. e.g. "解析:passage 说 opposite the reception, along the main corridor. Reception 在图正下方中央,正对面为 C."
+5. Layout must be COHERENT — the positions of the letter buildings and the orientation features must make the directional cues in the passage unambiguously point to exactly ONE letter for each answer.
+6. NEVER draw numbered markers or red circles.
+
+Self-check before returning:
+  (i) Do all 10 letters A-J appear as `label` in landmarks? If not, add the missing ones.
+  (ii) Scan the "passage" text: does it contain any standalone capital letters A-J used as building references? If YES, rewrite that sentence using orientation features instead.
+  (iii) For every orientation feature mentioned in the passage, is there a matching text-labelled landmark? For every text-labelled landmark, is it mentioned in the passage? Both directions.
 
 Output ONLY valid JSON, no markdown, no comments:
 {{
     "type": "map",
     "title": "Plan of [Place Name]",
-    "passage": "Welcome to ... The coffee room is on your left as you enter, next to building A. If you continue past the reception...",
+    "passage": "Good morning everyone, welcome to the new site. As you enter through the main gate on the south side, the reception is directly ahead of you. The coffee room is the building right opposite the reception, along the main corridor. Now, if you look to your right, past the main road, you'll see the warehouse — it's the larger block backing onto the river...",
     "map": {{
         "name": "[Place Name]",
         "width": 600,
@@ -174,10 +181,13 @@ Output ONLY valid JSON, no markdown, no comments:
             {{"id": "H", "label": "H", "x": 300, "y": 300, "shape": "rect", "w": 60, "h": 45}},
             {{"id": "I", "label": "I", "x": 400, "y": 300, "shape": "rect", "w": 60, "h": 45}},
             {{"id": "J", "label": "J", "x": 500, "y": 300, "shape": "rect", "w": 60, "h": 45}},
-            {{"id": "reception", "label": "RECEPTION", "x": 300, "y": 370, "shape": "rect", "w": 100, "h": 25}}
+            {{"id": "reception", "label": "RECEPTION", "x": 300, "y": 370, "shape": "rect", "w": 100, "h": 25}},
+            {{"id": "main-road", "label": "MAIN ROAD", "x": 300, "y": 50, "shape": "rect", "w": 500, "h": 18}},
+            {{"id": "river", "label": "RIVER", "x": 570, "y": 250, "shape": "rect", "w": 20, "h": 200}}
         ],
         "paths": [
-            {{"points": [[300, 370], [300, 250]], "label": "Main Corridor"}}
+            {{"points": [[300, 370], [300, 250]], "label": "Main Corridor"}},
+            {{"points": [[50, 380], [550, 380]], "label": "Access Road"}}
         ],
         "decorations": [
             {{"type": "tree", "x": 50, "y": 50}}
@@ -185,69 +195,102 @@ Output ONLY valid JSON, no markdown, no comments:
     }},
     "options": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
     "questions": [
-        {{"id": 1, "question": "coffee room", "answer": "A", "explanation": "解析:讲话人说 the coffee room is next to building A..."}},
-        {{"id": 2, "question": "warehouse", "answer": "C", "explanation": "解析?.."}},
-        {{"id": 3, "question": "staff canteen", "answer": "E", "explanation": "解析?.."}},
-        {{"id": 4, "question": "meeting room", "answer": "H", "explanation": "解析?.."}},
-        {{"id": 5, "question": "human resources", "answer": "J", "explanation": "解析?.."}}
+        {{"id": 1, "question": "coffee room", "answer": "C", "explanation": "解析:passage 说 opposite the reception, along the main corridor. Reception 在图正下方中央,正对面为 C."}},
+        {{"id": 2, "question": "warehouse", "answer": "J", "explanation": "解析:passage 说 past the main road, larger block backing onto the river. 靠河一侧的下排是 J."}},
+        {{"id": 3, "question": "staff canteen", "answer": "F", "explanation": "解析?.."}},
+        {{"id": 4, "question": "meeting room", "answer": "D", "explanation": "解析?.."}},
+        {{"id": 5, "question": "human resources", "answer": "H", "explanation": "解析?.."}}
     ]
 }}
 """
 
 # ── 地图子类型定义（与 prompt 强耦合，一并提取）──
+# ── 通用规则：passage 描述位置时**只用参照物 + 方位**，绝不出现 "building A / letter B" 这种字母提示。
+#             参照物（Reception / Main Road / River / Car Park 等）以英文文本标在图上，不参与答案选项。
 SKILL_LISTENING_MAP_SUBTYPES = {
-    'indoor': {
-        'name': 'Indoor Plan (室内布局图)',
-        'instructions': """INDOOR PLAN SCENARIO:
-Setting: A library, museum, sports centre, gallery, exhibition hall, or new office building.
-Layout elements: Clear entrance (Entrance / Main Door), corridors, foyer/lobby, reception desk, rooms, halls.
-
-DIRECTIONAL LANGUAGE - DO NOT use compass directions (N/S/E/W). Use ONLY relative positions:
-- "on your left / right", "straight ahead", "at the far end"
-- "opposite", "next to", "beside", "adjacent to"
-- "in the corner", "at the back of", "behind the reception"
-- "through the double doors", "along the corridor", "past the lifts"
-- "on the first/second floor", "upstairs", "at the top of the stairs"
-
-Decorations: Use "fountain" for indoor water features, "garden" for indoor plants/atrium.
-Paths: Represent corridors and hallways. Label them (e.g. "Main Corridor", "East Wing").
-The passage should describe a route walking through the building from the entrance."""
+    # ── 室内 (Indoor) ──
+    'indoor_office': {
+        'name': 'Indoor — Office / Workplace (办公楼)',
+        'instructions': """INDOOR OFFICE PLAN:
+Setting: A newly built office building / open-plan workplace / corporate HQ / co-working space.
+Orientation features (add to landmarks as text-labelled): "MAIN ENTRANCE", "RECEPTION", "LIFT LOBBY", "STAIRCASE", "MAIN CORRIDOR", possibly "CAR PARK" outside.
+Things to locate (candidates for questions): meeting room, boardroom, staff canteen, coffee room, IT support, human resources, mail room, printing room, storeroom, quiet zone.
+DIRECTIONAL LANGUAGE (no compass; strictly relative + reference features):
+- "on your left / right as you enter", "at the far end of the main corridor"
+- "opposite the reception", "just past the lift lobby", "next to the staircase"
+- "the block behind reception, backing onto the car park"
+- NEVER: "building A" / "block C" / "labelled D" — the letter must be INFERRED."""
     },
-    'outdoor': {
-        'name': 'Outdoor Map (室外平面图)',
-        'instructions': """OUTDOOR MAP SCENARIO:
-Setting: A park, university campus, holiday resort, farm, or tourist attraction.
-Layout elements: Large open area with natural and man-made features.
-
-DIRECTIONAL LANGUAGE - Use BOTH compass directions AND relative positions:
-- Compass: "to the north/south/east/west of", "in the north-east corner"
-- Relative: "next to", "opposite", "beyond", "across from"
-- Movement: "if you follow the path", "heading towards", "as you walk along"
-- Reference landmarks: "the lake in the north", "behind the main building"
-
-Decorations: Use trees, lakes, gardens, parking lots, fountains generously.
-Paths: Represent walkways, trails, roads. Label them (e.g. "Main Path", "Lakeside Trail").
-The passage should use a prominent natural landmark (lake, hill, river) as a reference point for positioning."""
+    'indoor_public': {
+        'name': 'Indoor — Public Building (公共室内)',
+        'instructions': """INDOOR PUBLIC BUILDING PLAN:
+Setting: A library, museum, gallery, exhibition hall, sports centre, or community centre.
+Orientation features: "MAIN ENTRANCE", "INFORMATION DESK", "LOCKERS", "MAIN HALL", "CAFÉ AREA", "STAIRS", "LIFT".
+Things to locate: reading room, children's section, temporary exhibition, gift shop, cloakroom, changing rooms, activity hall, computer area, quiet study, first-aid room.
+DIRECTIONAL LANGUAGE:
+- "as you come through the main entrance", "just to the left of the information desk"
+- "behind the café area", "through the double doors at the back of the main hall"
+- "in the corner where the two wings meet"
+- Letters NEVER named directly."""
     },
-    'street': {
-        'name': 'Street Map (街道街区图)',
-        'instructions': """STREET MAP SCENARIO:
-Setting: A town centre, newly developed neighbourhood, or traffic improvement area.
-Layout elements: Named roads, intersections (crossroads / T-junctions), traffic lights, zebra crossings, bridges, roundabouts.
-
-DIRECTIONAL LANGUAGE - Dense movement-oriented vocabulary:
-- "go straight along [Road Name]", "turn left/right at the junction"
-- "take the first/second turning on the left"
-- "cross the bridge", "go past the traffic lights"
-- "on the corner of [Road A] and [Road B]"
-- "it's between [Place A] and [Place B]"
-- "continue down the road until you reach..."
-
-Decorations: Use "parking" for car parks, "tree" for roadside trees, "fountain" for town square features.
-Paths: Represent ROADS and STREETS. Label all paths with street names (e.g. "High Street", "Park Road", "Bridge Lane").
-The passage should give a walking route with CONSECUTIVE turning instructions, mentioning road names and intersections."""
-    }
+    # ── 室外 (Outdoor) ──
+    'outdoor_campus': {
+        'name': 'Outdoor — Campus (校园平面图)',
+        'instructions': """OUTDOOR CAMPUS MAP:
+Setting: A university campus, school grounds, training centre.
+Orientation features: "MAIN GATE", "SPORTS FIELD", "CAR PARK", "MAIN ROAD", "STUDENT UNION", "LIBRARY BLOCK" (if it's an orientation feature, not an answer).
+Things to locate: lecture theatre, dorm, refectory, health centre, admin office, science lab, art studio, chapel, bookshop, laundry.
+DIRECTIONAL LANGUAGE:
+- BOTH compass ("in the north-east corner") AND relative ("behind the sports field")
+- "if you follow the main path from the gate", "the closer of the two blocks near the car park"
+- "across from the main road, backing onto the field"
+- Letters NEVER named directly."""
+    },
+    'outdoor_park': {
+        'name': 'Outdoor — Park / Nature (公园/自然)',
+        'instructions': """OUTDOOR PARK MAP:
+Setting: A public park, botanical garden, nature reserve, farm, or country park.
+Orientation features: "LAKE", "RIVER", "CAR PARK", "MAIN ENTRANCE", "PLAYGROUND", "PICNIC AREA", "BANDSTAND".
+Things to locate: café, toilets, bicycle hire, information centre, wildlife hide, boat rental, adventure trail start, souvenir shop, tea room, memorial statue.
+DIRECTIONAL LANGUAGE:
+- "on the north shore of the lake", "just across the small bridge over the river"
+- "beyond the playground on the west side", "in the wooded area behind the picnic tables"
+- "at the far end of the main path"
+- Letters NEVER named directly."""
+    },
+    'outdoor_resort': {
+        'name': 'Outdoor — Resort / Attraction (度假区/景区)',
+        'instructions': """OUTDOOR RESORT / ATTRACTION MAP:
+Setting: A holiday resort, theme park, seaside town, hotel complex, campsite.
+Orientation features: "BEACH", "POOL", "MAIN LODGE", "MARINA", "MAIN GATE", "CAR PARK", "MAIN PATH".
+Things to locate: bike rental, restaurant, spa, snack bar, kids' club, laundry, souvenir shop, boat hire, tennis court, mini-golf.
+DIRECTIONAL LANGUAGE:
+- "right on the seafront", "the second building along the main path from the lodge"
+- "opposite the pool, next to the main gate"
+- "in the north-west corner of the site, behind the tennis court"
+- Letters NEVER named directly."""
+    },
+    'outdoor_street': {
+        'name': 'Outdoor — Street / Neighbourhood (街道街区)',
+        'instructions': """STREET / NEIGHBOURHOOD MAP:
+Setting: Town centre, redeveloped neighbourhood, high street.
+Orientation features: named roads ("HIGH STREET", "PARK ROAD", "BRIDGE LANE"), "TRAFFIC LIGHTS", "ROUNDABOUT", "BRIDGE".
+Things to locate: post office, chemist, bank, community hall, cinema, bakery, launderette, art gallery, dentist, tourist office.
+DIRECTIONAL LANGUAGE:
+- "go straight along High Street", "turn left at the traffic lights"
+- "on the corner of Park Road and Bridge Lane"
+- "the third shop after the roundabout on the right"
+- Letters NEVER named directly."""
+    },
+    # Legacy short keys kept as aliases for backwards compat
+    'indoor':  {'name': 'Indoor Plan (室内布局图)', 'instructions': ''},
+    'outdoor': {'name': 'Outdoor Map (室外平面图)', 'instructions': ''},
+    'street':  {'name': 'Street Map (街道街区图)', 'instructions': ''},
 }
+# alias legacy short keys to new detailed variants
+SKILL_LISTENING_MAP_SUBTYPES['indoor']  = SKILL_LISTENING_MAP_SUBTYPES['indoor_public']
+SKILL_LISTENING_MAP_SUBTYPES['outdoor'] = SKILL_LISTENING_MAP_SUBTYPES['outdoor_park']
+SKILL_LISTENING_MAP_SUBTYPES['street']  = SKILL_LISTENING_MAP_SUBTYPES['outdoor_street']
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -514,7 +557,8 @@ SKILL_LISTENING_SECTION1_TEMPLATE = (
 SECTION 1 of IELTS Listening full test.
 QUESTION TYPE: Form Completion (10 blanks).
 CONTEXT: A social everyday transaction. Speaker A is asking the questions (staff/agent); Speaker B is the applicant/customer.
-WORD LIMIT: NO MORE THAN 2 WORDS AND/OR A NUMBER for each answer.
+WORD LIMIT: ONE WORD AND/OR A NUMBER for each answer (authentic recent Cambridge convention for Part 1).
+AUTHENTIC DETAILS: at least one answer should be a name/address SPELLED OUT letter-by-letter in the audio ("that's B-R-A-X-T-O-N"), and at least two should be numbers/prices/dates pronounced naturally ("double four seven"). The form starts with ONE pre-filled example row marked "(Example)" whose value is already given — it is NOT one of the 10 numbered blanks.
 
 Output STRICTLY this JSON:
 {{
@@ -524,8 +568,8 @@ Output STRICTLY this JSON:
     "title": "Section 1 - <form title>",
     "scenario": "{scenario_key}",
     "passage": "Full audio transcript with [SPEAKER_A] / [SPEAKER_B] labels.",
-    "form_intro": "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
-    "form_content": "<multi-line form layout with (1)-(10) blanks>",
+    "form_intro": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
+    "form_content": "<multi-line form layout: first a pre-filled '(Example)' row, then (1)-(10) blanks>",
     "questions": [
         {{"id": 1, "answers": ["<verbatim>"], "explanation": "中文原词定位."}}
     ]
@@ -539,19 +583,21 @@ SKILL_LISTENING_SECTION2_TEMPLATE = (
     """
 SECTION 2 of IELTS Listening full test.
 QUESTION MIX: Split 10 questions into 2 sub-sections:
-  - Questions 1-5: MULTIPLE CHOICE (4 options each A/B/C/D)
+  - Questions 1-5: MULTIPLE CHOICE (EXACTLY 3 options each — authentic IELTS Listening is "A, B or C")
   - Questions 6-10: MAP LABELLING (locate a THING on a floor-plan whose buildings are labelled A-J)
 CONTEXT: A monologue giving practical information (facility briefing / event orientation).
 
 MAP SUB-SECTION FORMAT (CRITICAL — new paradigm, DO NOT emit red numbered markers):
-  - The map has 10 buildings labelled A, B, C, D, E, F, G, H, I, J.
-  - Each landmark object in "map.landmarks" has "label" set to a SINGLE UPPERCASE LETTER — "A" through "J" — and NO "questionId" field.
-  - You may include additional orientation features (e.g. "RECEPTION", "MAIN ROAD", "River") as extra landmarks with descriptive labels; those are NOT answer options.
+  - The map has **exactly 10** buildings labelled A, B, C, D, E, F, G, H, I, J. ALL TEN letters MUST appear as landmarks — none may be omitted AND each letter appears EXACTLY ONCE (no duplicates).
+  - Each lettered landmark object in "map.landmarks" has "label" set to a SINGLE UPPERCASE LETTER — "A" through "J" — and NO "questionId" field.
+  - You MUST include additionally 3-6 ORIENTATION FEATURES as extra landmarks (NOT answer options). Their "label" is a real English word or phrase (>=2 chars), never a single letter. Examples: "Reception", "Main Entrance", "Main Road", "River", "Access Road", "Car Park", "Lake", "Bridge", "Playground".
   - "options" MUST be exactly ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].
   - Each of the 5 questions asks WHERE a specific thing is (e.g. "coffee room", "warehouse"). Fields:
       "id": 6-10, "question": short thing-to-locate phrase, "answer": one letter A-J, "explanation": Chinese.
-  - The passage MUST clearly describe where each thing in the questions is, referencing the letter-labelled buildings and orientation features.
-For MCQ, put the CORRECT option first in each options list (frontend will shuffle).
+  - The passage MUST describe where each thing is located using ONLY orientation features + directional / spatial language.
+  - **HARD CONSTRAINT (zero tolerance)**: the passage MUST NOT contain any of the letters A/B/C/D/E/F/G/H/I/J used as a building reference. NO "building A", "block C", "labelled D", "letter E" style. Enforce this by using orientation features instead.
+  - **Bidirectional constraint**: every orientation feature word mentioned in the passage MUST exist as a text-labelled landmark on the map; and every text-labelled orientation feature landmark MUST be mentioned in the passage at least once.
+For MCQ, put the CORRECT option first in each options list (frontend will shuffle). Each MCQ has EXACTLY 3 options (1 correct + 2 distractors).
 
 Output STRICTLY this JSON:
 {{
@@ -560,15 +606,15 @@ Output STRICTLY this JSON:
     "sectionType": "mixed",
     "title": "Section 2 - <topic>",
     "scenario": "{scenario_key}",
-    "passage": "Full audio transcript.",
+    "passage": "Full audio transcript. In the map section the speaker must describe locations using ONLY orientation feature words (reception, main road, car park, river ...) plus directions — NEVER letter names.",
     "subsections": [
         {{
             "type": "multiple_choice",
-            "instructions": "Questions 1-5: Choose the correct letter A, B, C or D.",
+            "instructions": "Questions 1-5: Choose the correct letter, A, B or C.",
             "startId": 1,
             "endId": 5,
             "questions": [
-                {{"id": 1, "question": "...", "options": ["CORRECT text first", "distractor 1", "distractor 2", "distractor 3"], "explanation": "中文."}}
+                {{"id": 1, "question": "...", "options": ["CORRECT text first", "distractor 1", "distractor 2"], "explanation": "中文."}}
             ]
         }},
         {{
@@ -592,13 +638,15 @@ Output STRICTLY this JSON:
                     {{"id": "H", "label": "H", "x": 300, "y": 280, "shape": "rect", "w": 60, "h": 50}},
                     {{"id": "I", "label": "I", "x": 400, "y": 280, "shape": "rect", "w": 60, "h": 50}},
                     {{"id": "J", "label": "J", "x": 500, "y": 280, "shape": "rect", "w": 60, "h": 50}},
-                    {{"id": "reception", "label": "RECEPTION", "x": 300, "y": 370, "shape": "rect", "w": 100, "h": 25}}
+                    {{"id": "reception", "label": "RECEPTION", "x": 300, "y": 370, "shape": "rect", "w": 100, "h": 25}},
+                    {{"id": "main-road", "label": "MAIN ROAD", "x": 300, "y": 50, "shape": "rect", "w": 500, "h": 18}},
+                    {{"id": "car-park", "label": "CAR PARK", "x": 570, "y": 350, "shape": "rect", "w": 60, "h": 40}}
                 ],
-                "paths": [{{"points": [[300, 370], [300, 250]]}}],
+                "paths": [{{"points": [[300, 370], [300, 250]], "label": "Main Corridor"}}],
                 "decorations": []
             }},
             "questions": [
-                {{"id": 6, "question": "coffee room", "answer": "A", "explanation": "..."}}
+                {{"id": 6, "question": "coffee room", "answer": "C", "explanation": "解析:passage 说 opposite the reception, along the main corridor — reception 位于图正下方,正对面即 C."}}
             ]
         }}
     ]
@@ -612,11 +660,11 @@ SKILL_LISTENING_SECTION3_TEMPLATE = (
     """
 SECTION 3 of IELTS Listening full test.
 QUESTION MIX:
-  - Questions 1-5: MULTIPLE CHOICE (4 options each)
+  - Questions 1-5: MULTIPLE CHOICE (EXACTLY 3 options each — authentic IELTS Listening is "A, B or C")
   - Questions 6-10: MATCHING (match items to options bank A-G)
 CONTEXT: An educational conversation — tutorial, project meeting, or peer discussion. Speakers should express opinions and disagree politely.
 
-For MCQ, correct option MUST be listed FIRST in options array. For Matching, provide 5 items + 7 options (A-G).
+For MCQ, correct option MUST be listed FIRST in options array (1 correct + 2 distractors that are genuinely discussed then rejected in the conversation). For Matching, provide 5 items + 7 options (A-G).
 
 Output STRICTLY this JSON:
 {{
@@ -629,11 +677,11 @@ Output STRICTLY this JSON:
     "subsections": [
         {{
             "type": "multiple_choice",
-            "instructions": "Questions 1-5: Choose the correct letter A, B, C or D.",
+            "instructions": "Questions 1-5: Choose the correct letter, A, B or C.",
             "startId": 1,
             "endId": 5,
             "questions": [
-                {{"id": 1, "question": "...", "options": ["CORRECT first", "d1", "d2", "d3"], "explanation": "中文."}}
+                {{"id": 1, "question": "...", "options": ["CORRECT first", "d1", "d2"], "explanation": "中文."}}
             ]
         }},
         {{
@@ -658,9 +706,9 @@ SKILL_LISTENING_SECTION4_TEMPLATE = (
 SECTION 4 of IELTS Listening full test.
 QUESTION TYPE: Note Completion (10 blanks).
 CONTEXT: An academic monologue — lecture excerpt. Use hedged academic language ("research suggests", "one theory holds").
-WORD LIMIT: NO MORE THAN 2 WORDS for each answer.
+WORD LIMIT: ONE WORD ONLY for each answer (authentic recent Cambridge convention for Part 4 — every answer is a single word).
 
-Design the notes as structured study notes with subheadings and bullet points. 10 blanks numbered (1)-(10). Each answer must appear VERBATIM in the transcript.
+Design the notes as structured study notes with subheadings and bullet points. 10 blanks numbered (1)-(10). Each answer must be a SINGLE word appearing VERBATIM in the transcript (concrete nouns work best: "factories", "whale", "beaches").
 
 Output STRICTLY this JSON:
 {{
@@ -669,8 +717,8 @@ Output STRICTLY this JSON:
     "sectionType": "note",
     "title": "Section 4 - <lecture topic>",
     "scenario": "{scenario_key}",
-    "passage": "Full lecture transcript (350-500 words).",
-    "note_intro": "Complete the notes below. Write NO MORE THAN TWO WORDS for each answer.",
+    "passage": "Full lecture transcript (600-800 words).",
+    "note_intro": "Complete the notes below. Write ONE WORD ONLY for each answer.",
     "note_content": "<subject heading>\\n\\nBackground\\n• Origin: (1) _____\\n• First studied in (2) _____\\n\\nKey findings\\n• Main mechanism: (3) _____\\n• Contradicted earlier work on (4) _____\\n...",
     "questions": [
         {{"id": 1, "answers": ["<verbatim>"], "explanation": "中文原词定位."}}
@@ -680,9 +728,10 @@ Output STRICTLY this JSON:
 )
 
 
+# 长度对齐真题 (C9 tapescript 实测: S1=737, S2=603, S3=1043, S4=756 词)
 LISTENING_SECTION_TEMPLATES = {
-    1: (SKILL_LISTENING_SECTION1_TEMPLATE, 2, '250-350'),  # 双人对话
-    2: (SKILL_LISTENING_SECTION2_TEMPLATE, 1, '350-450'),  # 独白 (含地图)
-    3: (SKILL_LISTENING_SECTION3_TEMPLATE, 3, '400-500'),  # 学术讨论
-    4: (SKILL_LISTENING_SECTION4_TEMPLATE, 1, '350-500'),  # 学术讲座
+    1: (SKILL_LISTENING_SECTION1_TEMPLATE, 2, '550-750'),  # 双人对话
+    2: (SKILL_LISTENING_SECTION2_TEMPLATE, 1, '550-750'),  # 独白 (含地图)
+    3: (SKILL_LISTENING_SECTION3_TEMPLATE, 3, '700-900'),  # 学术讨论 (全卷最长)
+    4: (SKILL_LISTENING_SECTION4_TEMPLATE, 1, '600-800'),  # 学术讲座
 }

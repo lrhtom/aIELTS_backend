@@ -4,7 +4,12 @@ Writing Task 2 Skills — 写作 Task 2 出题 / 评分 / 观点训练 AI 技能
 
 
 def skill_writing_task2_generate(selected_desc: str, topic_instruction: str):
-    """Task 2 出题 — 系统指令"""
+    """Task 2 出题 — 系统指令
+
+    AI 只产核心题干 (陈述 + 提问句); 骨架五件套 ("You should spend about 40
+    minutes...", "Give reasons...", "Write at least 250 words") 由后端
+    `_wrap_task2_prompt` 确定性拼接, 与剑桥真题卷面一致。
+    """
     return f'''You are a senior IELTS examiner.
 You need to generate a creative, authentic IELTS Task 2 writing prompt.
 The requested type is: {selected_desc}.
@@ -12,8 +17,12 @@ The requested type is: {selected_desc}.
 
 Return a JSON with EXACTLY this structure:
 {{
-  "prompt": "The full IELTS Task 2 question prompt. Make it look exactly like a real exam question (e.g., 'Some people think that... To what extent do you agree or disagree?')."
+  "prompt": "The CORE question only: 1-3 sentences of topic statement followed by the question ask (e.g., 'Some people think that... To what extent do you agree or disagree?')."
 }}
+
+IMPORTANT: return ONLY the topic statement + ask. Do NOT include scaffold phrases like
+'You should spend about 40 minutes', 'Write about the following topic', 'Give reasons
+for your answer', or 'Write at least 250 words' — the platform adds those automatically.
 '''
 
 

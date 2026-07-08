@@ -451,10 +451,12 @@ Output STRICTLY this JSON:
 SKILL_READING_FULL_PASSAGE_TEMPLATE = (
     READING_COMMON_PREAMBLE.replace(
         '- Length: 400-550 words (single-type practice mode).',
-        '- Length: 700-900 words (full-test passage {passage_num} of 3).'
+        '- Length: 800-1000 words (full-test passage {passage_num} of 3 — authentic Cambridge passages measure 850-1000 words).'
     ) +
     """
 FULL-TEST PASSAGE {passage_num} of 3.
+PASSAGE POSITION STYLE (authentic Cambridge difficulty gradient):
+{passage_flavor}
 QUESTION MIX: {question_mix_desc}
 TOTAL QUESTIONS: {total_questions}
 
@@ -500,6 +502,26 @@ READING_QUESTION_TYPES = {
     'summary_completion':  (SKILL_READING_SUMMARY_COMPLETION_TEMPLATE,  True, False),
     'note_completion':     (SKILL_READING_NOTE_COMPLETION_TEMPLATE,     True, False),
     'short_answer':        (SKILL_READING_SHORT_ANSWER_TEMPLATE,        True, False),
+}
+
+
+# ── 篇位风格 (真题难度递进: P1 事实 → P2 结构 → P3 观点) ──
+READING_PASSAGE_FLAVOR = {
+    1: (
+        "Passage 1 (easiest): accessible, descriptive and FACTUAL — natural history, an invention, "
+        "a place, a biography. Concrete details, dates and numbers throughout; NO authorial stance. "
+        "A reader should be able to verify every statement against the text."
+    ),
+    2: (
+        "Passage 2 (medium): discursive — presents several researchers' / stakeholders' perspectives "
+        "on one topic, organised in clearly distinguishable paragraphs each with its own sub-focus "
+        "(suits matching-type questions). Attribute views to named people or groups."
+    ),
+    3: (
+        "Passage 3 (hardest): argumentative and more abstract — the WRITER'S OWN stance and hedged "
+        "claims must be present throughout ('the author argues', concessions, counterarguments). "
+        "Denser sentences and lower-frequency academic vocabulary than passages 1-2."
+    ),
 }
 
 

@@ -77,15 +77,23 @@ class WritingServiceRecord(models.Model):
 
 
 class AIQuestion(models.Model):
-    """AI 题库题目：listening / reading / writing 的生成产物 + 用户最近一次作答。"""
+    """AI 题库题目：listening / reading / writing / speaking 的生成产物 + 用户最近一次作答。
+
+    speaking 行的语义与其他技能略不同：
+      - content_json  = 会话配置（mode、题目/cue card、场景、词汇等）
+      - user_answer_json = 完整对话记录 {'chatHistory': [...], ...}，每轮同步覆盖
+      - ai_feedback_json = 最终 summary（各维度均分 + overall band）；非空即"有结果"
+    """
 
     SKILL_READING = 'reading'
     SKILL_LISTENING = 'listening'
     SKILL_WRITING = 'writing'
+    SKILL_SPEAKING = 'speaking'
     SKILL_CHOICES = [
         (SKILL_READING, '阅读'),
         (SKILL_LISTENING, '听力'),
         (SKILL_WRITING, '写作'),
+        (SKILL_SPEAKING, '口语'),
     ]
 
     STATUS_GENERATING = 'generating'

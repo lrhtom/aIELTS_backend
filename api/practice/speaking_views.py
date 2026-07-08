@@ -568,4 +568,49 @@ def generate_random_scenario(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# ── 口语会话持久化（AI 题库）─────────────────────────────────────────
+# 会话生命周期：进入聊天页时 start 建行 → 每轮对话前端经
+# POST /ai-questions/<id>/submit/ 覆盖式同步 chatHistory →
+# 生成 summary 时把汇总写进 aiFeedback（非空即"有结果"，题库点击直达报告页）。
+
+# 'call' 仅为兼容旧会话行保留：2026-07-07 起前端已把通话模式并入 chat（纯语音开关）
+SPEAKING_SESSION_MODES = {'chat', 'call', 'scenario', 'part1', 'part2', 'part3', 'fullTest'}
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def speaking_session_start(request):
+    """创建一条 speaking 会话记录，返回 AIQuestion id。
+
+    Body: { "mode": "part1", "title": "...", "content": {...} }
+    content 是会话恢复所需的全部配置（题目列表 / cue card / 场景文本 / 词汇等），
+    schema-free，由前端定义并在恢复时原样取回。不调 AI，不扣 AT。
+    """
+    try:
+        limit_resp = check_rate_limit(request.user.id, 'speaking_session_start', max_calls=10, window=60)
+        if limit_resp: return limit_resp
+
+        mode = str(request.data.get('mode') or '').strip()
+        if mode not in SPEAKING_SESSION_MODES:
+            return JsonResponse({'error': f'invalid mode: {mode}'}, status=400)
+
+        title = str(request.data.get('title') or '').strip()[:300]
+        content = request.data.get('content')
+        if not isinstance(content, dict):
+            content = {}
+        content['mode'] = mode
+
+        from api.models import AIQuestion
+        question = AIQuestion.objects.create(
+            user=request.user,
+            skill=AIQuestion.SKILL_SPEAKING,
+            subtype=mode[:50],
+            title=title or f'Speaking · {mode}',
+            content_json=content,
+            status=AIQuestion.STATUS_READY,
+        )
+        return JsonResponse({'id': question.id})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 

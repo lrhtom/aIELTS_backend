@@ -1,5 +1,6 @@
 import json
 import random
+import re
 import hashlib
 from typing import Any
 from rest_framework.decorators import api_view, permission_classes
@@ -102,6 +103,30 @@ def _build_singleflight_scope(scope_prefix: str, payload: Any) -> str:
         payload_text = str(payload)
     digest = hashlib.sha256(payload_text.encode('utf-8')).hexdigest()[:16]
     return f"{scope_prefix}:{digest}"
+
+
+# ── 真题题干骨架 (剑桥 4-21 二十年不变, 见 雅思资料/蒸馏/writing_skill.md) ──
+def _wrap_task2_prompt(core: str) -> str:
+    """把 AI 生成的核心题干包进真题固定骨架; 先剥掉 AI 可能自带的骨架句避免重复."""
+    text = (core or '').strip()
+    text = re.sub(r'(?i)you should spend about 40 minutes on this task\.?', '', text)
+    text = re.sub(r'(?i)write about the following topic:?', '', text)
+    text = re.sub(
+        r'(?i)give reasons for your answer and include any relevant examples'
+        r'( from your own knowledge or experience)?\.?',
+        '', text)
+    text = re.sub(r'(?i)write at least 250 words\.?', '', text)
+    text = re.sub(r'\n{3,}', '\n\n', text).strip()
+    if not text:
+        return core or ''
+    return (
+        'You should spend about 40 minutes on this task.\n\n'
+        'Write about the following topic:\n\n'
+        f'{text}\n\n'
+        'Give reasons for your answer and include any relevant examples '
+        'from your own knowledge or experience.\n\n'
+        'Write at least 250 words.'
+    )
 
 
 def _build_opinion_drill_generation_plan(count: int, selected_categories: list[str]):
@@ -278,7 +303,8 @@ def generate_task2(request):
                 user_id=user_id,
                 singleflight_scope='writing_task2_generate',
             )
-            prompt_text = response_data.get('prompt', '')
+            core_text = response_data.get('prompt', '')
+            prompt_text = _wrap_task2_prompt(core_text)
             payload = {
                 'prompt': prompt_text,
                 'requestedTopicCategory': requested_topic_category,
@@ -289,7 +315,8 @@ def generate_task2(request):
             }
             if custom_description:
                 payload['description'] = custom_description
-            title = (prompt_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
+            # title 取核心题干首行, 不带骨架句
+            title = (core_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
             return title, payload
 
         row = spawn_ai_generation(

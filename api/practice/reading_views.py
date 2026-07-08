@@ -19,6 +19,7 @@ from api.practice.ai_question_views import create_ai_question, spawn_ai_generati
 from api.skills.reading.generation import (
     READING_FULL_PASSAGE_COUNT,
     READING_FULL_QUESTIONS_PER_PASSAGE,
+    READING_PASSAGE_FLAVOR,
     READING_QUESTION_COUNT_DEFAULT,
     READING_QUESTION_TYPES,
     READING_TOPIC_POOL,
@@ -32,14 +33,27 @@ MCQ_OPTION_KEYS = ['A', 'B', 'C', 'D']
 TF_MODE_EASY = 'easy'
 TF_MODE_NORMAL = 'normal'
 
-# 综合模式每篇 passage 的题型组合池 (2-3 种题型混合)
-_FULL_MIX_POOLS = [
-    ['matching_headings', 'multiple_choice', 'true_false'],
-    ['matching_info', 'sentence_completion', 'yes_no'],
-    ['multiple_choice', 'matching_features', 'summary_completion'],
-    ['true_false', 'matching_sentence', 'short_answer'],
-    ['matching_headings', 'note_completion', 'multiple_choice'],
-]
+# 综合模式题型组合池 — 按篇位分层 (对齐剑桥真题惯例, 见 雅思资料/蒸馏/reading_skill.md):
+#   P1 事实层: TFNG + 填空/简答 (题序跟原文)
+#   P2 结构层: matching 家族 + summary (段落定位)
+#   P3 观点层: MCQ + YNNG + 句尾配对 (作者立场)
+_FULL_MIX_POOLS_BY_PASSAGE = {
+    1: [
+        ['true_false', 'note_completion'],
+        ['true_false', 'sentence_completion', 'short_answer'],
+        ['true_false', 'multiple_choice', 'note_completion'],
+    ],
+    2: [
+        ['matching_info', 'matching_features', 'summary_completion'],
+        ['matching_headings', 'matching_features', 'summary_completion'],
+        ['matching_headings', 'matching_info', 'sentence_completion'],
+    ],
+    3: [
+        ['multiple_choice', 'yes_no', 'matching_sentence'],
+        ['multiple_choice', 'matching_sentence', 'summary_completion'],
+        ['multiple_choice', 'yes_no', 'summary_completion'],
+    ],
+}
 
 
 # ── 参数归一化辅助 ────────────────────────────────────
@@ -262,10 +276,12 @@ def _normalize_questions(
             })
 
     elif question_type == 'matching_headings':
-        # AI 应该给 6 道题 (每段一题) — 我们不硬截断到 5
+        # 单题型模式: AI 给 6 道题 (每段一题), 不硬截断到默认 5;
+        # 综合模式: 按 section plan 的 expected_count 截断, 防止 id 溢出与下一组冲突
+        limit = 6 if expected_count == READING_QUESTION_COUNT_DEFAULT else expected_count
         bank = payload.get('headings_bank') if isinstance(payload.get('headings_bank'), dict) else {}
         valid_romans = list(bank.keys()) or ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix']
-        for idx, item in enumerate(source[:6] or []):
+        for idx, item in enumerate(source[:limit] or []):
             if not isinstance(item, dict):
                 continue
             normalized.append({
@@ -479,9 +495,10 @@ def _count_answers_missing_from_passage(questions: list[dict], passage: str) -> 
 
 
 # ── 综合套题：3 篇 passage ────────────────────────────
-def _pick_full_mix(seed: int) -> list[str]:
+def _pick_full_mix(passage_num: int, seed: int) -> list[str]:
     rng = random.Random(seed)
-    return list(rng.choice(_FULL_MIX_POOLS))
+    pools = _FULL_MIX_POOLS_BY_PASSAGE.get(passage_num) or _FULL_MIX_POOLS_BY_PASSAGE[1]
+    return list(rng.choice(pools))
 
 
 def _build_full_passage_prompt(
@@ -525,6 +542,7 @@ def _build_full_passage_prompt(
         paragraph_rule=get_paragraph_rule(needs_labelled),
         topic=topic_key,
         passage_num=passage_num,
+        passage_flavor=READING_PASSAGE_FLAVOR.get(passage_num, READING_PASSAGE_FLAVOR[1]),
         question_mix_desc=mix_desc,
         total_questions=total,
     )
@@ -727,7 +745,7 @@ def generate_reading_full(request):
             if override_mix:
                 mixes_per_passage[n] = override_mix
             else:
-                mixes_per_passage[n] = _pick_full_mix(seed=(n - 1) * 7919 + hash(topic_key) % 997)
+                mixes_per_passage[n] = _pick_full_mix(n, seed=(n - 1) * 7919 + hash(topic_key) % 997)
 
         prompts_and_plans: list[tuple[int, list[str], str, list[dict]]] = []
         for n in passage_nums:

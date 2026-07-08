@@ -90,6 +90,7 @@ urlpatterns = [
     path('speaking/scenario-chat', speaking_views.scenario_chat, name='scenario_chat'),
     path('speaking/scenario-opening', speaking_views.scenario_opening, name='scenario_opening'),
     path('speaking/scenario/random', speaking_views.generate_random_scenario, name='generate_random_scenario'),
+    path('speaking/session/start', speaking_views.speaking_session_start, name='speaking_session_start'),
     path('speaking/part1/generate', speaking_part1_views.generate_part1_questions, name='generate_part1_questions'),
     path('speaking/part1/evaluate', speaking_part1_views.evaluate_part1_answer, name='evaluate_part1_answer'),
     path('speaking/part1/summary', speaking_part1_views.generate_part1_summary, name='generate_part1_summary'),
@@ -204,4 +205,5 @@ urlpatterns = [
     path('analytics/scheduled-words',       analytics_views.ScheduledWordsView.as_view(),     name='analytics_scheduled_words'),
     path('analytics/writing',               analytics_views.WritingAnalyticsView.as_view(),   name='analytics_writing'),
     path('analytics/practice',              analytics_views.PracticeAnalyticsView.as_view(),  name='analytics_practice'),
+    path('analytics/speaking',              analytics_views.SpeakingAnalyticsView.as_view(),  name='analytics_speaking'),
 ]

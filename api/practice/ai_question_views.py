@@ -83,7 +83,7 @@ def _cleanup_question_files(q: AIQuestion) -> None:
             print(f'[AIQuestion] [WARN] file cleanup failed for {rel_path}: {e}')
 
 
-_VALID_SKILLS = {AIQuestion.SKILL_READING, AIQuestion.SKILL_LISTENING, AIQuestion.SKILL_WRITING}
+_VALID_SKILLS = {AIQuestion.SKILL_READING, AIQuestion.SKILL_LISTENING, AIQuestion.SKILL_WRITING, AIQuestion.SKILL_SPEAKING}
 
 
 def _serialize_summary(q: AIQuestion) -> dict:
@@ -103,6 +103,8 @@ def _serialize_summary(q: AIQuestion) -> dict:
         'status': q.status,
         'errorMessage': q.error_message or '',
         'isAnswered': q.user_answer_json is not None,
+        # speaking 用：对话开始即有 userAnswer，但只有生成 summary 后才算"有结果"
+        'hasFeedback': q.ai_feedback_json is not None,
         'answeredAt': q.answered_at.isoformat() if q.answered_at else None,
         'lastAttemptAt': q.last_attempt_at.isoformat() if q.last_attempt_at else None,
         'createdAt': q.created_at.isoformat() if q.created_at else None,
