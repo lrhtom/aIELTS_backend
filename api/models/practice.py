@@ -122,6 +122,7 @@ class AIQuestion(models.Model):
         verbose_name='生成状态',
     )
     error_message = models.TextField(blank=True, default='', verbose_name='失败原因')
+    favorited_at = models.DateTimeField(null=True, blank=True, verbose_name='收藏时间')
     answered_at = models.DateTimeField(null=True, blank=True, verbose_name='首次作答时间')
     last_attempt_at = models.DateTimeField(null=True, blank=True, verbose_name='最近作答时间')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='生成时间')

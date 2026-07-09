@@ -29,6 +29,7 @@ from .extra import assistant_views
 from .assistant_views import UserTodoItemViewSet, UserShortcutViewSet
 from .extra import markdown_notes_views
 from . import checkin_views
+from . import inventory_views
 from . import analytics_views
 from . import finance_views
 from .auth.auth_views import (
@@ -57,6 +58,8 @@ urlpatterns = [
     # ---- 签到 API ----
     path('checkin', checkin_views.daily_checkin, name='daily_checkin'),
     path('checkin/status', checkin_views.checkin_status, name='checkin_status'),
+    path('checkin/makeup', checkin_views.makeup_checkin, name='makeup_checkin'),
+    path('backpack', inventory_views.backpack, name='backpack'),
 
     # ---- AT币管�?API ----
     path('balance', balance_views.get_balance, name='get_balance'),
@@ -120,6 +123,7 @@ urlpatterns = [
     path('ai-questions/', ai_question_views.list_ai_questions, name='ai_question_list'),
     path('ai-questions/<int:pk>/', ai_question_views.ai_question_detail, name='ai_question_detail'),
     path('ai-questions/<int:pk>/submit/', ai_question_views.submit_ai_question, name='ai_question_submit'),
+    path('ai-questions/<int:pk>/favorite/', ai_question_views.toggle_ai_question_favorite, name='ai_question_favorite'),
 
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
     path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),

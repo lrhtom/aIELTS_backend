@@ -38,6 +38,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
         user.set_password(validated_data['password'])
         user.save()
+        # 新用户注册赠送 1 张补签卡
+        from api.models import UserItem
+        UserItem.grant(user, UserItem.ItemType.MAKEUP_CARD, 1)
         return user
 
 class UserSerializer(serializers.ModelSerializer):

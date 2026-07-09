@@ -189,6 +189,8 @@ def _plan_dict(plan: LearningPlan, word_count: int | None = None, user=None, det
         'studied_today':  studied_today,
         'studied_total':  studied_total,
         'today_words':    today_words,
+        'is_favorite':    plan.favorited_at is not None,
+        'favorited_at':   plan.favorited_at.isoformat() if plan.favorited_at else None,
         'created_at':     plan.created_at.isoformat(),
         'updated_at':     plan.updated_at.isoformat(),
     }
@@ -286,7 +288,8 @@ class PlanListView(APIView):
             LearningPlan.objects
             .filter(user=request.user)
             .annotate(wc=Count('entries'))
-            .order_by('created_at')
+            # 收藏优先：已收藏排最前，后收藏的更靠前；其余保持创建顺序。
+            .order_by(F('favorited_at').desc(nulls_last=True), 'created_at')
         )
         return Response({'plans': [_plan_dict(p, p.wc, user=request.user) for p in plans]})
 
@@ -429,6 +432,9 @@ class PlanDetailView(APIView):
                 return Response({'error': '文章抄写复习间隔天数必须在 0-365 之间'}, status=status.HTTP_400_BAD_REQUEST)
             plan.article_review_days = article_days
 
+        if 'is_favorite' in request.data:
+            plan.favorited_at = timezone.now() if request.data['is_favorite'] else None
+
         # bypass full_clean (no new-plan limit check on update)
         LearningPlan.objects.filter(pk=plan.pk).update(
             name=plan.name, daily_count=plan.daily_count,
@@ -437,6 +443,7 @@ class PlanDetailView(APIView):
             copy_repetitions=plan.copy_repetitions,
             copy_review_days=plan.copy_review_days,
             article_review_days=plan.article_review_days,
+            favorited_at=plan.favorited_at,
         )
         plan.refresh_from_db()
         return Response({'plan': _plan_dict(plan, user=request.user)})

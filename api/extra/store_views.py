@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db import transaction
-from api.models import StoreProduct, CartItem
+from api.models import StoreProduct, CartItem, UserItem
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -46,6 +46,12 @@ def purchase_product(request):
                 'message': '你是管理员，已为你免单并成功发货。',
                 'new_balance': user.at_balance
             })
+        elif product.reward_type == 'MAKEUP_CARD':
+            UserItem.grant(user, UserItem.ItemType.MAKEUP_CARD, product.reward_amount)
+            return Response({
+                'message': '你是管理员，已为你免单并成功发货（补签卡已放入背包）。',
+                'new_balance': user.at_balance
+            })
         else:
             return Response({'error': f'未知的发货类型: {product.reward_type}'}, status=400)
             
@@ -60,7 +66,9 @@ def purchase_product(request):
             with transaction.atomic():
                 from api.models import TransactionRecord
                 TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, -int(product.price_amount), f'购买商品: {product.name}')
-                if product.reward_type == 'VIP':
+                if product.reward_type == 'MAKEUP_CARD':
+                    UserItem.grant(user, UserItem.ItemType.MAKEUP_CARD, product.reward_amount)
+                elif product.reward_type == 'VIP':
                     pass  # handle VIP
             return Response({'message': '购买成功', 'new_balance': user.at_balance})
         else:
@@ -154,7 +162,9 @@ def cart_checkout(request):
             for item in items:
                 if item.product.reward_type == 'AT_COIN':
                     total_at_reward += item.product.reward_amount * item.quantity
-                
+                elif item.product.reward_type == 'MAKEUP_CARD':
+                    UserItem.grant(user, UserItem.ItemType.MAKEUP_CARD, item.product.reward_amount * item.quantity)
+
             from api.models import TransactionRecord
             TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, total_at_reward, '购物车结账: 管理员发货')
             items.delete()
@@ -179,7 +189,9 @@ def cart_checkout(request):
             TransactionRecord.record(user, TransactionRecord.Currency.AT_COIN, -int(total_at_cost), '购物车结账')
             # handle rewards
             for item in items:
-                if item.product.reward_type == 'VIP':
+                if item.product.reward_type == 'MAKEUP_CARD':
+                    UserItem.grant(user, UserItem.ItemType.MAKEUP_CARD, item.product.reward_amount * item.quantity)
+                elif item.product.reward_type == 'VIP':
                     pass
             items.delete()
             

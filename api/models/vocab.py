@@ -242,6 +242,7 @@ class LearningPlan(models.Model):
     article_review_days = models.PositiveIntegerField(default=7, verbose_name='文章抄写完成后复习间隔天数')
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
+    favorited_at = models.DateTimeField(null=True, blank=True, verbose_name='收藏时间')
 
     class Meta:
         db_table = 'vocab_learning_plans'

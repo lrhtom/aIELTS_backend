@@ -44,6 +44,7 @@ from .practice import (
     AIQuestion,
 )
 from .finance import StoreProduct, CartItem, TransactionRecord
+from .inventory import UserItem
 from .stats import UserDailyLearningTime, UserDailyStats
 from .assistant import (
     UserTodoItem,
@@ -64,6 +65,7 @@ __all__ = [
     'SpeakingScenarioHistory', 'SpeakingTopicBank',
     'WritingServiceRecord', 'AIQuestion',
     'StoreProduct', 'CartItem', 'TransactionRecord',
+    'UserItem',
     'UserDailyLearningTime', 'UserDailyStats',
     'UserTodoItem', 'UserShortcut',
     'CreativeWorkshopPage', 'MarkdownNote',

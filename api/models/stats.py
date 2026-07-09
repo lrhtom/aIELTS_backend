@@ -40,6 +40,8 @@ class UserDailyStats(models.Model):
     is_checked_in = models.BooleanField(default=False, verbose_name="是否签到")
     checkin_bonus = models.PositiveIntegerField(default=0, verbose_name="签到奖励AT")
     checkin_count = models.PositiveIntegerField(default=0, verbose_name="累计签到次数")
+    checkin_streak = models.PositiveIntegerField(default=0, verbose_name="连续签到天数")
+    is_makeup = models.BooleanField(default=False, verbose_name="是否补签")
     # Activity
     has_activity = models.BooleanField(default=False, verbose_name="是否有学习活动")
     practice_count = models.PositiveSmallIntegerField(default=0, verbose_name="练习次数")

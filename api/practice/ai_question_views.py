@@ -18,6 +18,7 @@ import traceback
 from datetime import timedelta
 from django.conf import settings
 from django.db import connections, transaction
+from django.db.models import F
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -102,6 +103,8 @@ def _serialize_summary(q: AIQuestion) -> dict:
         'description': description,
         'status': q.status,
         'errorMessage': q.error_message or '',
+        'isFavorite': q.favorited_at is not None,
+        'favoritedAt': q.favorited_at.isoformat() if q.favorited_at else None,
         'isAnswered': q.user_answer_json is not None,
         # speaking 用：对话开始即有 userAnswer，但只有生成 summary 后才算"有结果"
         'hasFeedback': q.ai_feedback_json is not None,
@@ -239,6 +242,9 @@ def list_ai_questions(request):
     if status_param in {'generating', 'ready', 'failed'}:
         qs = qs.filter(status=status_param)
 
+    # 收藏优先：已收藏排在最前，且后收藏的排在更前（favorited_at 倒序）；其余按生成时间倒序。
+    qs = qs.order_by(F('favorited_at').desc(nulls_last=True), '-created_at')
+
     items = [_serialize_summary(q) for q in qs[:200]]
     return Response({'items': items, 'count': len(items)})
 
@@ -283,4 +289,18 @@ def submit_ai_question(request, pk: int):
     q.last_attempt_at = now
     q.save(update_fields=['user_answer_json', 'ai_feedback_json', 'answered_at', 'last_attempt_at'])
 
+    return Response(_serialize_detail(q))
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggle_ai_question_favorite(request, pk: int):
+    """收藏 / 取消收藏。favorited_at 记录收藏时刻，供列表"后收藏的排前面"排序使用。"""
+    try:
+        q = AIQuestion.objects.get(pk=pk, user=request.user)
+    except AIQuestion.DoesNotExist:
+        return Response({'error': '题目不存在'}, status=404)
+
+    q.favorited_at = None if q.favorited_at else timezone.now()
+    q.save(update_fields=['favorited_at'])
     return Response(_serialize_detail(q))
