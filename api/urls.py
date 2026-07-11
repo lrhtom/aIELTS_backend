@@ -199,6 +199,7 @@ urlpatterns = [
     path('admin/users/<int:pk>/promote', admin_views.AdminUserPromoteToggleView.as_view(), name='admin_user_promote_toggle'),
     path('admin/routes',                   AdminRoutesView.as_view(),                   name='admin_routes_live'),
     path('admin/ai-usage',                 admin_views.AdminAIUsageView.as_view(),       name='admin_ai_usage'),
+    path('admin/code-stats',               admin_views.AdminCodeStatsView.as_view(),     name='admin_code_stats'),
     path('admin/users/search',             admin_views.AdminUserSearchView.as_view(),    name='admin_users_search'),
     path('admin/banned-ips',               admin_views.AdminBannedIPListView.as_view(),  name='admin_banned_ips'),
     path('admin/banned-ips/<int:pk>',      admin_views.AdminBannedIPDeleteView.as_view(),name='admin_banned_ip_delete'),

@@ -1,4 +1,8 @@
+import os
+import time
+from pathlib import Path
 from datetime import timedelta
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Sum, Count
 from django.db.models.functions import TruncDate
@@ -492,3 +496,151 @@ class AdminUserBanIPView(APIView):
         invalidate_ip_ban_cache(ip)
         return Response(_serialize_banned_ip(row),
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+# ══════════════════════════════════════════════════════════════════════════
+# 项目代码统计（管理员实时看板）
+# 扫描仓库根下的 frontend/ 与 backend/ 源码，按语言 / 层级 / 目录汇总文件数与行数。
+# 生产环境若未部署前端源码，则只统计到后端（优雅降级）。
+# ══════════════════════════════════════════════════════════════════════════
+
+_CODE_LANGUAGES = {
+    '.ts': 'TypeScript',
+    '.tsx': 'TypeScript React',
+    '.js': 'JavaScript',
+    '.jsx': 'JavaScript React',
+    '.mjs': 'JavaScript',
+    '.cjs': 'JavaScript',
+    '.py': 'Python',
+    '.css': 'CSS',
+    '.scss': 'SCSS',
+    '.html': 'HTML',
+    '.json': 'JSON',
+    '.md': 'Markdown',
+    '.sql': 'SQL',
+    '.sh': 'Shell',
+    '.yml': 'YAML',
+    '.yaml': 'YAML',
+    '.toml': 'TOML',
+}
+
+# 扫描时跳过的目录（依赖 / 构建产物 / 缓存 / 静态资产 / 非源码）
+# 'public' 内多为静态资源与第三方 vendored 脚本（如 webgazer.js），不计入源码。
+_SKIP_DIRS = {
+    'node_modules', 'dist', 'dist-ssr', 'build', '__pycache__', 'public',
+    'venv', 'env', 'staticfiles', 'media', 'evidence', 'coverage',
+    '.next', '.turbo', '.cache',
+}
+
+# 明确跳过的巨型非源码文件
+_SKIP_FILES = {'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'}
+
+_MAX_FILE_BYTES = 3_000_000  # 超大文件（多为生成物）跳过，避免拖慢扫描
+
+_CODE_STATS_CACHE = {'ts': 0.0, 'data': None}
+_CODE_STATS_TTL = 20  # 秒；准实时，避免频繁重复扫描
+
+
+def _scan_code_stats():
+    started = time.time()
+    root = Path(settings.BASE_DIR).parent  # 仓库根：含 frontend/ 与 backend/
+    layers = [('frontend', root / 'frontend'), ('backend', root / 'backend')]
+
+    by_lang, by_layer, by_dir = {}, {}, {}
+    largest = []
+    totals = {'files': 0, 'lines': 0, 'blank': 0, 'size_bytes': 0}
+
+    for layer_name, layer_path in layers:
+        if not layer_path.exists():
+            continue
+        for dirpath, dirnames, filenames in os.walk(layer_path):
+            # 原地剪枝：跳过依赖/缓存/隐藏目录
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not d.startswith('.')]
+            for fn in filenames:
+                if fn in _SKIP_FILES:
+                    continue
+                ext = os.path.splitext(fn)[1].lower()
+                lang = _CODE_LANGUAGES.get(ext)
+                if not lang:
+                    continue
+
+                fpath = Path(dirpath) / fn
+                try:
+                    size = fpath.stat().st_size
+                    if size > _MAX_FILE_BYTES:
+                        continue
+                    lines = blank = 0
+                    with open(fpath, 'r', encoding='utf-8', errors='ignore') as fh:
+                        for line in fh:
+                            lines += 1
+                            if not line.strip():
+                                blank += 1
+                except OSError:
+                    continue
+
+                totals['files'] += 1
+                totals['lines'] += lines
+                totals['blank'] += blank
+                totals['size_bytes'] += size
+
+                lb = by_lang.setdefault(lang, {'files': 0, 'lines': 0})
+                lb['files'] += 1
+                lb['lines'] += lines
+
+                la = by_layer.setdefault(layer_name, {'files': 0, 'lines': 0})
+                la['files'] += 1
+                la['lines'] += lines
+
+                rel = fpath.relative_to(root)
+                parts = rel.parts
+                # 目录桶：取到前 3 段（layer/子目录/子子目录），够细又不过散
+                dir_key = '/'.join(parts[:3]) if len(parts) > 3 else '/'.join(parts[:-1])
+                db = by_dir.setdefault(dir_key, {'files': 0, 'lines': 0})
+                db['files'] += 1
+                db['lines'] += lines
+
+                largest.append((lines, rel.as_posix()))
+
+    largest.sort(reverse=True)
+
+    def _rows(mapping, key_name):
+        return [
+            {key_name: k, 'files': v['files'], 'lines': v['lines']}
+            for k, v in sorted(mapping.items(), key=lambda kv: -kv[1]['lines'])
+        ]
+
+    return {
+        'generated_at': timezone.now().isoformat(),
+        'scan_seconds': round(time.time() - started, 3),
+        'totals': {
+            'files': totals['files'],
+            'lines': totals['lines'],
+            'blank': totals['blank'],
+            'code': totals['lines'] - totals['blank'],
+            'size_bytes': totals['size_bytes'],
+        },
+        'by_language': _rows(by_lang, 'language'),
+        'by_layer': _rows(by_layer, 'layer'),
+        'by_directory': _rows(by_dir, 'dir')[:12],
+        'largest_files': [{'path': p, 'lines': ln} for ln, p in largest[:10]],
+    }
+
+
+class AdminCodeStatsView(APIView):
+    """管理员：实时扫描项目源码，返回文件数/行数的多维统计。"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        force = str(request.query_params.get('refresh', '')).lower() in ('1', 'true', 'yes')
+        now = time.time()
+        fresh = (
+            _CODE_STATS_CACHE['data'] is not None
+            and (now - _CODE_STATS_CACHE['ts']) < _CODE_STATS_TTL
+        )
+        if force or not fresh:
+            _CODE_STATS_CACHE['data'] = _scan_code_stats()
+            _CODE_STATS_CACHE['ts'] = now
+            fresh = False
+
+        data = dict(_CODE_STATS_CACHE['data'])
+        data['cached'] = bool(fresh and not force)
+        return Response(data)
