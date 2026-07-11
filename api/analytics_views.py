@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from django.db.models import Count
+from django.db.models import Count, F
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -110,7 +110,8 @@ class VocabAnalyticsView(APIView):
                 .filter(user=request.user)
                 .annotate(word_count=Count('entries'))
                 .values('id', 'name', 'word_count')
-                .order_by('-created_at')
+                # 收藏优先：已收藏排最前，后收藏的更靠前；其余按创建时间倒序（与前端下拉框口径一致）。
+                .order_by(F('favorited_at').desc(nulls_last=True), '-created_at')
             )
             return Response({'plans': list(plans)})
 
