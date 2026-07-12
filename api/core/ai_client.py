@@ -60,6 +60,77 @@ class AIClient:
             self.api_key = os.environ.get('AI_API_KEY', '')
             self.model = os.environ.get('AI_MODEL', '')
 
+    @staticmethod
+    def _extract_ping_tokens(resp) -> int | None:
+        """从探测响应中读出本次消耗的 token 总数（兼容 Chat Completions / Responses API）。"""
+        try:
+            data = resp.json()
+        except Exception:
+            return None
+        if not isinstance(data, dict):
+            return None
+        usage = data.get('usage') or {}
+        if not isinstance(usage, dict):
+            return None
+        tok = usage.get('total_tokens')
+        if tok is None:
+            inp = usage.get('input_tokens') or usage.get('prompt_tokens') or 0
+            out = usage.get('output_tokens') or usage.get('completion_tokens') or 0
+            tok = (inp + out) or None
+        return tok
+
+    def ping(self, timeout: int = 20) -> dict:
+        """轻量健康探测：向端点发一个极小请求，验证「可达 + 鉴权通过」。
+
+        不计费、不做业务 JSON 解析、不触发 singleflight。供管理员服务健康检查调用。
+        返回结构化字段（不含任何展示文案，由前端按 i18n 渲染）：
+        {'status': ..., 'http': int|None, 'body': str|None, 'error': str|None, 'tokens': int|None}，
+        status ∈ {'ok','auth','ratelimited','reqerror','error','unconfigured'}；
+        tokens 为本次探测在 provider 侧实际消耗的 token 总数（不计入任何用户账单）。
+        """
+        if not self.base_url or not self.api_key:
+            return {'status': 'unconfigured', 'http': None, 'body': None, 'error': None, 'tokens': None}
+
+        headers = {'Content-Type': 'application/json'}
+        if self.is_gpt5:
+            headers['api-key'] = self.api_key
+        else:
+            headers['Authorization'] = f'Bearer {self.api_key}'
+
+        is_responses_api = '/responses' in self.base_url.lower()
+        if self.is_gpt5 and is_responses_api:
+            # Responses API：用 input 数组；限制输出上限把探测成本压到最小
+            payload = {'model': self.model, 'input': [{'role': 'user', 'content': 'ping'}], 'max_output_tokens': 16}
+        elif self.is_gpt5:
+            # GPT-5 chat/completions (Azure legacy)：不支持 max_tokens / 非 1 的 temperature，
+            # 发最小合法请求即可（对 "ping" 的回复本身就很短，成本可忽略）。
+            payload = {'model': self.model, 'messages': [{'role': 'user', 'content': 'ping'}]}
+        else:
+            payload = {
+                'model': self.model,
+                'messages': [{'role': 'user', 'content': 'ping'}],
+                'max_tokens': 1,
+                'temperature': 0,
+            }
+
+        try:
+            r = requests.post(self.base_url, headers=headers, json=payload, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            return {'status': 'error', 'http': None, 'error': f'{type(e).__name__}: {e}', 'body': None, 'tokens': None}
+
+        tokens = self._extract_ping_tokens(r)
+        body = None if r.status_code < 300 else r.text[:200]
+        if r.status_code < 300:
+            return {'status': 'ok', 'http': r.status_code, 'body': None, 'tokens': tokens}
+        if r.status_code in (401, 403):
+            return {'status': 'auth', 'http': r.status_code, 'body': body, 'tokens': tokens}
+        if r.status_code == 429:
+            return {'status': 'ratelimited', 'http': r.status_code, 'body': body, 'tokens': tokens}
+        if 400 <= r.status_code < 500:
+            # 鉴权已过但请求被拒（模型名不符/参数问题等）：端点在线，但当前不可正常出结果
+            return {'status': 'reqerror', 'http': r.status_code, 'body': body, 'tokens': tokens}
+        return {'status': 'error', 'http': r.status_code, 'body': body, 'tokens': tokens}
+
     def generate(
         self,
         messages: list,

@@ -1,5 +1,8 @@
 import os
 import time
+import socket
+import requests
+from urllib.parse import urlparse
 from pathlib import Path
 from datetime import timedelta
 from django.conf import settings
@@ -644,3 +647,217 @@ class AdminCodeStatsView(APIView):
         data = dict(_CODE_STATS_CACHE['data'])
         data['cached'] = bool(fresh and not force)
         return Response(data)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 服务健康检查（管理员一键测评）
+# 逐项真实探测「数据库 / Redis / AI 文本各模型 / AI 图像 / 邮件」是否在线可用。
+# 探测不计费到任何用户；AI 文本发极小 ping 请求，图像仅做 TCP 连通（出图成本高不实测），
+# 邮件向 Resend 发空 body 校验密钥（不发信）。
+# ══════════════════════════════════════════════════════════════════════════
+
+# AI 文本探测结果 → 统一状态
+_AI_STATUS_MAP = {
+    'ok': 'ok',
+    'ratelimited': 'degraded',
+    'auth': 'degraded',
+    'reqerror': 'degraded',
+    'error': 'down',
+    'unconfigured': 'unconfigured',
+}
+
+
+class AdminServiceHealthView(APIView):
+    """管理员：一键探测所有关键服务的在线 / 可用状态。
+
+    GET /api/admin/service-health
+
+    设计原则：后端只回「结构化数据」，不含任何展示文案。服务名按 `key`、
+    结果说明按 `reason_code` + `reason`(参数) 全部交由前端 i18n 渲染，
+    这样中英文（及日后新增语言）文案统一在 `locales/*/profile.ts` 维护。
+
+    响应 services[] 每项:
+    {
+        "key": "ai_gemini", "category": "ai", "required": false,
+        "status": "degraded", "latency_ms": 490, "method_key": "ai_ping",
+        "reason_code": "ai_auth", "reason": {"http": 403, "body": "..."},
+        "model": "gemini-3-flash-preview", "tokens": null
+    }
+    前端: name = t.names[key]；detail = interp(t.reasons[reason_code], reason)。
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        started = time.time()
+        services = [
+            self._check_database(),
+            self._check_redis(),
+            self._check_ai_text('ai_text_primary', 'deepseek'),
+            self._check_ai_text('ai_gemini', 'gemini'),
+            self._check_ai_text('ai_gpt5_4', 'gpt5_4'),
+            self._check_ai_text('ai_gpt5_mini', 'gpt5_mini'),
+            self._check_flux_image(),
+            self._check_email(),
+        ]
+
+        summary = {'ok': 0, 'degraded': 0, 'down': 0, 'unconfigured': 0, 'total': len(services)}
+        for s in services:
+            summary[s['status']] = summary.get(s['status'], 0) + 1
+
+        required_down = any(s['status'] == 'down' and s['required'] for s in services)
+        any_bad = any(s['status'] in ('down', 'degraded') for s in services)
+        overall = 'down' if required_down else ('degraded' if any_bad else 'ok')
+
+        # 本次探测损耗：仅 AI 文本 ping 会消耗 provider 侧 token（不计入任何用户账单）。
+        total_tokens = sum(s['tokens'] for s in services if s.get('tokens'))
+        cost = {
+            'total_tokens': total_tokens,
+            'at_equivalent': total_tokens * 2,        # 项目费率 1 token = 2 AT，仅供参考，未实际计费
+            'ai_probe_count': sum(1 for s in services if s.get('method_key') == 'ai_ping'),
+        }
+
+        return Response({
+            'checked_at': timezone.now().isoformat(),
+            'total_ms': int((time.time() - started) * 1000),
+            'overall': overall,
+            'summary': summary,
+            'cost': cost,
+            'services': services,
+        })
+
+    # ── helpers ─────────────────────────────────────────────────────────────
+    @staticmethod
+    def _result(key, category, required, status, latency_ms, method_key,
+                reason_code, reason=None, tokens=None, model=None):
+        """结构化结果。展示文案（name / detail）不在此产出，交前端 i18n。"""
+        return {
+            'key': key, 'category': category, 'required': required,
+            'status': status, 'latency_ms': latency_ms, 'method_key': method_key,
+            'reason_code': reason_code, 'reason': reason or {},
+            'tokens': tokens, 'model': model,
+        }
+
+    def _check_database(self):
+        from django.db import connection
+        t = time.time()
+        try:
+            with connection.cursor() as cur:
+                cur.execute('SELECT 1')
+                cur.fetchone()
+            ms = int((time.time() - t) * 1000)
+            return self._result('database', 'core', True, 'ok', ms, 'db', 'db_ok')
+        except Exception as e:
+            return self._result('database', 'core', True, 'down', None, 'db',
+                                'exception', {'error': f'{type(e).__name__}: {e}'})
+
+    def _check_redis(self):
+        url = os.environ.get('REDIS_URL', '').strip()
+        token = os.environ.get('REDIS_TOKEN', '').strip()
+        if not url or not token:
+            return self._result('redis', 'core', True, 'unconfigured', None, 'redis',
+                                'unconfigured', {'vars': 'REDIS_URL / REDIS_TOKEN'})
+        t = time.time()
+        try:
+            from api.core.redis_client import get_redis
+            r = get_redis()
+            probe_key = f'health:probe:{int(time.time() * 1000)}'
+            r.set(probe_key, '1', ex=30)
+            val = r.get(probe_key)
+            r.delete(probe_key)
+            ms = int((time.time() - t) * 1000)
+            if str(val) == '1':
+                return self._result('redis', 'core', True, 'ok', ms, 'redis', 'redis_ok')
+            return self._result('redis', 'core', True, 'degraded', ms, 'redis',
+                                'redis_bad_value', {'value': repr(val)})
+        except Exception as e:
+            return self._result('redis', 'core', True, 'down', None, 'redis',
+                                'exception', {'error': f'{type(e).__name__}: {e}'})
+
+    def _check_ai_text(self, key, provider):
+        try:
+            from api.core.ai_client import AIClient
+            client = AIClient(provider)
+        except Exception as e:
+            return self._result(key, 'ai', False, 'down', None, 'ai_ping',
+                                'ai_init_fail', {'error': str(e)})
+        t = time.time()
+        res = client.ping(timeout=20)
+        ms = int((time.time() - t) * 1000)
+        ping_status = res.get('status')
+        status = _AI_STATUS_MAP.get(ping_status, 'down')
+        latency = None if status == 'unconfigured' else ms
+        model = client.model or None
+        http = res.get('http')
+        body = res.get('body')
+
+        if ping_status == 'unconfigured':
+            reason_code, reason = 'unconfigured', {'vars': 'API key / base URL'}
+        elif ping_status == 'ok':
+            reason_code, reason = 'ai_ok', {'http': http}
+        elif ping_status == 'auth':
+            reason_code, reason = 'ai_auth', {'http': http}
+        elif ping_status == 'ratelimited':
+            reason_code, reason = 'ai_ratelimited', {'http': http}
+        elif ping_status == 'reqerror':
+            reason_code, reason = 'ai_reqerror', {'http': http, 'body': body}
+        elif http is not None:
+            reason_code, reason = 'ai_http_error', {'http': http, 'body': body}
+        else:
+            reason_code, reason = 'exception', {'error': res.get('error') or 'unknown'}
+
+        return self._result(key, 'ai', False, status, latency, 'ai_ping',
+                            reason_code, reason, tokens=res.get('tokens'), model=model)
+
+    def _check_flux_image(self):
+        url = os.environ.get('FLUX2_PRO_URL', '').strip()
+        key_cfg = os.environ.get('FLUX2_PRO_KEY', '').strip()
+        if not url or not key_cfg:
+            return self._result('ai_image', 'ai', False, 'unconfigured', None, 'tcp',
+                                'unconfigured', {'vars': 'FLUX2_PRO_URL / FLUX2_PRO_KEY'})
+        parsed = urlparse(url)
+        host = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        if not host:
+            return self._result('ai_image', 'ai', False, 'down', None, 'tcp', 'bad_url', {'url': url})
+        t = time.time()
+        try:
+            sock = socket.create_connection((host, port), timeout=8)
+            sock.close()
+            ms = int((time.time() - t) * 1000)
+            return self._result('ai_image', 'ai', False, 'ok', ms, 'tcp',
+                                'tcp_ok', {'host': host, 'port': port})
+        except Exception as e:
+            return self._result('ai_image', 'ai', False, 'down', None, 'tcp',
+                                'exception', {'error': f'{type(e).__name__}: {e}'})
+
+    def _check_email(self):
+        key_cfg = os.environ.get('RESEND_API_KEY', '').strip()
+        if not key_cfg:
+            return self._result('email', 'email', False, 'unconfigured', None, 'email_validate',
+                                'unconfigured', {'vars': 'RESEND_API_KEY'})
+        t = time.time()
+        try:
+            # 故意 POST 一个缺收件人的空 body：密钥有效 → 422/400（校验拦截，不会真的发信）；
+            # 密钥无效 → 401/403。以此在「不发邮件」的前提下验证密钥可用。
+            # 不用 GET /domains 探测：Resend「仅发送」权限的密钥访问 /domains 会 401，导致误判。
+            r = requests.post('https://api.resend.com/emails',
+                              headers={'Authorization': f'Bearer {key_cfg}', 'Content-Type': 'application/json'},
+                              json={}, timeout=10)
+        except requests.exceptions.RequestException as e:
+            return self._result('email', 'email', False, 'down', None, 'email_validate',
+                                'exception', {'error': f'{type(e).__name__}: {e}'})
+        ms = int((time.time() - t) * 1000)
+        if r.status_code in (400, 422):
+            return self._result('email', 'email', False, 'ok', ms, 'email_validate',
+                                'email_ok', {'http': r.status_code})
+        if r.status_code < 300:
+            return self._result('email', 'email', False, 'ok', ms, 'email_validate',
+                                'email_reachable', {'http': r.status_code})
+        if r.status_code in (401, 403):
+            return self._result('email', 'email', False, 'degraded', ms, 'email_validate',
+                                'email_auth', {'http': r.status_code})
+        if r.status_code == 429:
+            return self._result('email', 'email', False, 'degraded', ms, 'email_validate',
+                                'email_ratelimited', {'http': r.status_code})
+        return self._result('email', 'email', False, 'degraded', ms, 'email_validate',
+                            'email_http', {'http': r.status_code, 'body': r.text[:120]})
