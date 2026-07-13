@@ -496,6 +496,8 @@ class PlanWordListView(APIView):
             return self._add_from_book_range(plan, request.data)
         elif mode == 'book_select':
             return self._add_from_book_select(plan, request.data)
+        elif mode == 'ai_list':
+            return self._add_from_ai_list(plan, request.data)
         else:
             return Response({'error': f'未知 mode: {mode}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -592,6 +594,37 @@ class PlanWordListView(APIView):
         created = LearningPlanEntry.objects.bulk_create(to_create, ignore_conflicts=True)
         return Response({'entries_added': len(created)})
 
+    # ai_list — 导入 AI 解析出的 [{word, zh}] 列表（前端确认后调用）
+    def _add_from_ai_list(self, plan, data):
+        raw = data.get('words')
+        if not isinstance(raw, list) or not raw:
+            return Response({'error': 'words 不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+        seen = set()
+        cleaned = []
+        for item in raw[:300]:
+            if not isinstance(item, dict):
+                continue
+            w = str(item.get('word', '')).strip().lower()
+            if not w or w in seen:
+                continue
+            seen.add(w)
+            cleaned.append((w, str(item.get('zh', '')).strip()[:200]))
+        if not cleaned:
+            return Response({'error': '没有有效单词'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 过滤计划里已有的词，让 entries_added 精确（bulk_create ignore_conflicts 的返回数在 MySQL 不可靠）。
+        existing = set(
+            LearningPlanEntry.objects
+            .filter(plan=plan, word__in=[w for w, _ in cleaned])
+            .values_list('word', flat=True)
+        )
+        new_pairs = [(w, zh) for w, zh in cleaned if w not in existing]
+        for w, _zh in new_pairs:
+            Word.objects.get_or_create(word=w)
+        to_create = [LearningPlanEntry(plan=plan, word=w, zh=zh) for w, zh in new_pairs]
+        LearningPlanEntry.objects.bulk_create(to_create, ignore_conflicts=True)
+        return Response({'entries_added': len(new_pairs)})
+
 
 def _extract_zh(word_obj: Word) -> str:
     """Extract the first zh meaning from definitions JSON, fallback empty string."""
@@ -615,9 +648,79 @@ def _parse_bool_field(value, field_name: str) -> bool:
     raise ValueError(f'{field_name} 必须为布尔值')
 
 
-# 
+_AI_PARSE_PROMPT = """你是雅思词汇助手。用户会给你一段文本，它可能是一篇英文文章/段落，也可能是一份杂乱的单词表（可能夹带中文、换行、标点、序号）。
+请从中抽取值得学习的英文词汇（优先雅思 4-8 分常见词），并：
+1. 统一为小写词元（lemma），去掉序号与标点；
+2. 去重；
+3. 为每个词给出一个最常用义项的简洁中文释义；
+4. 跳过纯人名/地名与无意义碎片；总数不超过 {limit} 个。
+
+只输出严格 JSON，不要任何解释或 markdown 代码块：
+{{"words": [{{"word": "example", "zh": "例子"}}]}}
+
+待处理文本：
+\"\"\"
+{text}
+\"\"\""""
+
+
+class AiWordParseView(APIView):
+    """AI 解析：把粘贴的文章/词表解析为 [{word, zh}]，仅返回预览、不写库。
+
+    provider 取 X-AI-Provider 头（可为 custom:<id> → 0 AT）。前端确认后再走
+    PlanWordListView 的 mode='ai_list' 入库。
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        plan = get_object_or_404(LearningPlan, pk=pk, user=request.user)
+        text = str(request.data.get('text', '')).strip()
+        if not text:
+            return Response({'error': '文本不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+        text = text[:8000]
+
+        limit = 150
+        provider = request.headers.get('X-AI-Provider', 'deepseek') or 'deepseek'
+        prompt = _AI_PARSE_PROMPT.format(limit=limit, text=text)
+        try:
+            client = AIClient(provider=provider)
+            result, at_cost = client.generate(
+                [{'role': 'user', 'content': prompt}],
+                expect_json=True,
+                temperature=0.3,
+                user_id=request.user.id,
+            )
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'AI 解析失败: {e}'}, status=status.HTTP_502_BAD_GATEWAY)
+
+        raw_words = result.get('words') if isinstance(result, dict) else None
+        words = []
+        seen = set()
+        if isinstance(raw_words, list):
+            for item in raw_words[:limit]:
+                if not isinstance(item, dict):
+                    continue
+                w = str(item.get('word', '')).strip().lower()
+                if not w or w in seen:
+                    continue
+                seen.add(w)
+                words.append({'word': w, 'zh': str(item.get('zh', '')).strip()[:200]})
+
+        existing = set(
+            LearningPlanEntry.objects
+            .filter(plan=plan, word__in=[x['word'] for x in words])
+            .values_list('word', flat=True)
+        )
+        for x in words:
+            x['exists'] = x['word'] in existing
+        return Response({'words': words, 'atConsumed': at_cost})
+
+
+#
 # Plan word detail
-# 
+#
 
 class PlanWordDetailView(APIView):
     """PATCH / DELETE  /plans/:id/words/:eid/"""

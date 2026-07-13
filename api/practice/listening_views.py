@@ -408,7 +408,8 @@ def generate_listening(request):
         # Bind everything the generator needs into local values so the closure
         # runs safely on a background thread after the request scope closes.
         user_id = request.user.id
-        prompt_snapshot = prompt
+        from api.skills.custom_prompt import custom_prompt_block
+        prompt_snapshot = prompt + custom_prompt_block(data.get('customPrompt'))
         resolved_scenario_snapshot = resolved_scenario
         practice_type_snapshot = practice_type
         provider_snapshot = provider
@@ -1035,6 +1036,8 @@ def generate_listening_full(request):
 
         print(f'[Listening] 🎯 async FULL band={difficulty} sections={section_nums} scenarios={scenario_map}', flush=True)
 
+        from api.skills.custom_prompt import custom_prompt_block
+        _cp_block = custom_prompt_block(data.get('customPrompt'))
         prompts: list[tuple[int, str, str]] = []
         for n in section_nums:
             p, resolved = _build_section_prompt(
@@ -1043,7 +1046,7 @@ def generate_listening_full(request):
                 scenario_key=scenario_map[n],
                 tone_instruction=tone_instruction,
             )
-            prompts.append((n, p, resolved))
+            prompts.append((n, p + _cp_block, resolved))
 
         is_single = len(prompts) == 1
         subtype = f'full_s{target_section}' if is_single else 'full'

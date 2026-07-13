@@ -80,7 +80,7 @@ class User(AbstractUser):
     # 跨端同步的偏好设置
     target_vocab_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="首选目标生词本")
     language_preference = models.CharField(max_length=10, default='zh', verbose_name="语言偏好(zh/en)")
-    ai_provider = models.CharField(max_length=20, default='deepseek', verbose_name="默认AI提供商")
+    ai_provider = models.CharField(max_length=40, default='deepseek', verbose_name="默认AI提供商")
     vocab_complete_difficulty = models.CharField(max_length=10, default='hint', verbose_name='补全模式难度(easy/hint/hard)')
 
     class Meta:

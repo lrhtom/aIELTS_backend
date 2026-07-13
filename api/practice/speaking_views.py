@@ -23,6 +23,24 @@ def _build_singleflight_scope(scope_prefix: str, payload) -> str:
     digest = hashlib.sha256(payload_text.encode('utf-8')).hexdigest()[:16]
     return f"{scope_prefix}:{digest}"
 
+
+def _parse_modifiers(raw):
+    """把前端传来的场景干扰选项解析成 {option: [subs]}。
+
+    兼容：JSON body(dict / 旧数组) 与 multipart form(JSON 字符串)。归一化+白名单校验
+    交给 skills.scenario.normalize_modifiers（option 与 sub 双层白名单）。
+    """
+    from api.skills.speaking.scenario import normalize_modifiers
+    if not raw:
+        return {}
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            # 逗号分隔的裸 option 列表（旧格式兜底）
+            raw = [s.strip() for s in raw.split(',') if s.strip()]
+    return normalize_modifiers(raw)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def speaking_chat(request):
@@ -298,11 +316,12 @@ def scenario_opening(request):
         if not scenario:
             return JsonResponse({'error': 'scenario required'}, status=400)
 
+        modifiers = _parse_modifiers(request.data.get('modifiers'))
         uploaded_files = request.FILES.getlist('files') if request.FILES else []
 
         system_msg = {
             "role": "system",
-            "content": skill_speaking_scenario_opening(scenario)
+            "content": skill_speaking_scenario_opening(scenario, modifiers)
         }
 
         user_content = "Please start the conversation."
@@ -416,11 +435,12 @@ def scenario_chat(request):
                 else:
                     last_user_msg['content'] = user_text
 
-        sf_scope = _build_singleflight_scope('scenario_chat', {'scenario': scenario, 'messages': messages})
+        modifiers = _parse_modifiers(request.data.get('modifiers'))
+        sf_scope = _build_singleflight_scope('scenario_chat', {'scenario': scenario, 'messages': messages, 'modifiers': modifiers})
 
         system_instruction = {
             "role": "system",
-            "content": skill_speaking_scenario_chat(scenario)
+            "content": skill_speaking_scenario_chat(scenario, modifiers)
         }
         messages.insert(0, system_instruction)
 

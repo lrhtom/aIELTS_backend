@@ -26,6 +26,7 @@ from .vocab import learning_plan_views
 from .extra import store_views
 from .extra import creative_workshop_views
 from .extra import assistant_views
+from .extra import custom_model_views
 from .assistant_views import UserTodoItemViewSet, UserShortcutViewSet
 from .extra import markdown_notes_views
 from . import checkin_views
@@ -150,6 +151,12 @@ urlpatterns = [
     path('markdown-notes/', markdown_notes_views.MarkdownNoteListView.as_view(), name='markdown_note_list'),
     path('markdown-notes/<int:pk>/', markdown_notes_views.MarkdownNoteDetailView.as_view(), name='markdown_note_detail'),
 
+    # ---- 自定义 AI 模型（BYO）API ----
+    path('custom-models/',                custom_model_views.CustomModelListView.as_view(),       name='custom_model_list'),
+    path('custom-models/test/',           custom_model_views.CustomModelTestConfigView.as_view(), name='custom_model_test_config'),
+    path('custom-models/<int:pk>/',       custom_model_views.CustomModelDetailView.as_view(),     name='custom_model_detail'),
+    path('custom-models/<int:pk>/test/',  custom_model_views.CustomModelTestView.as_view(),       name='custom_model_test'),
+
     
     # ---- 助手额外功能 API ----
     path('assistant/todos/', UserTodoItemViewSet.as_view({'get': 'list', 'post': 'create'}), name='assistant_todos'),
@@ -176,6 +183,7 @@ urlpatterns = [
     path('plans/',                                  learning_plan_views.PlanListView.as_view(),         name='plan_list'),
     path('plans/<int:pk>/',                         learning_plan_views.PlanDetailView.as_view(),        name='plan_detail'),
     path('plans/<int:pk>/words/',                   learning_plan_views.PlanWordListView.as_view(),      name='plan_words'),
+    path('plans/<int:pk>/ai-parse/',                learning_plan_views.AiWordParseView.as_view(),       name='plan_ai_parse'),
     path('plans/<int:pk>/words/<int:eid>/',         learning_plan_views.PlanWordDetailView.as_view(),    name='plan_word_detail'),
     path('plans/<int:pk>/start/',                   learning_plan_views.PlanStartView.as_view(),         name='plan_start'),
     path('plans/<int:pk>/article-copy/',           learning_plan_views.ArticleCopyGenerateView.as_view(), name='plan_article_copy'),

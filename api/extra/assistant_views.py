@@ -1086,7 +1086,13 @@ def _execute_react_browser_action(
         for field, allowed in CHOICE_FIELDS.items():
             if field in action_payload:
                 raw = str(action_payload.get(field) or '').strip().lower()
-                if raw not in allowed:
+                # Custom (BYO) models are selected as 'custom:<id>' — allow them past the fixed set.
+                is_custom_provider = (
+                    field == 'ai_provider'
+                    and raw.startswith('custom:')
+                    and raw.split(':', 1)[1].isdigit()
+                )
+                if raw not in allowed and not is_custom_provider:
                     errors.append(f'{field} 不在允许值 {sorted(allowed)}')
                     continue
                 setattr(user, field, raw)

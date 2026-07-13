@@ -13,6 +13,7 @@ httpx
 edge-tts
 Pillow
 azure-cognitiveservices-speech
+cryptography
 
 # ── Test stack (dev / CI only) ────────────────────────────────────────────────
 pytest>=8.0

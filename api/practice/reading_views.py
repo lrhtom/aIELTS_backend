@@ -422,6 +422,8 @@ def generate_reading(request):
             word_count_min=word_count_min,
             word_count_max=word_count_max,
         )
+        from api.skills.custom_prompt import custom_prompt_block
+        prompt += custom_prompt_block(data.get('customPrompt'))
 
         print(f'[Reading] 📥 async spawn type={question_type} topic={topic_key} band={difficulty}', flush=True)
 
@@ -758,6 +760,8 @@ def generate_reading_full(request):
                 topic_instruction=topic_instruction,
                 tone_instruction=tone_instruction,
             )
+            from api.skills.custom_prompt import custom_prompt_block
+            prompt += custom_prompt_block(data.get('customPrompt'))
             prompts_and_plans.append((n, mix_types, prompt, plan))
 
         print(f'[Reading] 🎯 async FULL topic={topic_key} band={difficulty} passages={passage_nums} mixes={list(mixes_per_passage.values())}', flush=True)

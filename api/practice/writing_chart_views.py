@@ -1276,7 +1276,8 @@ def generate_chart(request):
 
         # 鈹€鈹€ FLOWCHART: plain-text mode avoids JSON-escaping issues with Mermaid { } " 鈹€鈹€
         if chart_type == 'flowchart':
-            fc_system = skill_writing_chart_flowchart(chart_instructions)
+            from api.skills.custom_prompt import custom_prompt_block
+            fc_system = skill_writing_chart_flowchart(chart_instructions) + custom_prompt_block(request.data.get('customPrompt'))
             fc_messages = [
                 {"role": "system", "content": fc_system},
                 {"role": "user", "content": "Generate an IELTS Task 1 process diagram practice question now."},
@@ -1342,9 +1343,10 @@ def generate_chart(request):
 
         # 鈹€鈹€ OTHER CHART TYPES: JSON mode + Matplotlib sandbox ┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢
         subject_area = random.choice(CHART_SUBJECT_AREAS)
+        from api.skills.custom_prompt import custom_prompt_block
         system_prompt = skill_writing_chart_standard(
             chart_type, subject_area, code_requirement, chart_instructions
-        )
+        ) + custom_prompt_block(request.data.get('customPrompt'))
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate the chart prompt and code for the requested chart type."}

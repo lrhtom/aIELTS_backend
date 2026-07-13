@@ -15,6 +15,13 @@ class AIClient:
     def __init__(self, provider: str = 'deepseek'):
         self.provider = (provider or '').strip().lower()
         self.is_gpt5 = self.provider.startswith('gpt5')
+        # Custom (bring-your-own) models use the user's own key and are NOT billed in AT.
+        self.is_custom = False
+        self.bill_at = True
+
+        if self.provider.startswith('custom:'):
+            self._init_custom(self.provider)
+            return
 
         if self.provider == 'gemini':
             self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
@@ -59,6 +66,47 @@ class AIClient:
             self.base_url = os.environ.get('AI_BASE_URL', '')
             self.api_key = os.environ.get('AI_API_KEY', '')
             self.model = os.environ.get('AI_MODEL', '')
+
+    def _init_custom(self, provider: str) -> None:
+        """Load a user's custom (BYO) OpenAI-compatible model. provider = 'custom:<id>'.
+
+        Treated as a standard chat/completions endpoint (Bearer auth). Uses the user's
+        own key, so billing is disabled (``bill_at=False`` → 0 AT).
+        """
+        from api.models import CustomAIModel
+        try:
+            model_id = int(provider.split(':', 1)[1])
+        except (ValueError, IndexError):
+            raise ValueError(f'非法的自定义模型标识: {provider}')
+        try:
+            m = CustomAIModel.objects.get(pk=model_id)
+        except CustomAIModel.DoesNotExist:
+            raise ValueError(f'自定义模型不存在: {provider}')
+
+        self.base_url = (m.base_url or '').strip()
+        self.api_key = m.get_api_key()
+        self.model = m.name
+        self.is_gpt5 = False
+        self.is_custom = True
+        self.bill_at = False
+        if not self.base_url or not self.api_key:
+            raise ValueError('自定义模型配置不完整（缺少链接或密钥）')
+
+    @classmethod
+    def transient(cls, base_url: str, api_key: str, model: str) -> 'AIClient':
+        """Build a client from an explicit (unsaved) custom config — for pre-save ping tests.
+
+        Bypasses ``__init__`` provider resolution; only the fields ``ping()`` needs are set.
+        """
+        self = cls.__new__(cls)
+        self.provider = 'custom'
+        self.is_gpt5 = False
+        self.is_custom = True
+        self.bill_at = False
+        self.base_url = (base_url or '').strip()
+        self.api_key = (api_key or '').strip()
+        self.model = (model or '').strip()
+        return self
 
     @staticmethod
     def _extract_ping_tokens(resp) -> int | None:
@@ -260,7 +308,7 @@ class AIClient:
             #    select_for_update() 直读 DB，避免缓存陈旧导致的并发超支。注意 select_for_update
             #    的锁在事务退出时立即释放，所以此处只能阻挡"已知欠费的用户"再发请求；要彻底防
             #    止并发超支需要 pre-reservation（在 AI 调用前先预扣一笔），属于后续架构改进。
-            if user_id:
+            if self.bill_at and user_id:
                 User = get_user_model()
                 from django.db import transaction as _txn
                 try:
@@ -389,8 +437,8 @@ class AIClient:
             else:
                 # Chat Completions API: total_tokens
                 total_tokens = usage.get('total_tokens', 0)
-            # 费率：1 Token = 2 AT 币
-            at_cost = total_tokens * 2
+            # 费率：1 Token = 2 AT 币；自定义(自带 key)模型不计费。
+            at_cost = 0 if not self.bill_at else total_tokens * 2
 
             # 剔除推理过程
             ai_content = re.sub(r'<think>[\s\S]*?</think>', '', ai_content).strip()
@@ -400,7 +448,7 @@ class AIClient:
             #    不存在双扣或竞态，只可能整体失败（抛异常）。失败时 token 已经计费给 AI 商，但
             #    用户没扣到钱——会丢钱给我们。必须打 ERROR 让运维捞到这条记录人工核对。
             def _deduct():
-                if not user_id:
+                if not (self.bill_at and user_id):
                     return
                 User = get_user_model()
                 from api.models import TransactionRecord
@@ -498,8 +546,8 @@ class AIClient:
         以流式 Generator 方式请求大模型并逐字返回。
         适用于 SSE 不间断输出，请求完成后基于结果粗略计费。
         """
-        # 计费预检
-        if user_id:
+        # 计费预检（自定义模型不计费，跳过）
+        if self.bill_at and user_id:
             User = get_user_model()
             try:
                 user_obj = User.objects.get(id=user_id)
@@ -595,8 +643,8 @@ class AIClient:
                 except json.JSONDecodeError:
                     pass
 
-        # === 计费 ===
-        if user_id:
+        # === 计费（自定义模型不计费，跳过） ===
+        if self.bill_at and user_id:
             final_text = "".join(full_content)
             final_text_no_think = re.sub(r'<think>.*?</think>', '', final_text, flags=re.DOTALL)
             input_chars = sum(len(str(m.get('content', ''))) for m in messages)

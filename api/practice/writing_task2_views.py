@@ -287,7 +287,8 @@ def generate_task2(request):
         else:
             topic_instruction = f'The topic area must be: {topic_area}.'
 
-        system_prompt = skill_writing_task2_generate(selected_desc, topic_instruction)
+        from api.skills.custom_prompt import custom_prompt_block
+        system_prompt = skill_writing_task2_generate(selected_desc, topic_instruction) + custom_prompt_block(request.data.get('customPrompt'))
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate the Task 2 prompt."}

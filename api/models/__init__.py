@@ -45,6 +45,7 @@ from .practice import (
 )
 from .finance import StoreProduct, CartItem, TransactionRecord
 from .inventory import UserItem
+from .custom_ai_model import CustomAIModel
 from .stats import UserDailyLearningTime, UserDailyStats
 from .assistant import (
     UserTodoItem,
@@ -66,6 +67,7 @@ __all__ = [
     'WritingServiceRecord', 'AIQuestion',
     'StoreProduct', 'CartItem', 'TransactionRecord',
     'UserItem',
+    'CustomAIModel',
     'UserDailyLearningTime', 'UserDailyStats',
     'UserTodoItem', 'UserShortcut',
     'CreativeWorkshopPage', 'MarkdownNote',
