@@ -156,6 +156,7 @@ urlpatterns = [
     path('custom-models/test/',           custom_model_views.CustomModelTestConfigView.as_view(), name='custom_model_test_config'),
     path('custom-models/<int:pk>/',       custom_model_views.CustomModelDetailView.as_view(),     name='custom_model_detail'),
     path('custom-models/<int:pk>/test/',  custom_model_views.CustomModelTestView.as_view(),       name='custom_model_test'),
+    path('ai-models/official/test/',      custom_model_views.OfficialModelTestView.as_view(),     name='official_model_test'),
 
     
     # ---- 助手额外功能 API ----

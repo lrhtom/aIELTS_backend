@@ -1041,7 +1041,10 @@ def _execute_react_browser_action(
         DATE_FIELDS = {'exam_date'}
         CHOICE_FIELDS = {
             'language_preference': {'zh', 'en'},
-            'ai_provider': {'deepseek', 'deepseek_flash', 'gemini', 'gpt5_4', 'gpt5_mini'},
+            'ai_provider': {
+                'deepseek', 'deepseek_flash', 'gemini', 'gpt5_4', 'gpt5_mini',
+                'gpt5_6_sol', 'gpt5_6_terra', 'gpt5_6_luna',
+            },
             'vocab_complete_difficulty': {'easy', 'hint', 'hard'},
         }
         STRING_FIELDS = {'target_vocab_name': 100}

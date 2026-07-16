@@ -696,6 +696,9 @@ class AdminServiceHealthView(APIView):
             self._check_ai_text('ai_gemini', 'gemini'),
             self._check_ai_text('ai_gpt5_4', 'gpt5_4'),
             self._check_ai_text('ai_gpt5_mini', 'gpt5_mini'),
+            self._check_ai_text('ai_gpt5_6_sol', 'gpt5_6_sol'),
+            self._check_ai_text('ai_gpt5_6_terra', 'gpt5_6_terra'),
+            self._check_ai_text('ai_gpt5_6_luna', 'gpt5_6_luna'),
             self._check_flux_image(),
             self._check_email(),
         ]

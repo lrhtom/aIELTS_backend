@@ -16,6 +16,7 @@ from django.shortcuts import get_object_or_404
 
 from api.models import CustomAIModel
 from api.core.ai_client import AIClient
+from api.core.rate_limit import check_rate_limit
 
 
 def _allow_internal_urls() -> bool:
@@ -142,6 +143,56 @@ class CustomModelTestView(APIView):
         except ValueError as e:
             result = {'status': 'unconfigured', 'http': None, 'body': None, 'error': str(e), 'tokens': None}
         return Response(result)
+
+
+# 官方（平台密钥）模型白名单 — 与前端 AiModelSelector 的 BUILTIN_OPTIONS 保持一致。
+OFFICIAL_PROVIDERS = (
+    'deepseek', 'deepseek_flash', 'gemini', 'gpt5_4', 'gpt5_mini',
+    'gpt5_6_sol', 'gpt5_6_terra', 'gpt5_6_luna',
+)
+# ping 成功但 provider 未返回 usage 时的计费下限（token 数）
+OFFICIAL_TEST_MIN_TOKENS = 10
+
+
+class OfficialModelTestView(APIView):
+    """Ping an OFFICIAL (platform-key) provider — billed in AT on success.
+
+    Custom-model tests are free because they burn the user's own key; an official
+    ping burns the platform's quota, so a successful test bills tokens x 2 AT (the
+    same rate ``generate()`` uses, floored at OFFICIAL_TEST_MIN_TOKENS). Failed
+    pings (auth / ratelimited / network) cost nothing — those are our problem,
+    not the user's.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        provider = str(request.data.get('provider', '')).strip().lower()
+        if provider not in OFFICIAL_PROVIDERS:
+            return Response({'error': '未知的官方模型'}, status=status.HTTP_400_BAD_REQUEST)
+
+        limited = check_rate_limit(request.user.id, 'official_model_test', max_calls=5, window=60)
+        if limited is not None:
+            return limited
+
+        min_cost = OFFICIAL_TEST_MIN_TOKENS * 2
+        if request.user.at_balance < min_cost:
+            return Response(
+                {'error': f'AT币余额不足，测试需要至少 {min_cost} AT，当前余额 {request.user.at_balance} AT'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        result = AIClient(provider).ping()
+
+        at_cost = 0
+        if result.get('status') == 'ok':
+            from api.models import TransactionRecord
+            tokens = result.get('tokens') or 0
+            at_cost = max(tokens, OFFICIAL_TEST_MIN_TOKENS) * 2
+            TransactionRecord.record(
+                request.user, TransactionRecord.Currency.AT_COIN, -at_cost,
+                f'官方模型连通性测试 ({provider})',
+            )
+        return Response({**result, 'at_cost': at_cost})
 
 
 class CustomModelTestConfigView(APIView):

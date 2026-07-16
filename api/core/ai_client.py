@@ -40,6 +40,15 @@ class AIClient:
                 base_url = os.environ.get('GPT5MINI_BASE_URL', '')
                 api_key = os.environ.get('GPT5MINI_API_KEY', '')
                 model = os.environ.get('GPT5MINI_MODEL', 'gpt-5.4-mini')
+            elif self.provider in ('gpt5_6_sol', 'gpt5_6_terra', 'gpt5_6_luna'):
+                # GPT-5.6 三兄弟 (sol/terra/luna)。各自可用 GPT56SOL_* / GPT56TERRA_* /
+                # GPT56LUNA_* 独立配置；未配置时回退 GPT54_* 的端点与密钥（同一 Azure
+                # 资源下的不同部署只差 model 名），model 名默认 gpt-5.6-<suffix>。
+                suffix = self.provider.rsplit('_', 1)[-1]          # sol / terra / luna
+                prefix = f'GPT56{suffix.upper()}'
+                base_url = os.environ.get(f'{prefix}_BASE_URL', '') or os.environ.get('GPT54_BASE_URL', '')
+                api_key = os.environ.get(f'{prefix}_API_KEY', '') or os.environ.get('GPT54_API_KEY', '')
+                model = os.environ.get(f'{prefix}_MODEL', f'gpt-5.6-{suffix}')
 
             normalized_base_url = (base_url or '').strip()
             if normalized_base_url.rstrip('/').lower().endswith('/openai/v1'):

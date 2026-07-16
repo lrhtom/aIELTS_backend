@@ -298,7 +298,68 @@ def _normalize_new_type(question_type: str, result: dict) -> dict:
             })
         result['questions'] = normalized
 
+    # AI 真正给出的题目条数 — 验证器用它识别“占位符硬凑”的退化数据
+    result['_providedCount'] = sum(1 for it in questions if isinstance(it, dict))
     return result
+
+
+_BLANK_MARKER_RE = re.compile(r'\(\d+\)\s*_+')
+
+
+def _listening_v2_defects(practice_type: str, result: dict) -> list[str]:
+    """检测 v2 单题型返回是否退化（缺题/缺空格标记/空 bank/无答案）。
+
+    非空 = 不该落库，调用方应重试或标记失败。legacy 4 类型在
+    _post_process_listening_single 里已有自检（空 questions 直接 raise），跳过。
+    """
+    defects: list[str] = []
+    questions = result.get('questions') or []
+    provided = result.pop('_providedCount', len(questions))
+    if practice_type in _LEGACY_TYPES:
+        return defects
+    if provided < len(questions):
+        defects.append(f'{practice_type}: {len(questions) - provided} placeholder question(s)')
+    content_field = {
+        'form': 'form_content', 'table': 'table_content', 'flowchart': 'flowchart_content',
+    }.get(practice_type)
+    if content_field:
+        blanks = len(_BLANK_MARKER_RE.findall(str(result.get(content_field) or '')))
+        if blanks < len(questions):
+            defects.append(f'{practice_type}: {content_field} has {blanks}/{len(questions)} blanks')
+    if practice_type in {'form', 'table', 'flowchart', 'short_answer'}:
+        empty_ans = sum(1 for q in questions if all(not str(a).strip() for a in (q.get('answers') or [])))
+        if empty_ans:
+            defects.append(f'{practice_type}: {empty_ans} question(s) without answers')
+    if practice_type == 'matching':
+        bank = result.get('options_bank') or {}
+        if sum(1 for v in bank.values() if str(v or '').strip()) < 2:
+            defects.append('matching: options_bank empty/incomplete')
+    return defects
+
+
+def _listening_section_defects(section_num: int, out: dict) -> list[str]:
+    """检测 full 模式单个 section 的退化（占位符/缺空格/空 bank/无答案）。"""
+    defects: list[str] = []
+    fab = out.pop('_fabricated', 0)
+    if fab:
+        defects.append(f'S{section_num}: {fab} placeholder question(s)')
+    st = out.get('sectionType')
+    questions = out.get('questions') or []
+    if st in ('form', 'note'):
+        field = 'form_content' if st == 'form' else 'note_content'
+        blanks = len(_BLANK_MARKER_RE.findall(str(out.get(field) or '')))
+        if blanks < len(questions):
+            defects.append(f'S{section_num}: {field} has {blanks}/{len(questions)} blanks')
+        empty_ans = sum(1 for q in questions if all(not str(a).strip() for a in (q.get('answers') or [])))
+        if empty_ans:
+            defects.append(f'S{section_num}: {empty_ans} question(s) without answers')
+    elif st == 'mixed':
+        for sub in out.get('subsections') or []:
+            if sub.get('type') == 'matching':
+                bank = sub.get('options_bank') or {}
+                if sum(1 for v in bank.values() if str(v or '').strip()) < 2:
+                    defects.append(f'S{section_num}: matching options_bank empty/incomplete')
+    return defects
 
 
 # ── 主入口: 单题型 ────────────────────────────────────
@@ -416,27 +477,43 @@ def generate_listening(request):
         placeholder_title = f'🎧 听力生成中... ({practice_type})'
 
         def _generator(_row):
-            result = call_ai_api(
-                prompt_snapshot,
-                provider=provider_snapshot,
-                user_id=user_id,
-                singleflight_scope=f'listening_generate:{practice_type_snapshot}',
-            )
-            _post_process_listening_single(
-                result,
-                practice_type=practice_type_snapshot,
-                resolved_scenario=resolved_scenario_snapshot,
-                user_id=user_id,
-            )
-            title = str(result.get('title') or '').strip() or '听力练习'
-            # 预热音频：题目一生成完就把 mp3 落盘，用户首次点开题目直接从缓存返回。
-            passage = str(result.get('passage') or '').strip()
-            if passage:
-                ensure_listening_audio_cached(passage)
-            payload = {k: v for k, v in result.items() if k != 'atConsumed'}
-            if custom_description:
-                payload['description'] = custom_description
-            return title, payload
+            # 生成 → 后处理 → 验证 → 有缺陷重试一次 → 仍缺陷则标记失败。
+            # 绝不把占位符硬凑的退化卷 ("Item N" / 空 bank / 无空格标记) 存进题库。
+            last_err = ''
+            for attempt in range(2):
+                result = call_ai_api(
+                    prompt_snapshot,
+                    provider=provider_snapshot,
+                    user_id=user_id,
+                    # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                    singleflight_scope=f'listening_generate:{practice_type_snapshot}:a{attempt}',
+                )
+                try:
+                    _post_process_listening_single(
+                        result,
+                        practice_type=practice_type_snapshot,
+                        resolved_scenario=resolved_scenario_snapshot,
+                        user_id=user_id,
+                    )
+                except ValueError as ve:
+                    last_err = str(ve)
+                    print(f'[Listening] ⚠️ attempt {attempt + 1} 生成退化: {ve}', flush=True)
+                    continue
+                defects = _listening_v2_defects(practice_type_snapshot, result)
+                if defects:
+                    last_err = '; '.join(defects[:6])
+                    print(f'[Listening] ⚠️ attempt {attempt + 1} 生成退化: {defects}', flush=True)
+                    continue
+                title = str(result.get('title') or '').strip() or '听力练习'
+                # 预热音频：题目一生成完就把 mp3 落盘，用户首次点开题目直接从缓存返回。
+                passage = str(result.get('passage') or '').strip()
+                if passage:
+                    ensure_listening_audio_cached(passage)
+                payload = {k: v for k, v in result.items() if k != 'atConsumed'}
+                if custom_description:
+                    payload['description'] = custom_description
+                return title, payload
+            raise ValueError('AI 返回的听力题目数据不完整（重试后仍缺失）: ' + last_err)
 
         row = spawn_ai_generation(
             user=request.user,
@@ -786,6 +863,8 @@ def _normalize_section(
         'passage': passage,
         'scenario': str(result.get('scenario') or '').strip(),
     }
+    # 占位符硬凑计数 — _listening_section_defects 弹出检查，非 0 则该 section 退化需重试
+    fabricated = 0
 
     if section_num == 1:
         out['form_intro'] = result.get('form_intro') or 'Complete the form.'
@@ -830,6 +909,7 @@ def _normalize_section(
                     'explanation': str(item.get('explanation') or '').strip() or '',
                 }
             else:
+                fabricated += 1
                 item_out = {
                     'id': id_offset + idx + 1,
                     'question': f'MCQ {idx + 1}',
@@ -870,6 +950,8 @@ def _normalize_section(
         options = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
         letters_available = list(options)
         for idx in range(5):
+            if not (idx < len(map_qs) and isinstance(map_qs[idx], dict)):
+                fabricated += 1
             item = map_qs[idx] if idx < len(map_qs) and isinstance(map_qs[idx], dict) else {}
             map_norm.append({
                 'id': id_offset + 6 + idx,
@@ -931,6 +1013,7 @@ def _normalize_section(
                     'explanation': str(item.get('explanation') or '').strip() or '',
                 })
             else:
+                fabricated += 1
                 mcq_norm.append({
                     'id': id_offset + idx + 1,
                     'question': f'MCQ {idx + 1}',
@@ -953,6 +1036,8 @@ def _normalize_section(
         match_qs = _extract_questions(match_sub)
         match_norm = []
         for idx in range(5):
+            if not (idx < len(match_qs) and isinstance(match_qs[idx], dict)):
+                fabricated += 1
             item = match_qs[idx] if idx < len(match_qs) and isinstance(match_qs[idx], dict) else {}
             match_norm.append({
                 'id': id_offset + 6 + idx,
@@ -986,6 +1071,7 @@ def _normalize_section(
             })
         out['questions'] = normalized
 
+    out['_fabricated'] = fabricated
     return out
 
 
@@ -1062,29 +1148,40 @@ def generate_listening_full(request):
             sections_out: list[dict] = []
 
             def _run(num: int, prompt: str):
-                r = call_ai_api(
-                    prompt,
-                    provider=provider_snapshot,
-                    user_id=user_id,
-                    singleflight_scope=f'listening_full:{num}',
-                )
-                return num, r
+                # 生成 → 归一化 → 验证 → 有缺陷重试一次 → 仍缺陷则整卷失败。
+                last_defects: list[str] = []
+                id_offset = (num - 1) * LISTENING_FULL_QUESTIONS_PER_SECTION
+                for attempt in range(2):
+                    r = call_ai_api(
+                        prompt,
+                        provider=provider_snapshot,
+                        user_id=user_id,
+                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                        singleflight_scope=f'listening_full:{num}:a{attempt}',
+                    )
+                    normalized = _normalize_section(num, r, id_offset=id_offset, user_id=user_id)
+                    defects = _listening_section_defects(num, normalized)
+                    if not str(normalized.get('passage') or '').strip():
+                        defects.append(f'S{num}: empty passage')
+                    if not defects:
+                        return num, normalized
+                    last_defects = defects
+                    print(f'[Listening Full] ⚠️ section {num} attempt {attempt + 1} 生成退化: {defects}', flush=True)
+                raise ValueError(f'Section {num} 生成数据不完整（重试后仍缺失）: ' + '; '.join(last_defects[:6]))
 
             if len(prompts_snapshot) == 1:
                 num, prompt = prompts_snapshot[0][0], prompts_snapshot[0][1]
-                _n, r = _run(num, prompt)
-                id_offset = (num - 1) * LISTENING_FULL_QUESTIONS_PER_SECTION
-                sections_out.append(_normalize_section(num, r, id_offset=id_offset, user_id=user_id))
+                _n, normalized = _run(num, prompt)
+                sections_out.append(normalized)
             else:
-                results_by_num: dict[int, dict] = {}
+                normalized_by_num: dict[int, dict] = {}
                 with ThreadPoolExecutor(max_workers=len(prompts_snapshot)) as pool:
                     futures = [pool.submit(_run, num, p) for (num, p, _) in prompts_snapshot]
                     for fut in as_completed(futures):
-                        n, r = fut.result()
-                        results_by_num[n] = r
+                        n, normalized = fut.result()
+                        normalized_by_num[n] = normalized
                 for n in section_nums_snapshot:
-                    id_offset = (n - 1) * LISTENING_FULL_QUESTIONS_PER_SECTION
-                    sections_out.append(_normalize_section(n, results_by_num[n], id_offset=id_offset, user_id=user_id))
+                    sections_out.append(normalized_by_num[n])
 
             payload: dict[str, Any] = {
                 'type': 'full',

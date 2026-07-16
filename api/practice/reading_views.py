@@ -4,6 +4,7 @@
 Prompt 模板见 backend/api/skills/reading/generation.py。
 """
 import random
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -353,7 +354,63 @@ def _normalize_questions(
             })
 
     payload['questions'] = normalized
+    # 记录 AI 真正给出的题目条数。占位符补齐只是防崩溃的最后手段——
+    # 验证器 (_section_defects) 用这个数字识别“硬凑出来的退化卷”并触发重试。
+    payload['_providedCount'] = sum(1 for it in source if isinstance(it, dict))
     return payload
+
+
+_BLANK_MARKER_RE = re.compile(r'\(\d+\)\s*_+')
+
+
+def _bank_content_count(bank: Any) -> int:
+    """bank 里有实际文字内容的词条数（空字符串值不算——空 bank 会渲染成 "A. B. C." 废卷）。"""
+    if not isinstance(bank, dict):
+        return 0
+    return sum(1 for v in bank.values() if str(v or '').strip())
+
+
+def _section_defects(qt: str, payload: dict, expected: int) -> list[str]:
+    """检测一组题是否退化（缺题/占位符硬凑/空 bank/缺空格标记）。
+
+    返回缺陷描述列表；非空 = 这组题不该直接落库，调用方应重试或标记生成失败。
+    历史教训 (2026-07-17): 归一化层的占位符补齐会把 AI 的残缺返回“洗”成看起来
+    完整的卷面（"Information item 1" + 空 Categories + 空 Word bank），存进题库后
+    用户反复打开反复看到废卷。
+    """
+    defects: list[str] = []
+    questions = payload.get('questions') or []
+    provided = payload.pop('_providedCount', len(questions))
+    if len(questions) < expected:
+        defects.append(f'{qt}: questions {len(questions)}/{expected}')
+    if provided < len(questions):
+        defects.append(f'{qt}: {len(questions) - provided} placeholder question(s)')
+    if qt == 'multiple_choice':
+        for q in questions:
+            opts = q.get('options') or {}
+            if sum(1 for v in opts.values() if str(v or '').strip()) < 2:
+                defects.append(f'{qt}: q{q.get("id")} has fewer than 2 real options')
+                break
+    elif qt == 'matching_headings':
+        if _bank_content_count(payload.get('headings_bank')) < len(questions):
+            defects.append(f'{qt}: headings_bank incomplete')
+    elif qt == 'matching_features':
+        if _bank_content_count(payload.get('features_bank')) < 2:
+            defects.append(f'{qt}: features_bank empty/incomplete')
+    elif qt == 'matching_sentence':
+        if _bank_content_count(payload.get('endings_bank')) < len(questions):
+            defects.append(f'{qt}: endings_bank incomplete')
+    elif qt == 'summary_completion':
+        if _bank_content_count(payload.get('word_bank')) < len(questions):
+            defects.append(f'{qt}: word_bank incomplete')
+        blanks = len(_BLANK_MARKER_RE.findall(str(payload.get('summary_text') or '')))
+        if blanks < len(questions):
+            defects.append(f'{qt}: summary_text has {blanks}/{len(questions)} blanks')
+    elif qt == 'note_completion':
+        blanks = len(_BLANK_MARKER_RE.findall(str(payload.get('note_content') or '')))
+        if blanks < len(questions):
+            defects.append(f'{qt}: note_content has {blanks}/{len(questions)} blanks')
+    return defects
 
 
 def _preserve_type_specific_fields(question_type: str, source: dict, target: dict) -> None:
@@ -431,38 +488,51 @@ def generate_reading(request):
         placeholder = f'📝 阅读生成中... ({question_type} / {topic_key})'
 
         def _generator(_row):
-            result = call_ai_api(
-                prompt,
-                provider=provider,
-                user_id=user_id,
-                singleflight_scope=f'reading_generate:{question_type}',
-            )
-            title = str(result.get('title') or '').strip() or 'Reading Passage'
-            passage = str(result.get('passage') or '').strip()
-            if not passage:
-                raise ValueError('AI returned no passage.')
+            # 生成 → 验证 → 有缺陷重试一次 → 仍缺陷则标记失败。
+            # 绝不把占位符硬凑的退化卷 (空 bank / "Question N" 占位题干) 存进题库。
+            last_defects: list[str] = []
+            for attempt in range(2):
+                result = call_ai_api(
+                    prompt,
+                    provider=provider,
+                    user_id=user_id,
+                    # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                    singleflight_scope=f'reading_generate:{question_type}:a{attempt}',
+                )
+                title = str(result.get('title') or '').strip() or 'Reading Passage'
+                passage = str(result.get('passage') or '').strip()
 
-            payload: dict[str, Any] = {
-                'title': title,
-                'passage': passage,
-                'topic': topic_key,
-                'questionType': question_type,
-            }
-            if question_type == 'true_false':
-                payload['judgementMode'] = judgement_mode
+                payload: dict[str, Any] = {
+                    'title': title,
+                    'passage': passage,
+                    'topic': topic_key,
+                    'questionType': question_type,
+                }
+                if question_type == 'true_false':
+                    payload['judgementMode'] = judgement_mode
 
-            _preserve_type_specific_fields(question_type, result, payload)
-            merged = {**payload, 'questions': result.get('questions')}
-            merged = _normalize_questions(question_type, merged, judgement_mode=judgement_mode)
-            payload['questions'] = merged['questions']
+                _preserve_type_specific_fields(question_type, result, payload)
+                merged = {**payload, 'questions': result.get('questions')}
+                merged = _normalize_questions(question_type, merged, judgement_mode=judgement_mode)
+                payload['questions'] = merged['questions']
 
-            if question_type in {'sentence_completion', 'short_answer', 'note_completion'}:
-                missing = _count_answers_missing_from_passage(payload['questions'], passage)
-                if missing:
-                    payload['answerVerificationWarnings'] = missing
-            if custom_description:
-                payload['description'] = custom_description
-            return title, payload
+                defects = _section_defects(question_type, merged, READING_QUESTION_COUNT_DEFAULT)
+                if not passage:
+                    defects.append('empty passage')
+                if defects:
+                    last_defects = defects
+                    print(f'[Reading] ⚠️ attempt {attempt + 1} 生成退化 ({question_type}): {defects}', flush=True)
+                    continue
+
+                if question_type in {'sentence_completion', 'short_answer', 'note_completion'}:
+                    missing = _count_answers_missing_from_passage(payload['questions'], passage)
+                    if missing:
+                        payload['answerVerificationWarnings'] = missing
+                if custom_description:
+                    payload['description'] = custom_description
+                return title, payload
+
+            raise ValueError('AI 返回的题目数据不完整（重试后仍缺失）: ' + '; '.join(last_defects[:6]))
 
         row = spawn_ai_generation(
             user=request.user,
@@ -622,6 +692,7 @@ def _normalize_full_passage(result: dict, section_plan: list[dict], *, passage_n
             unmatched_by_order.append(raw_sec)
 
     sections_out: list[dict] = []
+    defects_all: list[str] = []
     for plan_idx, plan in enumerate(section_plan):
         qt = plan['questionType']
         bucket = indexed_by_qt.get(qt) or []
@@ -659,6 +730,7 @@ def _normalize_full_passage(result: dict, section_plan: list[dict], *, passage_n
 
         expected = plan['count']
         merged = _normalize_questions(qt, merged, judgement_mode=TF_MODE_NORMAL, expected_count=expected)
+        defects_all.extend(_section_defects(qt, merged, expected))
 
         # Rewrite ids so they are globally unique across the ENTIRE test.
         # Passage 1 => IDs 1..13, Passage 2 => 14..26, Passage 3 => 27..39.
@@ -670,9 +742,15 @@ def _normalize_full_passage(result: dict, section_plan: list[dict], *, passage_n
         for offset, q in enumerate(merged['questions']):
             q['id'] = start + offset
 
+        # AI 惯用局部题号写 instructions（"Questions 1-5: ..."），而 id 已重排成
+        # 全局题号（如 14-18）——剥掉旧前缀，避免卷面题号自相矛盾。全局范围由
+        # 前端 section 标题 (Questions {start}-{end}) 展示，这里不再重复加。
+        raw_instr = str(raw_sec.get('instructions') or '').strip()
+        raw_instr = re.sub(r'^questions?\s+\d+\s*[-–—~]\s*\d+\s*[::.]?\s*', '', raw_instr, flags=re.IGNORECASE)
+
         sec_out: dict[str, Any] = {
             'questionType': qt,
-            'instructions': str(raw_sec.get('instructions') or '').strip() or f'Questions {start}-{end}',
+            'instructions': raw_instr or f'Questions {start}-{end}',
             'startId': start,
             'endId': end,
             'questions': merged['questions'],
@@ -687,6 +765,8 @@ def _normalize_full_passage(result: dict, section_plan: list[dict], *, passage_n
         'passage': passage,
         'topic': topic_key,
         'sections': sections_out,
+        # 调用方 (_run) 弹出检查：非空则该 passage 需要重试/失败，不得落库
+        '_defects': defects_all,
     }
 
 
@@ -782,29 +862,40 @@ def generate_reading_full(request):
             passages_out: list[dict] = []
 
             def _run(num, prompt, plan):
-                r = call_ai_api(
-                    prompt,
-                    provider=provider,
-                    user_id=user_id,
-                    singleflight_scope=f'reading_full:{num}',
-                )
-                return num, r, plan
+                # 生成 → 归一化 → 验证 → 有缺陷重试一次 → 仍缺陷则整卷失败。
+                # 绝不把占位符硬凑的退化 passage 存进题库（历史废卷案例: 2026-07-17）。
+                last_defects: list[str] = []
+                for attempt in range(2):
+                    r = call_ai_api(
+                        prompt,
+                        provider=provider,
+                        user_id=user_id,
+                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                        singleflight_scope=f'reading_full:{num}:a{attempt}',
+                    )
+                    normalized = _normalize_full_passage(r, plan, passage_num=num, topic_key=topic_key)
+                    defects = normalized.pop('_defects', [])
+                    if not str(normalized.get('passage') or '').strip():
+                        defects.append('empty passage')
+                    if not defects:
+                        return num, normalized
+                    last_defects = defects
+                    print(f'[Reading Full] ⚠️ passage {num} attempt {attempt + 1} 生成退化: {defects}', flush=True)
+                raise ValueError(f'Passage {num} 生成数据不完整（重试后仍缺失）: ' + '; '.join(last_defects[:6]))
 
             if len(snapshot) == 1:
                 num, prompt, plan = snapshot[0]
-                n, r, p = _run(num, prompt, plan)
-                passages_out.append(_normalize_full_passage(r, p, passage_num=n, topic_key=topic_key))
+                _n, normalized = _run(num, prompt, plan)
+                passages_out.append(normalized)
             else:
-                results_by_num: dict[int, dict] = {}
-                plans_by_num: dict[int, list[dict]] = {}
+                normalized_by_num: dict[int, dict] = {}
                 with ThreadPoolExecutor(max_workers=len(snapshot)) as pool:
                     futures = [pool.submit(_run, num, prompt, plan) for num, prompt, plan in snapshot]
                     for fut in as_completed(futures):
-                        n, r, p = fut.result()
-                        results_by_num[n] = r
-                        plans_by_num[n] = p
+                        n, normalized = fut.result()
+                        normalized_by_num[n] = normalized
                 for n, _p, _pl in snapshot:
-                    passages_out.append(_normalize_full_passage(results_by_num[n], plans_by_num[n], passage_num=n, topic_key=topic_key))
+                    passages_out.append(normalized_by_num[n])
 
             payload: dict[str, Any] = {
                 'title': title,

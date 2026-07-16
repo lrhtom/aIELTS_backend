@@ -86,7 +86,7 @@ def skill_assistant_react_browser_system_prompt(
         '{"action":"update_preferences","target_score":7.5,"exam_date":"2026-09-15","language_preference":"en","reason":"用户设定新目标"}\n'
         '  → 支持字段: target_score / target_listening / target_reading / target_writing /\n'
         '            target_speaking / exam_date / language_preference (zh|en) /\n'
-        '            ai_provider (deepseek|deepseek_flash|gemini|gpt5_4|gpt5_mini) /\n'
+        '            ai_provider (deepseek|deepseek_flash|gemini|gpt5_4|gpt5_mini|gpt5_6_sol|gpt5_6_terra|gpt5_6_luna) /\n'
         '            vocab_complete_difficulty (easy|hint|hard) / target_vocab_name\n\n'
         '== 终止动作 ==\n'
         + final_action_example
