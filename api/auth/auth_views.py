@@ -286,6 +286,15 @@ class AvatarUploadView(APIView):
             # 打开图片
             image = Image.open(image_file)
 
+            # 多帧 GIF 原样保存：走 JPEG 重编码只会保留第一帧，动画丢失。
+            # 体积上限由 validate_image 控制（5MB），尺寸不再压到 400x400。
+            if image.format == 'GIF' and getattr(image, 'is_animated', False):
+                image_file.seek(0)
+                file_uuid = uuid.uuid4().hex[:8]
+                relative_path = f'avatars/user_{user_id}_{file_uuid}.gif'
+                file_path = default_storage.save(relative_path, ContentFile(image_file.read()))
+                return True, file_path, file_path, None
+
             # 转换为RGB（处理PNG透明度）
             if image.mode in ('RGBA', 'LA'):
                 background = Image.new('RGB', image.size, (255, 255, 255))

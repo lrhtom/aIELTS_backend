@@ -133,26 +133,32 @@ class BackgroundImageUploadView(APIView):
             file.seek(0)
             img = Image.open(file)
 
-            if img.mode in ('RGBA', 'LA', 'P'):
-                background = Image.new('RGB', img.size, (255, 255, 255))
-                if img.mode == 'P':
-                    img = img.convert('RGBA')
-                background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
-                img = background
-            elif img.mode != 'RGB':
-                img = img.convert('RGB')
-
-            max_w, max_h = 2560, 1440
-            if img.width > max_w or img.height > max_h:
-                img.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
-
-            # 保存
             uid = uuid.uuid4().hex[:10]
-            filename = f'bg_images/user_{user.id}_{uid}.jpg'
-            img_io = io.BytesIO()
-            img.save(img_io, format='JPEG', quality=88)
-            img_io.seek(0)
-            saved_path = default_storage.save(filename, ContentFile(img_io.read()))
+            if img.format == 'GIF' and getattr(img, 'is_animated', False):
+                # 多帧 GIF 原样保存：JPEG 重编码只保留第一帧，动画丢失。
+                # 体积上限由 MAX_SIZE 控制（10MB），不做分辨率压缩。
+                file.seek(0)
+                filename = f'bg_images/user_{user.id}_{uid}.gif'
+                saved_path = default_storage.save(filename, ContentFile(file.read()))
+            else:
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+
+                max_w, max_h = 2560, 1440
+                if img.width > max_w or img.height > max_h:
+                    img.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
+
+                filename = f'bg_images/user_{user.id}_{uid}.jpg'
+                img_io = io.BytesIO()
+                img.save(img_io, format='JPEG', quality=88)
+                img_io.seek(0)
+                saved_path = default_storage.save(filename, ContentFile(img_io.read()))
 
             # DB stores the relative media key only. The frontend prepends
             # VITE_MEDIA_BASE to build the final URL. This lets dev and prod
