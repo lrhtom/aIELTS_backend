@@ -12,6 +12,7 @@ from .practice import writing_ai_teacher_views
 from .practice import writing_task1_ai_teacher_views
 from .practice import writing_record_views
 from .practice import ai_question_views
+from .practice import mock_views
 from .extra import prompt_views
 from .auth import auth_views
 from .auth import balance_views
@@ -125,6 +126,13 @@ urlpatterns = [
     path('ai-questions/<int:pk>/', ai_question_views.ai_question_detail, name='ai_question_detail'),
     path('ai-questions/<int:pk>/submit/', ai_question_views.submit_ai_question, name='ai_question_submit'),
     path('ai-questions/<int:pk>/favorite/', ai_question_views.toggle_ai_question_favorite, name='ai_question_favorite'),
+    # ── 全套模拟 (Mock Exam) ──
+    path('mock/generate', mock_views.mock_generate, name='mock_generate'),
+    path('mock/<int:pk>', mock_views.mock_detail, name='mock_detail'),
+    path('mock/<int:pk>/part/<str:part>/start', mock_views.mock_part_start, name='mock_part_start'),
+    path('mock/<int:pk>/part/<str:part>/forfeit', mock_views.mock_part_forfeit, name='mock_part_forfeit'),
+    path('mock/<int:pk>/finalize', mock_views.mock_finalize, name='mock_finalize'),
+    path('mock/<int:pk>/regenerate', mock_views.mock_part_regenerate, name='mock_part_regenerate'),
 
     path('prompts/', prompt_views.prompt_list, name='prompt_list'),
     path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),

@@ -19,12 +19,14 @@ from api.models import AIQuestion
 from api.practice.ai_question_views import create_ai_question, spawn_ai_generation
 from api.skills.reading.generation import (
     READING_FULL_PASSAGE_COUNT,
-    READING_FULL_QUESTIONS_PER_PASSAGE,
+    READING_FULL_QUESTIONS_BY_PASSAGE,
+    READING_FULL_SECTION_SCHEMAS,
     READING_PASSAGE_FLAVOR,
     READING_QUESTION_COUNT_DEFAULT,
     READING_QUESTION_TYPES,
     READING_TOPIC_POOL,
-    SKILL_READING_FULL_PASSAGE_TEMPLATE,
+    SKILL_READING_FULL_PASSAGE_TEXT_TEMPLATE,
+    SKILL_READING_FULL_QUESTIONS_TEMPLATE,
     get_paragraph_rule,
     get_topic_instruction,
 )
@@ -492,13 +494,19 @@ def generate_reading(request):
             # 绝不把占位符硬凑的退化卷 (空 bank / "Question N" 占位题干) 存进题库。
             last_defects: list[str] = []
             for attempt in range(2):
-                result = call_ai_api(
-                    prompt,
-                    provider=provider,
-                    user_id=user_id,
-                    # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
-                    singleflight_scope=f'reading_generate:{question_type}:a{attempt}',
-                )
+                try:
+                    result = call_ai_api(
+                        prompt,
+                        provider=provider,
+                        user_id=user_id,
+                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                        singleflight_scope=f'reading_generate:{question_type}:a{attempt}',
+                    )
+                except ValueError as ve:
+                    # JSON 解析失败 / 输出被截断 (finish_reason=length) 也走重试
+                    last_defects = [str(ve)]
+                    print(f'[Reading] ⚠️ attempt {attempt + 1} AI 调用失败: {ve}', flush=True)
+                    continue
                 title = str(result.get('title') or '').strip() or 'Reading Passage'
                 passage = str(result.get('passage') or '').strip()
 
@@ -573,18 +581,8 @@ def _pick_full_mix(passage_num: int, seed: int) -> list[str]:
     return list(rng.choice(pools))
 
 
-def _build_full_passage_prompt(
-    passage_num: int,
-    *,
-    mix_types: list[str],
-    difficulty: str,
-    topic_key: str,
-    topic_instruction: str,
-    tone_instruction: str,
-) -> tuple[str, list[dict]]:
-    """Return (prompt, section_plan) where section_plan describes how questions split across types."""
-    total = READING_FULL_QUESTIONS_PER_PASSAGE
-    # Split total questions across mix (roughly balanced)
+def _plan_sections(mix_types: list[str], total: int) -> list[dict]:
+    """把每篇的总题数按 mix 均分成 section plan。"""
     per_type = total // len(mix_types)
     remainder = total - per_type * len(mix_types)
     section_plan: list[dict] = []
@@ -598,14 +596,37 @@ def _build_full_passage_prompt(
             'count': count,
         })
         start += count
+    return section_plan
 
-    needs_labelled = any(READING_QUESTION_TYPES[qt][2] for qt in mix_types)
-    mix_desc_lines = []
+
+def _mix_desc_with_schemas(section_plan: list[dict]) -> str:
+    """题型清单 + 每个题型的具体 payload/questions schema。
+
+    不给具体字段形状，模型会把 bank 留空（2026-07-17 空 Categories 废卷根因之一）。
+    """
+    lines = []
     for sec in section_plan:
-        mix_desc_lines.append(f'  - Questions {sec["startId"]}-{sec["endId"]} ({sec["count"]} items): {sec["questionType"]}')
-    mix_desc = '\n'.join(mix_desc_lines)
+        lines.append(f'  - Questions {sec["startId"]}-{sec["endId"]} ({sec["count"]} items): {sec["questionType"]}')
+    lines.append('\nSECTION SCHEMAS (follow the exact field names and shapes):')
+    for sec in section_plan:
+        schema = READING_FULL_SECTION_SCHEMAS.get(sec['questionType'])
+        if schema:
+            lines.append(f'  * {sec["questionType"]}: {schema}')
+    return '\n'.join(lines)
 
-    prompt = SKILL_READING_FULL_PASSAGE_TEMPLATE.format(
+
+def _build_full_passage_text_prompt(
+    passage_num: int,
+    *,
+    mix_types: list[str],
+    difficulty: str,
+    topic_key: str,
+    topic_instruction: str,
+    tone_instruction: str,
+) -> str:
+    """两阶段生成·阶段一：只生成文章正文的 prompt。"""
+    needs_labelled = any(READING_QUESTION_TYPES[qt][2] for qt in mix_types)
+    return SKILL_READING_FULL_PASSAGE_TEXT_TEMPLATE.format(
         difficulty=difficulty,
         topic_instruction=topic_instruction,
         tone_instruction=tone_instruction,
@@ -615,10 +636,28 @@ def _build_full_passage_prompt(
         topic=topic_key,
         passage_num=passage_num,
         passage_flavor=READING_PASSAGE_FLAVOR.get(passage_num, READING_PASSAGE_FLAVOR[1]),
-        question_mix_desc=mix_desc,
-        total_questions=total,
+        total_questions=READING_FULL_QUESTIONS_BY_PASSAGE[passage_num],
+        mix_type_names=', '.join(mix_types),
     )
-    return prompt, section_plan
+
+
+def _build_full_questions_prompt(
+    *,
+    title: str,
+    passage: str,
+    section_plan: list[dict],
+    difficulty: str,
+    tone_instruction: str,
+) -> str:
+    """两阶段生成·阶段二：把已生成的文章作为输入，只生成题目 JSON 的 prompt。"""
+    return SKILL_READING_FULL_QUESTIONS_TEMPLATE.format(
+        difficulty=difficulty,
+        tone_instruction=tone_instruction,
+        title=title,
+        passage=passage,
+        question_mix_desc=_mix_desc_with_schemas(section_plan),
+        total_questions=sum(sec['count'] for sec in section_plan),
+    )
 
 
 _READING_QT_ALIASES = {
@@ -733,10 +772,10 @@ def _normalize_full_passage(result: dict, section_plan: list[dict], *, passage_n
         defects_all.extend(_section_defects(qt, merged, expected))
 
         # Rewrite ids so they are globally unique across the ENTIRE test.
-        # Passage 1 => IDs 1..13, Passage 2 => 14..26, Passage 3 => 27..39.
+        # Passage 1 => IDs 1..13, Passage 2 => 14..26, Passage 3 => 27..40.
         # Without this, all 3 passages restart from 1 and answers collide in the
         # frontend's single answers ref.
-        passage_offset = (passage_num - 1) * READING_FULL_QUESTIONS_PER_PASSAGE
+        passage_offset = sum(READING_FULL_QUESTIONS_BY_PASSAGE[i] for i in range(1, passage_num))
         start = plan['startId'] + passage_offset
         end = plan['endId'] + passage_offset
         for offset, q in enumerate(merged['questions']):
@@ -770,6 +809,197 @@ def _normalize_full_passage(result: dict, section_plan: list[dict], *, passage_n
     }
 
 
+def spawn_full_reading(*, user, provider: str, params: dict, parent: AIQuestion | None = None) -> AIQuestion:
+    """全套阅读生成的可复用服务：解析参数 → 两阶段生成计划 → spawn 异步生成，返回占位行。
+
+    generate_reading_full 视图与全套模拟编排器共用。params 与 request.data
+    同构（mock 编排传纯 dict）；限流由调用方负责。
+    """
+    data = params
+    difficulty = str(data.get('difficulty', '7.0'))
+    absurd_mode = str(data.get('absurdMode', 'false')).lower() == 'true'
+    topic_key, topic_instruction = _norm_topic(data.get('topic'))
+    custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
+    custom_description = (data.get('customDescription') or data.get('description') or '').strip()
+
+    # ── 单篇 override ──
+    raw_passage_num = data.get('passageNum')
+    try:
+        target_passage = int(raw_passage_num) if raw_passage_num is not None else None
+    except (TypeError, ValueError):
+        target_passage = None
+    if target_passage is not None and target_passage not in (1, 2, 3):
+        target_passage = None
+    # 用户自定义 mix
+    raw_mix = data.get('mixTypes')
+    override_mix: list[str] | None = None
+    if isinstance(raw_mix, list) and raw_mix:
+        filtered = [str(x).strip().lower() for x in raw_mix if str(x).strip().lower() in READING_QUESTION_TYPES]
+        if filtered:
+            override_mix = filtered[:3]  # 最多 3 种
+
+    tone_instruction = (
+        "Use an absurd, playful, joke-rich tone that helps memorization. Keep content classroom-safe."
+        if absurd_mode else
+        "Use a standard academic IELTS tone."
+    )
+
+    # 决定要生成哪些 passage 的编号
+    if target_passage is not None:
+        passage_nums = [target_passage]
+    else:
+        passage_nums = list(range(1, READING_FULL_PASSAGE_COUNT + 1))
+
+    # 每篇的 mix
+    mixes_per_passage: dict[int, list[str]] = {}
+    for n in passage_nums:
+        if override_mix:
+            mixes_per_passage[n] = override_mix
+        else:
+            mixes_per_passage[n] = _pick_full_mix(n, seed=(n - 1) * 7919 + hash(topic_key) % 997)
+
+    from api.skills.custom_prompt import custom_prompt_block
+    cp_block = custom_prompt_block(data.get('customPrompt'))
+
+    # 两阶段生成：阶段一只生成文章（prompt 现在就能建好），阶段二的出题
+    # prompt 依赖文章内容，在 _run 里拿到文章后再构建。
+    prompts_and_plans: list[tuple[int, str, list[dict]]] = []
+    for n in passage_nums:
+        mix_types = mixes_per_passage[n]
+        text_prompt = _build_full_passage_text_prompt(
+            n,
+            mix_types=mix_types,
+            difficulty=difficulty,
+            topic_key=topic_key,
+            topic_instruction=topic_instruction,
+            tone_instruction=tone_instruction,
+        ) + cp_block
+        prompts_and_plans.append((n, text_prompt, _plan_sections(mix_types, READING_FULL_QUESTIONS_BY_PASSAGE[n])))
+
+    print(f'[Reading] 🎯 async FULL topic={topic_key} band={difficulty} passages={passage_nums} mixes={list(mixes_per_passage.values())}', flush=True)
+
+    is_single = len(prompts_and_plans) == 1
+    subtype = f'full_p{target_passage}' if is_single else 'full'
+    title_suffix = f' - Passage {target_passage}' if is_single else ''
+    title = f'IELTS Reading Full Test ({topic_key}){title_suffix}'
+    placeholder = f'📝 综合套题生成中... ({topic_key})'
+    user_id = user.id
+    # Snapshot into plain-typed structures so the closure survives after the
+    # HTTP request scope goes away.
+    snapshot: list[tuple[int, str, list[dict]]] = list(prompts_and_plans)
+    difficulty_snapshot = str(difficulty)
+    tone_snapshot = str(tone_instruction)
+    cp_snapshot = str(cp_block)
+
+    def _generator(_row):
+        passages_out: list[dict] = []
+
+        def _run(num, text_prompt, plan):
+            # 两阶段：文章 → 题目。每阶段独立「生成 → 验证 → 退化重试一次」。
+            # 单阶段输出减半，避免 deepseek 推理内容把响应顶破 max_tokens；
+            # 绝不把占位符硬凑的退化 passage 存进题库（历史废卷案例: 2026-07-17）。
+
+            # ── 阶段一：文章正文 ──
+            needs_labelled = any(
+                READING_QUESTION_TYPES.get(s['questionType'], (None, False, False))[2] for s in plan
+            )
+            p_title, p_text = '', ''
+            last_err = ''
+            for attempt in range(2):
+                try:
+                    r1 = call_ai_api(
+                        text_prompt,
+                        provider=provider,
+                        user_id=user_id,
+                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                        singleflight_scope=f'reading_full_text:{num}:a{attempt}',
+                    )
+                except ValueError as ve:
+                    last_err = str(ve)
+                    print(f'[Reading Full] ⚠️ passage {num} 文章 attempt {attempt + 1} 失败: {ve}', flush=True)
+                    continue
+                p_title = str(r1.get('title') or '').strip() or f'Passage {num}'
+                p_text = str(r1.get('passage') or '').strip()
+                if len(p_text) < 1500:
+                    last_err = f'passage too short ({len(p_text)} chars)'
+                    p_text = ''
+                    print(f'[Reading Full] ⚠️ passage {num} 文章 attempt {attempt + 1} 退化: {last_err}', flush=True)
+                    continue
+                if needs_labelled and '[A]' not in p_text:
+                    last_err = 'labelled paragraphs ([A], [B], ...) missing'
+                    p_text = ''
+                    print(f'[Reading Full] ⚠️ passage {num} 文章 attempt {attempt + 1} 退化: {last_err}', flush=True)
+                    continue
+                break
+            if not p_text:
+                raise ValueError(f'Passage {num} 文章生成失败（重试后仍失败）: {last_err}')
+
+            # ── 阶段二：基于文章生成题目 ──
+            q_prompt = _build_full_questions_prompt(
+                title=p_title,
+                passage=p_text,
+                section_plan=plan,
+                difficulty=difficulty_snapshot,
+                tone_instruction=tone_snapshot,
+            ) + cp_snapshot
+            last_defects: list[str] = []
+            for attempt in range(2):
+                try:
+                    r2 = call_ai_api(
+                        q_prompt,
+                        provider=provider,
+                        user_id=user_id,
+                        singleflight_scope=f'reading_full_qs:{num}:a{attempt}',
+                    )
+                except ValueError as ve:
+                    last_defects = [str(ve)]
+                    print(f'[Reading Full] ⚠️ passage {num} 题目 attempt {attempt + 1} 失败: {ve}', flush=True)
+                    continue
+                combined = {'title': p_title, 'passage': p_text, 'sections': r2.get('sections')}
+                normalized = _normalize_full_passage(combined, plan, passage_num=num, topic_key=topic_key)
+                defects = normalized.pop('_defects', [])
+                if not defects:
+                    return num, normalized
+                last_defects = defects
+                print(f'[Reading Full] ⚠️ passage {num} 题目 attempt {attempt + 1} 退化: {defects}', flush=True)
+            raise ValueError(f'Passage {num} 题目生成数据不完整（重试后仍缺失）: ' + '; '.join(last_defects[:6]))
+
+        if len(snapshot) == 1:
+            num, prompt, plan = snapshot[0]
+            _n, normalized = _run(num, prompt, plan)
+            passages_out.append(normalized)
+        else:
+            normalized_by_num: dict[int, dict] = {}
+            with ThreadPoolExecutor(max_workers=len(snapshot)) as pool:
+                futures = [pool.submit(_run, num, prompt, plan) for num, prompt, plan in snapshot]
+                for fut in as_completed(futures):
+                    n, normalized = fut.result()
+                    normalized_by_num[n] = normalized
+            for n, _p, _pl in snapshot:
+                passages_out.append(normalized_by_num[n])
+
+        payload: dict[str, Any] = {
+            'title': title,
+            'topic': topic_key,
+            'questionType': 'full',
+            'singlePassage': is_single,
+            'passages': passages_out,
+        }
+        if custom_description:
+            payload['description'] = custom_description
+        return title, payload
+
+    return spawn_ai_generation(
+        user=user,
+        skill=AIQuestion.SKILL_READING,
+        subtype=subtype,
+        placeholder_title=placeholder,
+        generator=_generator,
+        custom_title=custom_title,
+        parent=parent,
+    )
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_reading_full(request):
@@ -785,136 +1015,10 @@ def generate_reading_full(request):
         if limit:
             return limit
 
-        data = request.data
-        difficulty = str(data.get('difficulty', '7.0'))
-        absurd_mode = str(data.get('absurdMode', 'false')).lower() == 'true'
-        topic_key, topic_instruction = _norm_topic(data.get('topic'))
-        custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
-        custom_description = (data.get('customDescription') or data.get('description') or '').strip()
-        provider = request.headers.get('X-AI-Provider', 'deepseek')
-
-        # ── 单篇 override ──
-        raw_passage_num = data.get('passageNum')
-        try:
-            target_passage = int(raw_passage_num) if raw_passage_num is not None else None
-        except (TypeError, ValueError):
-            target_passage = None
-        if target_passage is not None and target_passage not in (1, 2, 3):
-            target_passage = None
-        # 用户自定义 mix
-        raw_mix = data.get('mixTypes')
-        override_mix: list[str] | None = None
-        if isinstance(raw_mix, list) and raw_mix:
-            filtered = [str(x).strip().lower() for x in raw_mix if str(x).strip().lower() in READING_QUESTION_TYPES]
-            if filtered:
-                override_mix = filtered[:3]  # 最多 3 种
-
-        tone_instruction = (
-            "Use an absurd, playful, joke-rich tone that helps memorization. Keep content classroom-safe."
-            if absurd_mode else
-            "Use a standard academic IELTS tone."
-        )
-
-        # 决定要生成哪些 passage 的编号
-        if target_passage is not None:
-            passage_nums = [target_passage]
-        else:
-            passage_nums = list(range(1, READING_FULL_PASSAGE_COUNT + 1))
-
-        # 每篇的 mix
-        mixes_per_passage: dict[int, list[str]] = {}
-        for n in passage_nums:
-            if override_mix:
-                mixes_per_passage[n] = override_mix
-            else:
-                mixes_per_passage[n] = _pick_full_mix(n, seed=(n - 1) * 7919 + hash(topic_key) % 997)
-
-        prompts_and_plans: list[tuple[int, list[str], str, list[dict]]] = []
-        for n in passage_nums:
-            mix_types = mixes_per_passage[n]
-            prompt, plan = _build_full_passage_prompt(
-                passage_num=n,
-                mix_types=mix_types,
-                difficulty=difficulty,
-                topic_key=topic_key,
-                topic_instruction=topic_instruction,
-                tone_instruction=tone_instruction,
-            )
-            from api.skills.custom_prompt import custom_prompt_block
-            prompt += custom_prompt_block(data.get('customPrompt'))
-            prompts_and_plans.append((n, mix_types, prompt, plan))
-
-        print(f'[Reading] 🎯 async FULL topic={topic_key} band={difficulty} passages={passage_nums} mixes={list(mixes_per_passage.values())}', flush=True)
-
-        is_single = len(prompts_and_plans) == 1
-        subtype = f'full_p{target_passage}' if is_single else 'full'
-        title_suffix = f' - Passage {target_passage}' if is_single else ''
-        title = f'IELTS Reading Full Test ({topic_key}){title_suffix}'
-        placeholder = f'📝 综合套题生成中... ({topic_key})'
-        user_id = request.user.id
-        # Snapshot into a plain-typed structure so the closure survives after the
-        # HTTP request scope goes away.
-        snapshot: list[tuple[int, str, list[dict]]] = [
-            (num, prompt, plan) for num, _mx, prompt, plan in prompts_and_plans
-        ]
-
-        def _generator(_row):
-            passages_out: list[dict] = []
-
-            def _run(num, prompt, plan):
-                # 生成 → 归一化 → 验证 → 有缺陷重试一次 → 仍缺陷则整卷失败。
-                # 绝不把占位符硬凑的退化 passage 存进题库（历史废卷案例: 2026-07-17）。
-                last_defects: list[str] = []
-                for attempt in range(2):
-                    r = call_ai_api(
-                        prompt,
-                        provider=provider,
-                        user_id=user_id,
-                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
-                        singleflight_scope=f'reading_full:{num}:a{attempt}',
-                    )
-                    normalized = _normalize_full_passage(r, plan, passage_num=num, topic_key=topic_key)
-                    defects = normalized.pop('_defects', [])
-                    if not str(normalized.get('passage') or '').strip():
-                        defects.append('empty passage')
-                    if not defects:
-                        return num, normalized
-                    last_defects = defects
-                    print(f'[Reading Full] ⚠️ passage {num} attempt {attempt + 1} 生成退化: {defects}', flush=True)
-                raise ValueError(f'Passage {num} 生成数据不完整（重试后仍缺失）: ' + '; '.join(last_defects[:6]))
-
-            if len(snapshot) == 1:
-                num, prompt, plan = snapshot[0]
-                _n, normalized = _run(num, prompt, plan)
-                passages_out.append(normalized)
-            else:
-                normalized_by_num: dict[int, dict] = {}
-                with ThreadPoolExecutor(max_workers=len(snapshot)) as pool:
-                    futures = [pool.submit(_run, num, prompt, plan) for num, prompt, plan in snapshot]
-                    for fut in as_completed(futures):
-                        n, normalized = fut.result()
-                        normalized_by_num[n] = normalized
-                for n, _p, _pl in snapshot:
-                    passages_out.append(normalized_by_num[n])
-
-            payload: dict[str, Any] = {
-                'title': title,
-                'topic': topic_key,
-                'questionType': 'full',
-                'singlePassage': is_single,
-                'passages': passages_out,
-            }
-            if custom_description:
-                payload['description'] = custom_description
-            return title, payload
-
-        row = spawn_ai_generation(
+        row = spawn_full_reading(
             user=request.user,
-            skill=AIQuestion.SKILL_READING,
-            subtype=subtype,
-            placeholder_title=placeholder,
-            generator=_generator,
-            custom_title=custom_title,
+            provider=request.headers.get('X-AI-Provider', 'deepseek'),
+            params=request.data,
         )
         return JsonResponse({
             'aiQuestionId': row.id,
@@ -941,6 +1045,7 @@ def reading_meta(request):
         'judgementModes': [TF_MODE_NORMAL, TF_MODE_EASY],
         'fullMode': {
             'passageCount': READING_FULL_PASSAGE_COUNT,
-            'questionsPerPassage': READING_FULL_QUESTIONS_PER_PASSAGE,
+            'questionsByPassage': READING_FULL_QUESTIONS_BY_PASSAGE,
+            'totalQuestions': sum(READING_FULL_QUESTIONS_BY_PASSAGE.values()),
         },
     })

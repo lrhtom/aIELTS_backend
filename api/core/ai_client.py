@@ -403,6 +403,12 @@ class AIClient:
                     'messages': msgs,
                     'temperature': temperature,
                 }
+                # 显式设置输出上限。DeepSeek 等默认只有 4K 输出，综合套题
+                # (900词文章+13题+解析+多套bank) 很容易被截断——JSON 尾部的 bank
+                # 字段丢失，_repair_json 强行补全后卷面成了空 bank 废卷 (2026-07-17)。
+                # 自定义 BYO 端点能力未知，不强加，避免破坏已工作的配置。
+                if not self.is_custom:
+                    payload['max_tokens'] = int(os.environ.get('AI_MAX_OUTPUT_TOKENS', '8192'))
                 if expect_json and not self.is_gpt5:
                     payload['response_format'] = {'type': 'json_object'}
 
@@ -437,6 +443,14 @@ class AIClient:
                     raise ValueError(f"GPT-5 响应格式异常，无法提取内容: {parse_err}") from parse_err
             else:
                 ai_content = data['choices'][0]['message']['content']
+                # 截断即失败：finish_reason=length 意味着 JSON 尾部丢失，
+                # 与其让 _repair_json 补出残缺数据（空 bank 废卷），不如显式
+                # 报错让上层重试逻辑感知。计费在解析成功后才发生，此处不扣费。
+                finish_reason = data['choices'][0].get('finish_reason')
+                if finish_reason == 'length':
+                    print(f"[AIClient] [ERR] 输出被截断 (finish_reason=length, model={self.model})，内容尾部丢失")
+                    _sf_write_error('AI 输出超过 max_tokens 被截断')
+                    raise ValueError('AI 输出超过 max_tokens 被截断 (finish_reason=length)')
 
             # 获取真实 Token 消耗（兼容 Chat Completions 和 Responses API 两种格式）
             usage = data.get('usage', {})

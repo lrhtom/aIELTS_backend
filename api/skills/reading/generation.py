@@ -53,9 +53,9 @@ READING_TOPIC_POOL = {
 # 每种题型的题目数 (真雅思单题型 5 题为 practice unit; 综合模式用大数)
 READING_QUESTION_COUNT_DEFAULT = 5
 
-# 综合套题参数
+# 综合套题参数 — 真题分布 P1=13, P2=13, P3=14, 全卷 40 题
 READING_FULL_PASSAGE_COUNT = 3
-READING_FULL_QUESTIONS_PER_PASSAGE = 13
+READING_FULL_QUESTIONS_BY_PASSAGE = {1: 13, 2: 13, 3: 14}
 
 # ── 共用 preamble ─────────────────────────────────────
 # 每个题型模板都用它开头 (通过 .format 传入)
@@ -464,6 +464,11 @@ Generate a rich Cambridge-style passage suitable for supporting {total_questions
 
 For each sub-section in the mix, follow the corresponding schema and label questions with globally unique IDs 1-{total_questions} (do NOT restart numbering per sub-section).
 
+HARD REQUIREMENTS (violating any of these makes the output unusable):
+1. Every bank field required by a section type (headings_bank / features_bank / endings_bank / word_bank / paragraph_labels) MUST be present with REAL text values — never empty strings, never omitted, never placeholders.
+2. For summary_completion and note_completion sections, the summary_text / note_content MUST embed one blank per question in the exact format "(1) _____", numbered LOCALLY starting from (1) within that section (regardless of the global question ids).
+3. Keep each "explanation" under 25 words — the total output must stay compact enough to never be cut off.
+
 Output STRICTLY this JSON:
 {{
     "questionType": "full_passage",
@@ -477,15 +482,140 @@ Output STRICTLY this JSON:
             "instructions": "Instructions to display (e.g., 'Questions 1-4: Choose the correct letter A-D.').",
             "startId": 1,
             "endId": 4,
-            "payload": {{ "...": "type-specific fields (headings_bank / features_bank / word_bank / etc.)" }},
+            "payload": {{ "...": "REQUIRED type-specific fields, see SECTION SCHEMAS above" }},
             "questions": [
-                {{"id": 1, "...": "type-specific fields for each question, matching the single-type schema"}}
+                {{"id": 1, "...": "type-specific fields for each question, see SECTION SCHEMAS above"}}
             ]
         }}
     ]
 }}
 """
 )
+
+
+# ── 综合套题·两阶段生成 (2026-07-17) ─────────────────────────────────────────
+# 单次调用要求 900 词文章 + 13 题 + 多套 bank 时，deepseek-v4-pro 的推理输出
+# 会把响应顶破 max_tokens (finish_reason=length)，或者模型偷工减料把 bank 留空。
+# 拆成两阶段：阶段一只生成文章（~1.5K token 输出），阶段二把文章作为输入只生成
+# 题目 JSON（禁止回显文章），单次输出减半，两阶段各自独立重试。
+
+SKILL_READING_FULL_PASSAGE_TEXT_TEMPLATE = (
+    READING_COMMON_PREAMBLE.replace(
+        '- Length: 400-550 words (single-type practice mode).',
+        '- Length: 800-1000 words (full-test passage {passage_num} of 3 — authentic Cambridge passages measure 850-1000 words).'
+    ) +
+    """
+FULL-TEST PASSAGE {passage_num} of 3 — PASSAGE TEXT ONLY. Questions are created in a separate step; do NOT write any questions.
+PASSAGE POSITION STYLE (authentic Cambridge difficulty gradient):
+{passage_flavor}
+
+The passage must be rich and information-dense enough to later support {total_questions} questions of these types: {mix_type_names}.
+
+Output STRICTLY this JSON:
+{{
+    "title": "Passage Title",
+    "passage": "Full passage (800-1000 words)."
+}}
+"""
+)
+
+SKILL_READING_FULL_QUESTIONS_TEMPLATE = """You are an expert IELTS Academic Reading question writer.
+Difficulty: Band {difficulty}. {tone_instruction}
+
+Below is the COMPLETE reading passage. Base every question strictly on it.
+=== PASSAGE: {title} ===
+{passage}
+=== END OF PASSAGE ===
+
+Create the question sections for this passage:
+{question_mix_desc}
+
+Label questions with globally unique IDs 1-{total_questions} across ALL sections (do NOT restart numbering per section).
+
+HARD REQUIREMENTS (violating any of these makes the output unusable):
+1. Every bank field required by a section type (headings_bank / features_bank / endings_bank / word_bank / paragraph_labels) MUST be present with REAL text values — never empty strings, never omitted.
+2. For summary_completion and note_completion sections, the summary_text / note_content MUST embed one blank per question in the exact format "(1) _____", numbered LOCALLY starting from (1) within that section.
+3. Keep each "explanation" under 25 words (Chinese is fine).
+4. Do NOT re-output the passage anywhere in your response.
+
+Output STRICTLY this JSON:
+{{
+    "sections": [
+        {{
+            "questionType": "<one of the requested types>",
+            "instructions": "Instructions to display.",
+            "startId": 1,
+            "endId": 4,
+            "payload": {{ "...": "REQUIRED type-specific fields, see SECTION SCHEMAS above" }},
+            "questions": [
+                {{"id": 1, "...": "type-specific fields, see SECTION SCHEMAS above"}}
+            ]
+        }}
+    ]
+}}
+"""
+
+
+# ── Full 模式各题型的 payload/questions 具体 schema ──────────────────────────
+# 历史教训 (2026-07-17): full prompt 里只写 "type-specific fields" 这种模糊描述，
+# 模型不知道 bank 字段的确切形状，经常留空 → 空 Categories / 空 Word bank 废卷。
+# 这里给每个题型一段紧凑的具体 schema，_build_full_passage_prompt 按 mix 拼进 prompt。
+READING_FULL_SECTION_SCHEMAS: dict = {
+    'multiple_choice': (
+        'payload: {} (empty). Each question: {"id": N, "question": "...", '
+        '"options": {"A": "...", "B": "...", "C": "...", "D": "..."}, "answer": "A", "explanation": "..."}'
+    ),
+    'true_false': (
+        'payload: {} (empty). Each question: {"id": N, "question": "statement about the passage", '
+        '"answer": "True" | "False" | "Not Given", "explanation": "..."}'
+    ),
+    'yes_no': (
+        'payload: {} (empty). Each question: {"id": N, "question": "claim about the writer\'s views", '
+        '"answer": "Yes" | "No" | "Not Given", "explanation": "..."}'
+    ),
+    'matching_headings': (
+        'payload: {"headings_bank": {"i": "heading text", "ii": "...", ..., "viii": "..."}} '
+        '(2-3 MORE headings than paragraphs, all with real text). '
+        'Each question: {"id": N, "paragraph": "A", "answer": "iii", "explanation": "..."}'
+    ),
+    'matching_info': (
+        'payload: {"paragraph_labels": ["A", "B", "C", "D", "E", "F"]} (matching the labelled paragraphs). '
+        'Each question: {"id": N, "question": "the information to locate", "answer": "C", "explanation": "..."}'
+    ),
+    'matching_features': (
+        'payload: {"features_bank": {"A": "person/category name", "B": "...", "C": "...", "D": "..."}} '
+        '(all values MUST be real names/categories from the passage). '
+        'Each question: {"id": N, "question": "statement to match", "answer": "B", "explanation": "..."}'
+    ),
+    'matching_sentence': (
+        'payload: {"endings_bank": {"A": "sentence ending", "B": "...", ...}} '
+        '(2-3 MORE endings than questions, all real text). '
+        'Each question: {"id": N, "question": "sentence beginning", "answer": "D", "explanation": "..."}'
+    ),
+    'summary_completion': (
+        'payload: {"summary_intro": "Complete the summary using the list of words, A-H.", '
+        '"summary_text": "A one-paragraph summary of part of the passage with blanks formatted EXACTLY like '
+        '(1) _____ ... (2) _____, numbered locally from (1)", '
+        '"word_bank": {"A": "word", "B": "word", ..., "H": "word"}} (3-4 MORE words than blanks). '
+        'Each question: {"id": N, "answer": "C", "explanation": "..."} (answer = word_bank letter for blank N)'
+    ),
+    'note_completion': (
+        'payload: {"note_intro": "Complete the notes below.", '
+        '"note_content": "structured notes with blanks formatted EXACTLY like (1) _____, numbered locally from (1)", '
+        '"wordLimit": "NO MORE THAN TWO WORDS FROM THE PASSAGE"}. '
+        'Each question: {"id": N, "answers": ["exact word(s) from passage"], "explanation": "..."}'
+    ),
+    'sentence_completion': (
+        'payload: {"wordLimit": "NO MORE THAN TWO WORDS FROM THE PASSAGE"}. '
+        'Each question: {"id": N, "question": "sentence with a _____ gap", '
+        '"answers": ["exact word(s) from passage"], "explanation": "..."}'
+    ),
+    'short_answer': (
+        'payload: {"wordLimit": "NO MORE THAN THREE WORDS AND/OR A NUMBER"}. '
+        'Each question: {"id": N, "question": "wh-question about the passage", '
+        '"answers": ["exact answer from passage"], "explanation": "..."}'
+    ),
+}
 
 
 # ── 题型注册表 ─────────────────────────────────────────

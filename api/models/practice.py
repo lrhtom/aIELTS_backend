@@ -89,11 +89,13 @@ class AIQuestion(models.Model):
     SKILL_LISTENING = 'listening'
     SKILL_WRITING = 'writing'
     SKILL_SPEAKING = 'speaking'
+    SKILL_MOCK = 'mock'
     SKILL_CHOICES = [
         (SKILL_READING, '阅读'),
         (SKILL_LISTENING, '听力'),
         (SKILL_WRITING, '写作'),
         (SKILL_SPEAKING, '口语'),
+        (SKILL_MOCK, '全套模拟'),
     ]
 
     STATUS_GENERATING = 'generating'
@@ -110,6 +112,16 @@ class AIQuestion(models.Model):
         on_delete=models.CASCADE,
         related_name='ai_questions',
         verbose_name='用户',
+    )
+    # 全套模拟：mock 父行（skill='mock'）通过 children 关联四科子题；
+    # 子行 parent 指向父行，删除父行级联清理整套。普通单科题 parent 为 NULL。
+    parent = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='children',
+        verbose_name='所属全套模拟',
     )
     skill = models.CharField(max_length=20, choices=SKILL_CHOICES, verbose_name='技能类型')
     subtype = models.CharField(max_length=50, blank=True, default='', verbose_name='子类型')

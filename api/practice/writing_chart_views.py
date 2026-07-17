@@ -14,7 +14,22 @@ from rest_framework.response import Response
 from api.core.ai_client import AIClient, refund_at
 from api.core.rate_limit import check_rate_limit
 from api.models import AIQuestion
-from api.practice.ai_question_views import create_ai_question
+from api.practice.ai_question_views import create_ai_question, spawn_ai_generation
+
+
+def _build_chart_title_and_content(
+    chart_type: str,
+    prompt_text: str,
+    payload: dict,
+    title_override: str | None = None,
+    custom_description: str | None = None,
+) -> tuple[str, dict]:
+    """把生成 payload 整理成 AIQuestion 的 (title, content)；同步/异步入库共用。"""
+    title = (title_override or (prompt_text or 'Task 1').strip().splitlines()[0])[:200] or 'Task 1 图表'
+    content = {k: v for k, v in payload.items() if k != 'atConsumed'} | {'writingKind': 'chart', 'chartType': chart_type}
+    if custom_description:
+        content['description'] = custom_description
+    return title, content
 from api.practice.map_renderer import (
     MAP_IR_VERSION,
     MAP_ICON_WHITELIST,
@@ -46,10 +61,11 @@ def _save_chart_question(
     custom_description 非空时写入 content.description。
     """
     try:
-        title = (title_override or (prompt_text or 'Task 1').strip().splitlines()[0])[:200] or 'Task 1 图表'
-        content = {k: v for k, v in payload.items() if k != 'atConsumed'} | {'writingKind': 'chart', 'chartType': chart_type}
-        if custom_description:
-            content['description'] = custom_description
+        title, content = _build_chart_title_and_content(
+            chart_type, prompt_text, payload,
+            title_override=title_override,
+            custom_description=custom_description,
+        )
         ai_question = create_ai_question(
             user=user,
             skill=AIQuestion.SKILL_WRITING,
@@ -1163,20 +1179,21 @@ def _wrap_task1_prompt(core: str) -> str:
     return f'{_TASK1_SCAFFOLD_HEAD}\n\n{text}\n\n{_TASK1_SCAFFOLD_TAIL}'
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def generate_chart(request):
+class ChartGenerationError(Exception):
+    """图表生成失败（用户可读信息）。at_refunded: 已退还的 AT 数，视图层回显给前端。"""
+
+    def __init__(self, message: str, at_refunded=None):
+        super().__init__(message)
+        self.at_refunded = at_refunded
+
+
+def _generate_chart_payload(*, client: AIClient, user, chart_type: str, custom_prompt=None) -> tuple[str, dict, str | None]:
+    """图表题核心生成：AI 出题（+ 渲染图片/流程图）→ 返回 (prompt_text, payload, title_override)。
+
+    generate_chart 同步视图与全套模拟的异步 spawn_chart_task1 共用；
+    失败一律抛 ChartGenerationError（沙盒执行失败等场景内部已完成 AT 退款）。
+    """
     try:
-        user = request.user
-        limit_resp = check_rate_limit(user.id, 'chart_generate', max_calls=5, window=60)
-        if limit_resp: return limit_resp
-        chart_type = request.data.get('type', 'line')
-        custom_title = (request.data.get('customName') or request.data.get('customTitle') or '').strip() or None
-        custom_description = (request.data.get('customDescription') or request.data.get('description') or '').strip() or None
-        provider = request.headers.get('X-AI-Provider', 'deepseek')
-
-        client = AIClient(provider=provider)
-
         if chart_type == 'flowchart':
             # 真题体裁 (剑桥 4-21 蒸馏): 流程图是描述性的工艺/自然/生物流程,
             # 线性或环形, 6-9 步; 绝无判断菱形和 Yes/No 条件边 —— 描述条件逻辑
@@ -1277,7 +1294,7 @@ def generate_chart(request):
         # 鈹€鈹€ FLOWCHART: plain-text mode avoids JSON-escaping issues with Mermaid { } " 鈹€鈹€
         if chart_type == 'flowchart':
             from api.skills.custom_prompt import custom_prompt_block
-            fc_system = skill_writing_chart_flowchart(chart_instructions) + custom_prompt_block(request.data.get('customPrompt'))
+            fc_system = skill_writing_chart_flowchart(chart_instructions) + custom_prompt_block(custom_prompt)
             fc_messages = [
                 {"role": "system", "content": fc_system},
                 {"role": "user", "content": "Generate an IELTS Task 1 process diagram practice question now."},
@@ -1290,7 +1307,7 @@ def generate_chart(request):
                     singleflight_scope='writing_chart_generate',
                 )
             except Exception as e:
-                return Response({'error': f'AI generation failed: {e}'}, status=500)
+                raise ChartGenerationError(f'AI generation failed: {e}')
 
             # Parse the delimiter-separated response
             prompt_text = ''
@@ -1321,7 +1338,7 @@ def generate_chart(request):
                 'pythonCode':  mermaid_code,
                 'atConsumed':  at_cost,
             }
-            return Response(_save_chart_question(user, chart_type, prompt_text, fc_payload, custom_title=custom_title, custom_description=custom_description))
+            return prompt_text, fc_payload, None
 
         # ── MAP: always FLUX.2-pro raster (SVG/IR pipeline retired 2026-07). ──
         # The `image_mode` request param is ignored; every map generation now
@@ -1330,23 +1347,18 @@ def generate_chart(request):
             try:
                 payload = _generate_raster_map(client, user)
                 payload['prompt'] = _wrap_task1_prompt(payload.get('prompt') or '')
-                return Response(_save_chart_question(
-                    user, chart_type, payload['prompt'], payload,
-                    title_override=payload.get('titleOverride'),
-                    custom_title=custom_title,
-                    custom_description=custom_description,
-                ))
+                return payload['prompt'], payload, payload.get('titleOverride')
             except Exception as e:
                 import traceback
                 print(f'[Map Raster] [ERR] {traceback.format_exc()}', flush=True)
-                return Response({'error': f'AI 地图生成失败: {e}'}, status=500)
+                raise ChartGenerationError(f'AI 地图生成失败: {e}')
 
         # 鈹€鈹€ OTHER CHART TYPES: JSON mode + Matplotlib sandbox ┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢┢
         subject_area = random.choice(CHART_SUBJECT_AREAS)
         from api.skills.custom_prompt import custom_prompt_block
         system_prompt = skill_writing_chart_standard(
             chart_type, subject_area, code_requirement, chart_instructions
-        ) + custom_prompt_block(request.data.get('customPrompt'))
+        ) + custom_prompt_block(custom_prompt)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate the chart prompt and code for the requested chart type."}
@@ -1364,7 +1376,7 @@ def generate_chart(request):
             if not python_code:
                 raise ValueError("No code generated")
         except Exception as e:
-            return Response({'error': f'Failed to parse AI response: {e}.'}, status=500)
+            raise ChartGenerationError(f'Failed to parse AI response: {e}.')
 
         # --- SANDBOX EXECUTION FOR REGULAR CHARTS/MAPS ---
         # Save and run python code
@@ -1384,10 +1396,10 @@ def generate_chart(request):
             result = subprocess.run(['python', py_path, img_path], capture_output=True, text=True, timeout=12)
             if result.returncode != 0:
                 refund_at(user.id, at_cost)
-                return Response({'error': '抱歉，AI 图表代码执行失败，已退还 AT 币。请稍后重试。', 'atRefunded': at_cost}, status=500)
+                raise ChartGenerationError('抱歉，AI 图表代码执行失败，已退还 AT 币。请稍后重试。', at_refunded=at_cost)
         except subprocess.TimeoutExpired:
             refund_at(user.id, at_cost)
-            return Response({'error': '抱歉，AI 图表生成超时，已退还 AT 币。请稍后重试。', 'atRefunded': at_cost}, status=500)
+            raise ChartGenerationError('抱歉，AI 图表生成超时，已退还 AT 币。请稍后重试。', at_refunded=at_cost)
 
         # Read the generated image into base64
         import base64
@@ -1397,7 +1409,7 @@ def generate_chart(request):
                 img_url = f"data:image/png;base64,{encoded_string}"
         except OSError as oe:
             refund_at(user.id, at_cost)
-            return Response({'error': f'抱歉，图表读取失败，已退还 AT 币。({oe})', 'atRefunded': at_cost}, status=500)
+            raise ChartGenerationError(f'抱歉，图表读取失败，已退还 AT 币。({oe})', at_refunded=at_cost)
             
         # Delete temporary files to save server storage
         try:
@@ -1413,8 +1425,84 @@ def generate_chart(request):
             'pythonCode': python_code,
             'atConsumed': at_cost,
         }
-        return Response(_save_chart_question(user, chart_type, prompt_text, std_payload, custom_title=custom_title, custom_description=custom_description))
+        return prompt_text, std_payload, None
+    except ChartGenerationError:
+        raise
+    except Exception as e:
+        import traceback
+        print(f'[Chart] [ERR] {traceback.format_exc()}', flush=True)
+        raise ChartGenerationError(str(e)) from e
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_chart(request):
+    try:
+        user = request.user
+        limit_resp = check_rate_limit(user.id, 'chart_generate', max_calls=5, window=60)
+        if limit_resp: return limit_resp
+        chart_type = request.data.get('type', 'line')
+        custom_title = (request.data.get('customName') or request.data.get('customTitle') or '').strip() or None
+        custom_description = (request.data.get('customDescription') or request.data.get('description') or '').strip() or None
+        provider = request.headers.get('X-AI-Provider', 'deepseek')
+
+        client = AIClient(provider=provider)
+        try:
+            prompt_text, payload, title_override = _generate_chart_payload(
+                client=client,
+                user=user,
+                chart_type=chart_type,
+                custom_prompt=request.data.get('customPrompt'),
+            )
+        except ChartGenerationError as ce:
+            body = {'error': str(ce)}
+            if ce.at_refunded is not None:
+                body['atRefunded'] = ce.at_refunded
+            return Response(body, status=500)
+
+        return Response(_save_chart_question(
+            user, chart_type, prompt_text, payload,
+            title_override=title_override,
+            custom_title=custom_title,
+            custom_description=custom_description,
+        ))
     except Exception as e:
         import traceback
         return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
+def spawn_chart_task1(*, user, provider: str, params: dict, parent: AIQuestion | None = None) -> AIQuestion:
+    """Task 1 图表题的异步生成服务（全套模拟编排用）。
+
+    普通图表入口 generate_chart 保持同步（前端要在响应里直接拿完整 payload）；
+    mock 需要占位行 + 后台线程，这里把同一套核心生成包进 spawn_ai_generation。
+    """
+    chart_type = str(params.get('type', 'line'))
+    custom_title = (params.get('customName') or params.get('customTitle') or '').strip() or None
+    custom_description = (params.get('customDescription') or params.get('description') or '').strip() or None
+    custom_prompt = params.get('customPrompt')
+
+    def _generator(_row):
+        client = AIClient(provider=provider)
+        prompt_text, payload, title_override = _generate_chart_payload(
+            client=client,
+            user=user,
+            chart_type=chart_type,
+            custom_prompt=custom_prompt,
+        )
+        return _build_chart_title_and_content(
+            chart_type, prompt_text, payload,
+            title_override=title_override,
+            custom_description=custom_description,
+        )
+
+    return spawn_ai_generation(
+        user=user,
+        skill=AIQuestion.SKILL_WRITING,
+        subtype=f'chart:{chart_type}',
+        placeholder_title=f'📊 Task 1 图表生成中... ({chart_type})',
+        generator=_generator,
+        custom_title=custom_title,
+        parent=parent,
+    )
 

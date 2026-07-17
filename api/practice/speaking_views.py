@@ -621,14 +621,39 @@ def speaking_session_start(request):
         content['mode'] = mode
 
         from api.models import AIQuestion
+
+        # 全套模拟：parentId 指向 mock 父行，本会话作为其口语子行（懒创建）。
+        parent = None
+        raw_parent = request.data.get('parentId')
+        if raw_parent:
+            try:
+                parent = AIQuestion.objects.get(
+                    pk=int(raw_parent), user=request.user, skill=AIQuestion.SKILL_MOCK,
+                )
+            except (AIQuestion.DoesNotExist, TypeError, ValueError):
+                return JsonResponse({'error': 'parentId 对应的模拟考不存在'}, status=400)
+            existing_id = (((parent.content_json or {}).get('parts') or {}).get('speaking') or {}).get('questionId')
+            if existing_id:
+                # 幂等：已有口语子行（刷新/重入场景）直接复用，不建重复会话
+                if AIQuestion.objects.filter(pk=existing_id, user=request.user, parent=parent).exists():
+                    return JsonResponse({'id': existing_id, 'reused': True})
+
         question = AIQuestion.objects.create(
             user=request.user,
+            parent=parent,
             skill=AIQuestion.SKILL_SPEAKING,
             subtype=mode[:50],
             title=title or f'Speaking · {mode}',
             content_json=content,
             status=AIQuestion.STATUS_READY,
         )
+        if parent is not None:
+            pcontent = dict(parent.content_json or {})
+            pparts = dict(pcontent.get('parts') or {})
+            pparts['speaking'] = {'questionId': question.id}
+            pcontent['parts'] = pparts
+            parent.content_json = pcontent
+            parent.save(update_fields=['content_json'])
         return JsonResponse({'id': question.id})
 
     except Exception as e:

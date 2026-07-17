@@ -481,13 +481,19 @@ def generate_listening(request):
             # 绝不把占位符硬凑的退化卷 ("Item N" / 空 bank / 无空格标记) 存进题库。
             last_err = ''
             for attempt in range(2):
-                result = call_ai_api(
-                    prompt_snapshot,
-                    provider=provider_snapshot,
-                    user_id=user_id,
-                    # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
-                    singleflight_scope=f'listening_generate:{practice_type_snapshot}:a{attempt}',
-                )
+                try:
+                    result = call_ai_api(
+                        prompt_snapshot,
+                        provider=provider_snapshot,
+                        user_id=user_id,
+                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                        singleflight_scope=f'listening_generate:{practice_type_snapshot}:a{attempt}',
+                    )
+                except ValueError as ve:
+                    # JSON 解析失败 / 输出被截断 (finish_reason=length) 也走重试
+                    last_err = str(ve)
+                    print(f'[Listening] ⚠️ attempt {attempt + 1} AI 调用失败: {ve}', flush=True)
+                    continue
                 try:
                     _post_process_listening_single(
                         result,
@@ -1075,6 +1081,152 @@ def _normalize_section(
     return out
 
 
+def spawn_full_listening(*, user, provider: str, params: dict, parent: AIQuestion | None = None) -> AIQuestion:
+    """全套听力生成的可复用服务：解析参数 → 构 prompt → spawn 异步生成，返回占位行。
+
+    generate_listening_full 视图与全套模拟编排器共用。params 与 request.data
+    同构（mock 编排传纯 dict）；限流由调用方负责。
+    """
+    data = params
+    difficulty = str(data.get('difficulty', '7.0'))
+    absurd_mode = str(data.get('absurdMode', 'false')).lower() == 'true'
+    # 允许分别指定每段的场景; 未指定则随机
+    scenario_map = {
+        1: str(data.get('scenarioS1') or 'random').strip().lower(),
+        2: str(data.get('scenarioS2') or 'random').strip().lower(),
+        3: str(data.get('scenarioS3') or 'random').strip().lower(),
+        4: str(data.get('scenarioS4') or 'random').strip().lower(),
+    }
+    custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
+    custom_description = (data.get('customDescription') or data.get('description') or '').strip()
+
+    # ── 单段 override ──
+    raw_sn = data.get('sectionNum')
+    try:
+        target_section = int(raw_sn) if raw_sn is not None else None
+    except (TypeError, ValueError):
+        target_section = None
+    if target_section is not None and target_section not in (1, 2, 3, 4):
+        target_section = None
+
+    tone_instruction = (
+        "Use an absurd, playful, joke-rich tone that helps memorization. Keep content classroom-safe."
+        if absurd_mode else
+        "Use a standard academic IELTS tone."
+    )
+
+    section_nums = [target_section] if target_section is not None else list(range(1, LISTENING_FULL_SECTION_COUNT + 1))
+
+    print(f'[Listening] 🎯 async FULL band={difficulty} sections={section_nums} scenarios={scenario_map}', flush=True)
+
+    from api.skills.custom_prompt import custom_prompt_block
+    _cp_block = custom_prompt_block(data.get('customPrompt'))
+    prompts: list[tuple[int, str, str]] = []
+    for n in section_nums:
+        p, resolved = _build_section_prompt(
+            section_num=n,
+            difficulty=difficulty,
+            scenario_key=scenario_map[n],
+            tone_instruction=tone_instruction,
+        )
+        prompts.append((n, p + _cp_block, resolved))
+
+    is_single = len(prompts) == 1
+    subtype = f'full_s{target_section}' if is_single else 'full'
+    title_suffix = f' - Section {target_section}' if is_single else ''
+    title = f'IELTS Listening Full Test{title_suffix}'
+    user_id = user.id
+    provider_snapshot = provider
+    prompts_snapshot = list(prompts)
+    section_nums_snapshot = list(section_nums)
+    placeholder = f'🎧 综合听力生成中... ({title_suffix.strip(" -") or "全套"})'
+
+    def _generator(_row):
+        sections_out: list[dict] = []
+
+        def _run(num: int, prompt: str):
+            # 生成 → 归一化 → 验证 → 有缺陷重试一次 → 仍缺陷则整卷失败。
+            last_defects: list[str] = []
+            id_offset = (num - 1) * LISTENING_FULL_QUESTIONS_PER_SECTION
+            for attempt in range(2):
+                try:
+                    r = call_ai_api(
+                        prompt,
+                        provider=provider_snapshot,
+                        user_id=user_id,
+                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
+                        singleflight_scope=f'listening_full:{num}:a{attempt}',
+                    )
+                except ValueError as ve:
+                    # JSON 解析失败 / 输出被截断 (finish_reason=length) 也走重试
+                    last_defects = [str(ve)]
+                    print(f'[Listening Full] ⚠️ section {num} attempt {attempt + 1} AI 调用失败: {ve}', flush=True)
+                    continue
+                normalized = _normalize_section(num, r, id_offset=id_offset, user_id=user_id)
+                defects = _listening_section_defects(num, normalized)
+                if not str(normalized.get('passage') or '').strip():
+                    defects.append(f'S{num}: empty passage')
+                if not defects:
+                    return num, normalized
+                last_defects = defects
+                print(f'[Listening Full] ⚠️ section {num} attempt {attempt + 1} 生成退化: {defects}', flush=True)
+            raise ValueError(f'Section {num} 生成数据不完整（重试后仍缺失）: ' + '; '.join(last_defects[:6]))
+
+        if len(prompts_snapshot) == 1:
+            num, prompt = prompts_snapshot[0][0], prompts_snapshot[0][1]
+            _n, normalized = _run(num, prompt)
+            sections_out.append(normalized)
+        else:
+            normalized_by_num: dict[int, dict] = {}
+            with ThreadPoolExecutor(max_workers=len(prompts_snapshot)) as pool:
+                futures = [pool.submit(_run, num, p) for (num, p, _) in prompts_snapshot]
+                for fut in as_completed(futures):
+                    n, normalized = fut.result()
+                    normalized_by_num[n] = normalized
+            for n in section_nums_snapshot:
+                sections_out.append(normalized_by_num[n])
+
+        payload: dict[str, Any] = {
+            'type': 'full',
+            'title': title,
+            'singleSection': is_single,
+            'sections': sections_out,
+        }
+        # Surface any map image path at the top level so the delete-cleanup
+        # hook (which only reads content_json.mapImagePath) finds it.
+        for _sec in sections_out:
+            _mp = _sec.get('mapImagePath')
+            if _mp:
+                payload['mapImagePath'] = _mp
+                break
+        if custom_description:
+            payload['description'] = custom_description
+        # 预热每个 section 的音频；用户切 Section 时也秒开。
+        # 并行合成 —— edge-tts 是子进程各自跑不共享全局锁，4 个 section
+        # 并行大概能把 ~60s 串行压缩到 ~15s (取决于最慢那段)。
+        passages_to_warm = [
+            str(sec.get('passage') or '').strip()
+            for sec in sections_out
+        ]
+        passages_to_warm = [p for p in passages_to_warm if p]
+        if len(passages_to_warm) == 1:
+            ensure_listening_audio_cached(passages_to_warm[0])
+        elif passages_to_warm:
+            with ThreadPoolExecutor(max_workers=len(passages_to_warm)) as pool:
+                list(pool.map(ensure_listening_audio_cached, passages_to_warm))
+        return title, payload
+
+    return spawn_ai_generation(
+        user=user,
+        skill=AIQuestion.SKILL_LISTENING,
+        subtype=subtype,
+        placeholder_title=placeholder,
+        generator=_generator,
+        custom_title=custom_title,
+        parent=parent,
+    )
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_listening_full(request):
@@ -1089,137 +1241,10 @@ def generate_listening_full(request):
         if limit:
             return limit
 
-        data = request.data
-        difficulty = str(data.get('difficulty', '7.0'))
-        absurd_mode = str(data.get('absurdMode', 'false')).lower() == 'true'
-        # 允许分别指定每段的场景; 未指定则随机
-        scenario_map = {
-            1: str(data.get('scenarioS1') or 'random').strip().lower(),
-            2: str(data.get('scenarioS2') or 'random').strip().lower(),
-            3: str(data.get('scenarioS3') or 'random').strip().lower(),
-            4: str(data.get('scenarioS4') or 'random').strip().lower(),
-        }
-        custom_title = (data.get('customName') or data.get('customTitle') or '').strip()
-        custom_description = (data.get('customDescription') or data.get('description') or '').strip()
-        provider = request.headers.get('X-AI-Provider', 'deepseek')
-
-        # ── 单段 override ──
-        raw_sn = data.get('sectionNum')
-        try:
-            target_section = int(raw_sn) if raw_sn is not None else None
-        except (TypeError, ValueError):
-            target_section = None
-        if target_section is not None and target_section not in (1, 2, 3, 4):
-            target_section = None
-
-        tone_instruction = (
-            "Use an absurd, playful, joke-rich tone that helps memorization. Keep content classroom-safe."
-            if absurd_mode else
-            "Use a standard academic IELTS tone."
-        )
-
-        section_nums = [target_section] if target_section is not None else list(range(1, LISTENING_FULL_SECTION_COUNT + 1))
-
-        print(f'[Listening] 🎯 async FULL band={difficulty} sections={section_nums} scenarios={scenario_map}', flush=True)
-
-        from api.skills.custom_prompt import custom_prompt_block
-        _cp_block = custom_prompt_block(data.get('customPrompt'))
-        prompts: list[tuple[int, str, str]] = []
-        for n in section_nums:
-            p, resolved = _build_section_prompt(
-                section_num=n,
-                difficulty=difficulty,
-                scenario_key=scenario_map[n],
-                tone_instruction=tone_instruction,
-            )
-            prompts.append((n, p + _cp_block, resolved))
-
-        is_single = len(prompts) == 1
-        subtype = f'full_s{target_section}' if is_single else 'full'
-        title_suffix = f' - Section {target_section}' if is_single else ''
-        title = f'IELTS Listening Full Test{title_suffix}'
-        user_id = request.user.id
-        provider_snapshot = provider
-        prompts_snapshot = list(prompts)
-        section_nums_snapshot = list(section_nums)
-        placeholder = f'🎧 综合听力生成中... ({title_suffix.strip(" -") or "全套"})'
-
-        def _generator(_row):
-            sections_out: list[dict] = []
-
-            def _run(num: int, prompt: str):
-                # 生成 → 归一化 → 验证 → 有缺陷重试一次 → 仍缺陷则整卷失败。
-                last_defects: list[str] = []
-                id_offset = (num - 1) * LISTENING_FULL_QUESTIONS_PER_SECTION
-                for attempt in range(2):
-                    r = call_ai_api(
-                        prompt,
-                        provider=provider_snapshot,
-                        user_id=user_id,
-                        # scope 带 attempt 序号，避免重试命中 singleflight 里同一份坏结果
-                        singleflight_scope=f'listening_full:{num}:a{attempt}',
-                    )
-                    normalized = _normalize_section(num, r, id_offset=id_offset, user_id=user_id)
-                    defects = _listening_section_defects(num, normalized)
-                    if not str(normalized.get('passage') or '').strip():
-                        defects.append(f'S{num}: empty passage')
-                    if not defects:
-                        return num, normalized
-                    last_defects = defects
-                    print(f'[Listening Full] ⚠️ section {num} attempt {attempt + 1} 生成退化: {defects}', flush=True)
-                raise ValueError(f'Section {num} 生成数据不完整（重试后仍缺失）: ' + '; '.join(last_defects[:6]))
-
-            if len(prompts_snapshot) == 1:
-                num, prompt = prompts_snapshot[0][0], prompts_snapshot[0][1]
-                _n, normalized = _run(num, prompt)
-                sections_out.append(normalized)
-            else:
-                normalized_by_num: dict[int, dict] = {}
-                with ThreadPoolExecutor(max_workers=len(prompts_snapshot)) as pool:
-                    futures = [pool.submit(_run, num, p) for (num, p, _) in prompts_snapshot]
-                    for fut in as_completed(futures):
-                        n, normalized = fut.result()
-                        normalized_by_num[n] = normalized
-                for n in section_nums_snapshot:
-                    sections_out.append(normalized_by_num[n])
-
-            payload: dict[str, Any] = {
-                'type': 'full',
-                'title': title,
-                'singleSection': is_single,
-                'sections': sections_out,
-            }
-            # Surface any map image path at the top level so the delete-cleanup
-            # hook (which only reads content_json.mapImagePath) finds it.
-            for _sec in sections_out:
-                _mp = _sec.get('mapImagePath')
-                if _mp:
-                    payload['mapImagePath'] = _mp
-                    break
-            if custom_description:
-                payload['description'] = custom_description
-            # 预热每个 section 的音频；用户切 Section 时也秒开。
-            # 并行合成 —— edge-tts 是子进程各自跑不共享全局锁，4 个 section
-            # 并行大概能把 ~60s 串行压缩到 ~15s (取决于最慢那段)。
-            passages_to_warm = [
-                str(sec.get('passage') or '').strip()
-                for sec in sections_out
-            ]
-            passages_to_warm = [p for p in passages_to_warm if p]
-            if len(passages_to_warm) == 1:
-                ensure_listening_audio_cached(passages_to_warm[0])
-            elif passages_to_warm:
-                with ThreadPoolExecutor(max_workers=len(passages_to_warm)) as pool:
-                    list(pool.map(ensure_listening_audio_cached, passages_to_warm))
-            return title, payload
-
-        row = spawn_ai_generation(
+        row = spawn_full_listening(
             user=request.user,
-            skill=AIQuestion.SKILL_LISTENING,
-            subtype=subtype,
-            placeholder_title=placeholder,
-            generator=_generator,
-            custom_title=custom_title,
+            provider=request.headers.get('X-AI-Provider', 'deepseek'),
+            params=request.data,
         )
         return JsonResponse({
             'aiQuestionId': row.id,

@@ -251,6 +251,84 @@ def _normalize_opinion_drill_questions(raw_questions, count: int, generation_pla
 
     return normalized
 
+def spawn_task2(*, user, provider: str, params: dict, parent: AIQuestion | None = None) -> AIQuestion:
+    """Task 2 题目生成的可复用服务：构 prompt → spawn 异步生成，返回占位行。
+
+    generate_task2 视图与全套模拟编排器共用。params 与 request.data 同构
+    （mock 编排传纯 dict）；限流由调用方负责。
+    """
+    task_type = params.get('type', 'opinion')
+    topic_category = params.get('topic_category', TASK2_TOPIC_ALL)
+    custom_title = (params.get('customName') or params.get('customTitle') or '').strip()
+    custom_description = (params.get('customDescription') or params.get('description') or '').strip()
+
+    client = AIClient(provider=provider)
+
+    type_map = {
+        'opinion': 'Opinion Essay (Agree/Disagree or To what extent do you agree/disagree)',
+        'opinion_agree': 'Opinion Essay - Agree or Disagree (Ask the user to what extent they agree or disagree with a statement)',
+        'opinion_discuss': 'Opinion Essay - Discuss both views and give your opinion',
+        'opinion_advantages': 'Opinion Essay - Do the advantages outweigh the disadvantages?',
+        'report': 'Report (Cause & Solution or Problem & Effect)',
+        'mixed': 'Mixed Essay (Discuss both views and give your opinion, or multi-part questions)',
+        'innovation': 'AI Innovation Prompt (A completely novel, cutting-edge, or futuristic social/tech issue that IELTS might test in the future)'
+    }
+
+    selected_desc = type_map.get(task_type, type_map['opinion'])
+    requested_topic_category, resolved_topic_category, topic_area = _resolve_task2_topic_selection(topic_category)
+
+    if resolved_topic_category == TASK2_TOPIC_INNOVATION:
+        topic_instruction = (
+            'The topic area must be an original and plausible future IELTS category '
+            'invented by you (not a standard textbook category).'
+        )
+    else:
+        topic_instruction = f'The topic area must be: {topic_area}.'
+
+    from api.skills.custom_prompt import custom_prompt_block
+    system_prompt = skill_writing_task2_generate(selected_desc, topic_instruction) + custom_prompt_block(params.get('customPrompt'))
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "Generate the Task 2 prompt."}
+    ]
+
+    user_id = user.id
+    placeholder = f'✍️ Task 2 生成中... ({task_type})'
+
+    def _generator(_row):
+        response_data, _at_cost = client.generate(
+            messages,
+            expect_json=True,
+            user_id=user_id,
+            singleflight_scope='writing_task2_generate',
+        )
+        core_text = response_data.get('prompt', '')
+        prompt_text = _wrap_task2_prompt(core_text)
+        payload = {
+            'prompt': prompt_text,
+            'requestedTopicCategory': requested_topic_category,
+            'topicCategory': resolved_topic_category,
+            'topicArea': topic_area or 'innovation-generated',
+            'writingKind': 'task2',
+            'taskType': task_type,
+        }
+        if custom_description:
+            payload['description'] = custom_description
+        # title 取核心题干首行, 不带骨架句
+        title = (core_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
+        return title, payload
+
+    return spawn_ai_generation(
+        user=user,
+        skill=AIQuestion.SKILL_WRITING,
+        subtype=f'task2:{task_type}',
+        placeholder_title=placeholder,
+        generator=_generator,
+        custom_title=custom_title,
+        parent=parent,
+    )
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_task2(request):
@@ -258,75 +336,11 @@ def generate_task2(request):
         user = request.user
         limit_resp = check_rate_limit(user.id, 'task2_generate', max_calls=10, window=60)
         if limit_resp: return limit_resp
-        task_type = request.data.get('type', 'opinion')
-        topic_category = request.data.get('topic_category', TASK2_TOPIC_ALL)
-        custom_title = (request.data.get('customName') or request.data.get('customTitle') or '').strip()
-        custom_description = (request.data.get('customDescription') or request.data.get('description') or '').strip()
-        provider = request.headers.get('X-AI-Provider', 'deepseek')
 
-        client = AIClient(provider=provider)
-
-        type_map = {
-            'opinion': 'Opinion Essay (Agree/Disagree or To what extent do you agree/disagree)',
-            'opinion_agree': 'Opinion Essay - Agree or Disagree (Ask the user to what extent they agree or disagree with a statement)',
-            'opinion_discuss': 'Opinion Essay - Discuss both views and give your opinion',
-            'opinion_advantages': 'Opinion Essay - Do the advantages outweigh the disadvantages?',
-            'report': 'Report (Cause & Solution or Problem & Effect)',
-            'mixed': 'Mixed Essay (Discuss both views and give your opinion, or multi-part questions)',
-            'innovation': 'AI Innovation Prompt (A completely novel, cutting-edge, or futuristic social/tech issue that IELTS might test in the future)'
-        }
-        
-        selected_desc = type_map.get(task_type, type_map['opinion'])
-        requested_topic_category, resolved_topic_category, topic_area = _resolve_task2_topic_selection(topic_category)
-
-        if resolved_topic_category == TASK2_TOPIC_INNOVATION:
-            topic_instruction = (
-                'The topic area must be an original and plausible future IELTS category '
-                'invented by you (not a standard textbook category).'
-            )
-        else:
-            topic_instruction = f'The topic area must be: {topic_area}.'
-
-        from api.skills.custom_prompt import custom_prompt_block
-        system_prompt = skill_writing_task2_generate(selected_desc, topic_instruction) + custom_prompt_block(request.data.get('customPrompt'))
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": "Generate the Task 2 prompt."}
-        ]
-
-        user_id = user.id
-        placeholder = f'✍️ Task 2 生成中... ({task_type})'
-
-        def _generator(_row):
-            response_data, _at_cost = client.generate(
-                messages,
-                expect_json=True,
-                user_id=user_id,
-                singleflight_scope='writing_task2_generate',
-            )
-            core_text = response_data.get('prompt', '')
-            prompt_text = _wrap_task2_prompt(core_text)
-            payload = {
-                'prompt': prompt_text,
-                'requestedTopicCategory': requested_topic_category,
-                'topicCategory': resolved_topic_category,
-                'topicArea': topic_area or 'innovation-generated',
-                'writingKind': 'task2',
-                'taskType': task_type,
-            }
-            if custom_description:
-                payload['description'] = custom_description
-            # title 取核心题干首行, 不带骨架句
-            title = (core_text or 'Task 2').strip().splitlines()[0][:200] or 'Task 2'
-            return title, payload
-
-        row = spawn_ai_generation(
+        row = spawn_task2(
             user=user,
-            skill=AIQuestion.SKILL_WRITING,
-            subtype=f'task2:{task_type}',
-            placeholder_title=placeholder,
-            generator=_generator,
-            custom_title=custom_title,
+            provider=request.headers.get('X-AI-Provider', 'deepseek'),
+            params=request.data,
         )
         return Response({
             'aiQuestionId': row.id,

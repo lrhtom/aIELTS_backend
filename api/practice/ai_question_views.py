@@ -85,6 +85,8 @@ def _cleanup_question_files(q: AIQuestion) -> None:
 
 
 _VALID_SKILLS = {AIQuestion.SKILL_READING, AIQuestion.SKILL_LISTENING, AIQuestion.SKILL_WRITING, AIQuestion.SKILL_SPEAKING}
+# 题库列表可筛选的 skill：四科 + 全套模拟容器行
+_LISTABLE_SKILLS = _VALID_SKILLS | {AIQuestion.SKILL_MOCK}
 
 
 def _serialize_summary(q: AIQuestion) -> dict:
@@ -95,7 +97,7 @@ def _serialize_summary(q: AIQuestion) -> dict:
         raw_desc = content.get('description')
         if isinstance(raw_desc, str):
             description = raw_desc.strip()[:500]
-    return {
+    data = {
         'id': q.id,
         'skill': q.skill,
         'subtype': q.subtype,
@@ -112,6 +114,14 @@ def _serialize_summary(q: AIQuestion) -> dict:
         'lastAttemptAt': q.last_attempt_at.isoformat() if q.last_attempt_at else None,
         'createdAt': q.created_at.isoformat() if q.created_at else None,
     }
+    if q.skill == AIQuestion.SKILL_MOCK:
+        # 函数级导入避免 mock_views ↔ ai_question_views 的模块级循环
+        from api.practice.mock_views import mock_list_snapshot
+        snapshot = mock_list_snapshot(q)
+        data['mock'] = snapshot
+        # 父行 status 字段不实时维护，卡片显示以子行聚合为准
+        data['status'] = snapshot['derivedStatus']
+    return data
 
 
 def _serialize_detail(q: AIQuestion) -> dict:
@@ -122,16 +132,18 @@ def _serialize_detail(q: AIQuestion) -> dict:
     return data
 
 
-def create_ai_question(*, user, skill: str, content: dict, title: str = '', subtype: str = '', custom_title: str | None = None) -> AIQuestion:
+def create_ai_question(*, user, skill: str, content: dict, title: str = '', subtype: str = '', custom_title: str | None = None, parent: AIQuestion | None = None) -> AIQuestion:
     """供 reading/listening/writing 生成视图调用：持久化生成结果，返回入库后的 AIQuestion。
 
     custom_title 非空时覆盖 AI 生成的 title。
+    parent 非空时该行是全套模拟的子题（不出现在各科普通题库 tab）。
     """
     if skill not in _VALID_SKILLS:
         raise ValueError(f'Invalid skill: {skill}')
     effective = ((custom_title or '').strip() or title or '')[:300]
     return AIQuestion.objects.create(
         user=user,
+        parent=parent,
         skill=skill,
         subtype=(subtype or '')[:50],
         title=effective,
@@ -140,7 +152,7 @@ def create_ai_question(*, user, skill: str, content: dict, title: str = '', subt
     )
 
 
-def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: str, generator, custom_title: str | None = None):
+def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: str, generator, custom_title: str | None = None, parent: AIQuestion | None = None):
     """Insert a placeholder AIQuestion row, kick off `generator` on a background
     daemon thread, return the row synchronously.
 
@@ -167,6 +179,7 @@ def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: st
 
     question = AIQuestion.objects.create(
         user=user,
+        parent=parent,
         skill=skill,
         subtype=(subtype or '')[:50],
         title=effective_placeholder,
@@ -178,6 +191,10 @@ def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: st
     def _run():
         try:
             title, content = generator(question)
+            # AI 生成耗时数分钟，线程内的 Aiven 连接大概率已被对端 idle 掐断
+            # (wait_timeout → OperationalError 2006 "server has gone away")。
+            # 写结果前强制丢弃旧连接换新，否则成功的生成会在落库一步整个丢掉。
+            connections.close_all()
             # 有 custom_title 时以用户输入为准；否则用 AI 生成的 title 或占位
             final_title = (custom_title or title or '')[:300] or question.title
             AIQuestion.objects.filter(pk=question_id).update(
@@ -189,10 +206,16 @@ def spawn_ai_generation(*, user, skill: str, subtype: str, placeholder_title: st
         except Exception as exc:
             print(f'[AIQuestion async] generation failed q={question_id}: {exc!r}')
             traceback.print_exc()
-            AIQuestion.objects.filter(pk=question_id).update(
-                status=AIQuestion.STATUS_FAILED,
-                error_message=str(exc)[:2000],
-            )
+            try:
+                # 同理：失败状态的写入也必须用新连接，否则记录卡死在 generating
+                # 直到 30 分钟超时报 "生成超时"，真实失败原因被掩盖。
+                connections.close_all()
+                AIQuestion.objects.filter(pk=question_id).update(
+                    status=AIQuestion.STATUS_FAILED,
+                    error_message=str(exc)[:2000],
+                )
+            except Exception as save_err:
+                print(f'[AIQuestion async] CRITICAL: 连失败状态都写不进去 q={question_id}: {save_err!r}')
         finally:
             try:
                 connections.close_all()
@@ -210,11 +233,13 @@ def _stale_generation_reap(user):
     forever on a thread that died silently.
     """
     cutoff = timezone.now() - timedelta(minutes=30)
+    # mock 父行没有自己的生成线程，状态由子行聚合得出，不参与超时清扫
+    # （子行本身会被这里正常清扫，聚合状态随之变 failed）。
     AIQuestion.objects.filter(
         user=user,
         status=AIQuestion.STATUS_GENERATING,
         created_at__lt=cutoff,
-    ).update(
+    ).exclude(skill=AIQuestion.SKILL_MOCK).update(
         status=AIQuestion.STATUS_FAILED,
         error_message='生成超时（未在 30 分钟内完成）。',
     )
@@ -228,8 +253,9 @@ def list_ai_questions(request):
     _stale_generation_reap(request.user)
 
     skill = (request.GET.get('skill') or '').strip().lower()
-    qs = AIQuestion.objects.filter(user=request.user)
-    if skill in _VALID_SKILLS:
+    # 全套模拟的子题只在模拟考大厅里出现，各科 tab 一律隐藏（父行本身 parent 为 NULL）
+    qs = AIQuestion.objects.filter(user=request.user, parent__isnull=True)
+    if skill in _LISTABLE_SKILLS:
         qs = qs.filter(skill=skill)
 
     answered_param = (request.GET.get('answered') or '').strip().lower()
@@ -258,6 +284,12 @@ def ai_question_detail(request, pk: int):
         return Response({'error': '题目不存在'}, status=404)
 
     if request.method == 'DELETE':
+        if q.parent_id:
+            return Response({'error': '全套模拟的子题不能单独删除，请删除整套模拟。'}, status=403)
+        if q.skill == AIQuestion.SKILL_MOCK:
+            # 级联删除子行前先清理每个子行的落盘文件（地图 PNG 等）
+            for child in q.children.all():
+                _cleanup_question_files(child)
         _cleanup_question_files(q)
         q.delete()
         return Response({'ok': True})
@@ -273,6 +305,16 @@ def submit_ai_question(request, pk: int):
         q = AIQuestion.objects.get(pk=pk, user=request.user)
     except AIQuestion.DoesNotExist:
         return Response({'error': '题目不存在'}, status=404)
+
+    if q.skill == AIQuestion.SKILL_MOCK:
+        # 父行的 user_answer_json 是考试状态机，只能走 mock 端点改
+        return Response({'error': '全套模拟请通过模拟考大厅作答。'}, status=403)
+    if q.parent_id:
+        # 全套模拟子题：受考试状态机闸门约束（未开始不可做、超时/结束拒收）
+        from api.practice.mock_views import check_mock_child_submittable
+        gate_error = check_mock_child_submittable(q)
+        if gate_error:
+            return Response({'error': gate_error, 'mockGate': True}, status=403)
 
     user_answer = request.data.get('userAnswer')
     if user_answer is None:
