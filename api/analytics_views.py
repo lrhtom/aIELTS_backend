@@ -420,7 +420,11 @@ class SpeakingAnalyticsView(APIView):
 class PracticeAnalyticsView(APIView):
     """GET /api/analytics/practice
 
-    Aggregates per-skill accuracy from AIQuestion attempts:
+    2026-07-17 起统计口径（用户规格）：听/读只统计**完整 40 题全套卷**
+    （subtype='full'，含全套模拟的子卷），单题型/单篇/单 section 不计入；
+    展示层按雅思 9 分制换算（换算表在前端 utils/ielts_band.ts，后端只给 correct/total）。
+
+    Aggregates per-skill accuracy from full-set AIQuestion attempts:
       - Overall: total_questions, correct_questions, accuracy, attempts
       - By subtype: attempts, total, correct, accuracy
       - Recent attempts: last 20 with per-attempt correct/total/accuracy
@@ -430,7 +434,8 @@ class PracticeAnalyticsView(APIView):
         "reading":  { total_questions, correct_questions, accuracy, attempts,
                        by_type: [...], recent: [...] },
         "listening": { ... },
-        "combined": { total_questions, correct_questions, accuracy, attempts }
+        "combined": { total_questions, correct_questions, accuracy, attempts },
+        "mock": { "total": N, "reports": [ {id, title, date, overall, bands} ... ] }
     }
     """
     permission_classes = [IsAuthenticated]
@@ -446,7 +451,7 @@ class PracticeAnalyticsView(APIView):
         for skill in (AIQuestion.SKILL_READING, AIQuestion.SKILL_LISTENING):
             qs = (
                 AIQuestion.objects
-                .filter(user=request.user, skill=skill)
+                .filter(user=request.user, skill=skill, subtype='full')
                 .exclude(user_answer_json__isnull=True)
                 .order_by('-answered_at')
             )
@@ -508,5 +513,37 @@ class PracticeAnalyticsView(APIView):
             'correct_questions': combined_correct,
             'accuracy': round(combined_correct / combined_total, 4) if combined_total > 0 else 0.0,
             'attempts': combined_attempts,
+        }
+
+        # ── 全套模拟总分统计：已 finalize 的成绩单（ai_feedback_json={bands, overall}）──
+        mock_reports = []
+        mock_qs = (
+            AIQuestion.objects
+            .filter(user=request.user, skill=AIQuestion.SKILL_MOCK)
+            .exclude(ai_feedback_json__isnull=True)
+            .order_by('-answered_at', '-id')
+        )
+        for q in mock_qs[:self.RECENT_LIMIT]:
+            fb = q.ai_feedback_json if isinstance(q.ai_feedback_json, dict) else {}
+            overall = fb.get('overall')
+            if not isinstance(overall, (int, float)):
+                continue
+            raw_bands = fb.get('bands') if isinstance(fb.get('bands'), dict) else {}
+            bands = {
+                str(k): round(float(v), 1)
+                for k, v in raw_bands.items()
+                if isinstance(v, (int, float))
+            }
+            when = q.answered_at or q.created_at
+            mock_reports.append({
+                'id': q.id,
+                'title': q.title or '',
+                'date': when.isoformat() if when else None,
+                'overall': round(float(overall), 1),
+                'bands': bands,
+            })
+        results['mock'] = {
+            'total': len(mock_reports),
+            'reports': mock_reports,
         }
         return Response(results)

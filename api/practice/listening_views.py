@@ -539,6 +539,33 @@ def generate_listening(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+def _renumber_instructions(raw, start_id: int, end_id: int, default: str) -> str:
+    """AI 返回的 instructions 常带小节内相对编号（"Questions 6-10..."），
+    全卷视角必须换算成全局题号（S3 的 6-10 → 26-30）。强制重写前缀。"""
+    text = str(raw or '').strip() or default
+    fixed = re.sub(r'^\s*Questions?\s+\d+\s*[-–]\s*\d+\s*[:.]?', f'Questions {start_id}-{end_id}:', text, count=1)
+    if fixed == text and not re.match(r'^\s*Questions?\b', text):
+        fixed = f'Questions {start_id}-{end_id}: {text}'
+    return fixed
+
+
+def _shuffle_mcq_options(options_list: list) -> tuple[dict, str]:
+    """听力 MCQ 统一 3 选 1（剑桥真题惯例 "Choose the correct letter, A, B or C"）.
+    约定 options_list[0] 为正确答案；与正确项重复的干扰项去掉、多余的裁掉，
+    随机打乱后映射 A/B/C. Returns (options_dict, correct_letter)."""
+    correct_text = options_list[0]
+    trimmed = [correct_text] + [o for o in options_list[1:] if o != correct_text][:2]
+    random.shuffle(trimmed)
+    options_dict = {}
+    correct_letter = 'A'
+    for idx, opt_text in enumerate(trimmed):
+        letter = 'ABC'[idx]
+        options_dict[letter] = opt_text
+        if opt_text == correct_text:
+            correct_letter = letter
+    return options_dict, correct_letter
+
+
 def _post_process_listening_single(
     result: dict,
     *,
@@ -624,17 +651,7 @@ def _post_process_listening_single(
             for q in result.get('questions', []):
                 options_list = q.get('options')
                 if isinstance(options_list, list) and len(options_list) >= 1:
-                    correct_text = options_list[0]
-                    shuffled = list(options_list)
-                    random.shuffle(shuffled)
-                    letters = ['A', 'B', 'C', 'D']
-                    options_dict = {}
-                    correct_letter = 'A'
-                    for idx, opt_text in enumerate(shuffled[:4]):
-                        letter = letters[idx]
-                        options_dict[letter] = opt_text
-                        if opt_text == correct_text:
-                            correct_letter = letter
+                    options_dict, correct_letter = _shuffle_mcq_options(options_list)
                     q['options'] = options_dict
                     q['answer'] = correct_letter
     else:
@@ -897,16 +914,7 @@ def _normalize_section(
             item = mcq_qs[idx] if idx < len(mcq_qs) and isinstance(mcq_qs[idx], dict) else {}
             options_list = item.get('options')
             if isinstance(options_list, list) and options_list:
-                correct_text = options_list[0]
-                shuffled = list(options_list)
-                random.shuffle(shuffled)
-                letters = ['A', 'B', 'C', 'D']
-                options_dict = {}
-                correct_letter = 'A'
-                for oi, opt_text in enumerate(shuffled[:4]):
-                    options_dict[letters[oi]] = opt_text
-                    if opt_text == correct_text:
-                        correct_letter = letters[oi]
+                options_dict, correct_letter = _shuffle_mcq_options(options_list)
                 item_out = {
                     'id': id_offset + idx + 1,
                     'question': str(item.get('question') or '').strip() or f'MCQ {idx + 1}',
@@ -919,14 +927,14 @@ def _normalize_section(
                 item_out = {
                     'id': id_offset + idx + 1,
                     'question': f'MCQ {idx + 1}',
-                    'options': {k: f'Option {k}' for k in 'ABCD'},
+                    'options': {k: f'Option {k}' for k in 'ABC'},
                     'answer': 'A',
                     'explanation': '',
                 }
             mcq_norm.append(item_out)
         norm_subs.append({
             'type': 'multiple_choice',
-            'instructions': mcq_sub.get('instructions') or 'Questions 1-5: Choose A, B, C or D.',
+            'instructions': _renumber_instructions(mcq_sub.get('instructions'), id_offset + 1, id_offset + 5, 'Choose the correct letter, A, B or C.'),
             'startId': id_offset + 1,
             'endId': id_offset + 5,
             'questions': mcq_norm,
@@ -979,7 +987,7 @@ def _normalize_section(
             out['mapImagePath'] = map_image_path
         norm_subs.append({
             'type': 'map',
-            'instructions': map_sub.get('instructions') or 'Questions 6-10: Label the map.',
+            'instructions': _renumber_instructions(map_sub.get('instructions'), id_offset + 6, id_offset + 10, 'Label the map.'),
             'startId': id_offset + 6,
             'endId': id_offset + 10,
             'options': options,
@@ -1001,16 +1009,7 @@ def _normalize_section(
             item = mcq_qs[idx] if idx < len(mcq_qs) and isinstance(mcq_qs[idx], dict) else {}
             options_list = item.get('options')
             if isinstance(options_list, list) and options_list:
-                correct_text = options_list[0]
-                shuffled = list(options_list)
-                random.shuffle(shuffled)
-                letters = ['A', 'B', 'C', 'D']
-                options_dict = {}
-                correct_letter = 'A'
-                for oi, opt_text in enumerate(shuffled[:4]):
-                    options_dict[letters[oi]] = opt_text
-                    if opt_text == correct_text:
-                        correct_letter = letters[oi]
+                options_dict, correct_letter = _shuffle_mcq_options(options_list)
                 mcq_norm.append({
                     'id': id_offset + idx + 1,
                     'question': str(item.get('question') or '').strip() or f'MCQ {idx + 1}',
@@ -1023,13 +1022,13 @@ def _normalize_section(
                 mcq_norm.append({
                     'id': id_offset + idx + 1,
                     'question': f'MCQ {idx + 1}',
-                    'options': {k: f'Option {k}' for k in 'ABCD'},
+                    'options': {k: f'Option {k}' for k in 'ABC'},
                     'answer': 'A',
                     'explanation': '',
                 })
         norm_subs.append({
             'type': 'multiple_choice',
-            'instructions': mcq_sub.get('instructions') or 'Questions 1-5: Choose A, B, C or D.',
+            'instructions': _renumber_instructions(mcq_sub.get('instructions'), id_offset + 1, id_offset + 5, 'Choose the correct letter, A, B or C.'),
             'startId': id_offset + 1,
             'endId': id_offset + 5,
             'questions': mcq_norm,
@@ -1053,7 +1052,7 @@ def _normalize_section(
             })
         norm_subs.append({
             'type': 'matching',
-            'instructions': match_sub.get('instructions') or 'Questions 6-10: Match to A-G.',
+            'instructions': _renumber_instructions(match_sub.get('instructions'), id_offset + 6, id_offset + 10, 'Match to A-G.'),
             'startId': id_offset + 6,
             'endId': id_offset + 10,
             'options_bank': bank,
