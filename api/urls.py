@@ -19,6 +19,7 @@ from .auth import balance_views
 from .auth import feedback_views
 from .auth import background_views
 from .auth import admin_views
+from .auth import admin_analytics_views
 from .auth.admin_views import AdminRoutesView
 from .vocab import vocab_views
 from .vocab import custom_memory_views
@@ -138,6 +139,7 @@ urlpatterns = [
     path('prompts/<int:pk>/like/', prompt_views.prompt_like, name='prompt_like'),
     path('prompts/<int:pk>/favorite/', prompt_views.prompt_favorite, name='prompt_favorite'),
     path('feedback/submit', feedback_views.FeedbackCreateView.as_view(), name='feedback_submit'),
+    path('survey/submit', feedback_views.SurveyCreateView.as_view(), name='survey_submit'),
 
     # ---- 词汇 FSRS API ----
     path('vocab/sync',   vocab_views.VocabSyncView.as_view(),   name='vocab_sync'),
@@ -209,6 +211,9 @@ urlpatterns = [
     path('admin/feedback', admin_views.AdminFeedbackListView.as_view(), name='admin_feedback_list'),   # reload-trigger
     path('admin/feedback/<int:pk>', admin_views.AdminFeedbackUpdateView.as_view(), name='admin_feedback_update'),
     path('admin/feedback/<int:pk>/delete', admin_views.AdminFeedbackDeleteView.as_view(), name='admin_feedback_delete'),
+    path('admin/surveys', admin_views.AdminSurveyListView.as_view(), name='admin_survey_list'),
+    path('admin/surveys/stats', admin_views.AdminSurveyStatsView.as_view(), name='admin_survey_stats'),
+    path('admin/surveys/<int:pk>/delete', admin_views.AdminSurveyDeleteView.as_view(), name='admin_survey_delete'),
     path('admin/users', admin_views.AdminUserListView.as_view(), name='admin_user_list'),
     path('admin/users/<int:pk>/ban', admin_views.AdminUserBanToggleView.as_view(), name='admin_user_ban_toggle'),
     path('admin/users/<int:pk>/delete', admin_views.AdminUserDeleteView.as_view(), name='admin_user_delete'),
@@ -222,6 +227,11 @@ urlpatterns = [
     path('admin/banned-ips',               admin_views.AdminBannedIPListView.as_view(),  name='admin_banned_ips'),
     path('admin/banned-ips/<int:pk>',      admin_views.AdminBannedIPDeleteView.as_view(),name='admin_banned_ip_delete'),
     path('admin/users/<int:pk>/ban-ip',    admin_views.AdminUserBanIPView.as_view(),     name='admin_user_ban_ip'),
+
+    # ---- 管理员全站学情分析 API ----
+    path('admin/analytics/overview',       admin_analytics_views.AdminAnalyticsOverviewView.as_view(),   name='admin_analytics_overview'),
+    path('admin/analytics/users',          admin_analytics_views.AdminAnalyticsUserListView.as_view(),   name='admin_analytics_users'),
+    path('admin/analytics/user/<int:user_id>', admin_analytics_views.AdminAnalyticsUserDetailView.as_view(), name='admin_analytics_user_detail'),
 
     # ---- 学习分析 API ----
     path('analytics/vocab',                 analytics_views.VocabAnalyticsView.as_view(),     name='analytics_vocab'),

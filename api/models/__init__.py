@@ -21,7 +21,7 @@ Layout:
 """
 
 from .user import User, BannedIP
-from .feedback import AIPrompt, Feedback
+from .feedback import AIPrompt, Feedback, SurveyResponse
 from .vocab import (
     VocabBook,
     Word,
@@ -56,7 +56,7 @@ from .assistant import (
 
 __all__ = [
     'User', 'BannedIP',
-    'AIPrompt', 'Feedback',
+    'AIPrompt', 'Feedback', 'SurveyResponse',
     'VocabBook', 'Word', 'WordBookMembership',
     'Notebook', 'NotebookWord', 'NotebookWordTag',
     'VocabFSRS',

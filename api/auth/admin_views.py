@@ -7,15 +7,15 @@ from pathlib import Path
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Avg
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from api.models import Feedback, TransactionRecord, BannedIP
-from api.serializers import FeedbackSerializer, AdminUserManageSerializer
+from api.models import Feedback, TransactionRecord, BannedIP, SurveyResponse
+from api.serializers import FeedbackSerializer, AdminUserManageSerializer, SurveySerializer
 from api.core.middleware import invalidate_ip_ban_cache
 
 User = get_user_model()
@@ -72,6 +72,72 @@ class AdminFeedbackDeleteView(generics.DestroyAPIView):
     """
     queryset = Feedback.objects.all()
     serializer_class = FeedbackSerializer
+    permission_classes = [IsAdminUser]
+
+
+class AdminSurveyPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class AdminSurveyListView(generics.ListAPIView):
+    """
+    管理员查看所有问卷调查提交（分页）。
+    """
+    queryset = SurveyResponse.objects.all().order_by('-created_at')
+    serializer_class = SurveySerializer
+    permission_classes = [IsAdminUser]
+    pagination_class = AdminSurveyPagination
+
+
+class AdminSurveyStatsView(APIView):
+    """
+    问卷聚合统计：总提交数 + Part B 各项均分 + Part A 分布。
+    供管理端图表/概览使用，避免前端只能按页聚合。
+    """
+    permission_classes = [IsAdminUser]
+
+    RATING_FIELDS = SurveySerializer.RATING_FIELDS
+
+    def get(self, request):
+        qs = SurveyResponse.objects.all()
+        total = qs.count()
+
+        # Part B 均分：只对已作答（>0）的行取平均，避免 0 拉低均值。
+        averages = {}
+        for f in self.RATING_FIELDS:
+            avg = qs.filter(**{f + '__gt': 0}).aggregate(v=Avg(f))['v']
+            averages[f] = round(avg, 2) if avg is not None else None
+
+        # Part A 分布（排除空值）。
+        prep_dist = {
+            row['prep_duration']: row['n']
+            for row in qs.exclude(prep_duration='')
+                         .values('prep_duration')
+                         .annotate(n=Count('id'))
+        }
+        band_dist = {
+            row['target_band']: row['n']
+            for row in qs.exclude(target_band='')
+                         .values('target_band')
+                         .annotate(n=Count('id'))
+        }
+
+        return Response({
+            'total': total,
+            'averages': averages,
+            'prepDurationDist': prep_dist,
+            'targetBandDist': band_dist,
+        })
+
+
+class AdminSurveyDeleteView(generics.DestroyAPIView):
+    """
+    管理员删除问卷记录。
+    """
+    queryset = SurveyResponse.objects.all()
+    serializer_class = SurveySerializer
     permission_classes = [IsAdminUser]
 
 

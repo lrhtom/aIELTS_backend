@@ -255,7 +255,7 @@ class WritingAnalyticsView(APIView):
 
     def get(self, request):
         records = WritingServiceRecord.objects.filter(
-            user=request.user, 
+            user=request.user,
             service_type='correction'
         ).order_by('created_at')
 

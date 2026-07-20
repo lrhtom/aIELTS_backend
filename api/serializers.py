@@ -82,6 +82,56 @@ class FeedbackSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'username', 'created_at')
 
 
+from .models import SurveyResponse
+
+class SurveySerializer(serializers.ModelSerializer):
+    """问卷提交 + 管理端读取共用。
+
+    Part B 的 8 项评分必填且必须为 1-5；Part A / Part C 可选。username/user 由
+    视图在 perform_create 时注入，前端不可写。
+    """
+
+    # Part B 评分字段（必须 1-5）
+    RATING_FIELDS = (
+        'q_all_skills', 'q_reading_relevant', 'q_listening_clear',
+        'q_speaking_anxiety', 'q_writing_feedback', 'q_vocab_memory',
+        'q_easy_navigate', 'q_recommend',
+    )
+    PREP_DURATION_CHOICES = {'', 'lt1m', '1to3m', '3to6m', '6mplus'}
+    TARGET_BAND_CHOICES = {'', '5.5-6.0', '6.5', '7.0', '7.5+'}
+
+    class Meta:
+        model = SurveyResponse
+        fields = (
+            'id', 'username',
+            'prep_duration', 'target_band',
+            'q_all_skills', 'q_reading_relevant', 'q_listening_clear',
+            'q_speaking_anxiety', 'q_writing_feedback', 'q_vocab_memory',
+            'q_easy_navigate', 'q_recommend',
+            'most_useful', 'improvements', 'other_comments',
+            'created_at',
+        )
+        read_only_fields = ('id', 'username', 'created_at')
+
+    def validate_prep_duration(self, value):
+        if value not in self.PREP_DURATION_CHOICES:
+            raise serializers.ValidationError('SURVEY_INVALID_PREP_DURATION')
+        return value
+
+    def validate_target_band(self, value):
+        if value not in self.TARGET_BAND_CHOICES:
+            raise serializers.ValidationError('SURVEY_INVALID_TARGET_BAND')
+        return value
+
+    def validate(self, data):
+        # Part B 全部必填、范围 1-5。用 partial 更新（管理端不会走此序列化器写入）也安全。
+        for f in self.RATING_FIELDS:
+            v = data.get(f)
+            if v is None or not (1 <= int(v) <= 5):
+                raise serializers.ValidationError({f: 'SURVEY_RATING_REQUIRED'})
+        return data
+
+
 class AdminUserManageSerializer(serializers.ModelSerializer):
     atBalance = serializers.IntegerField(source='at_balance', read_only=True)
     lastIp = serializers.CharField(source='last_ip', read_only=True, allow_null=True)
